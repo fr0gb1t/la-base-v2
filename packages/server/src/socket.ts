@@ -1030,6 +1030,41 @@ export function setupSocketHandlers(io: SocketIOServer) {
     });
 
     /**
+     * Presence relay (v2 3D table): where each player looks, their card hand/arm and hovered card.
+     * Purely cosmetic: never game state, never card identities. Validated, clamped and rate-limited.
+     */
+    const lastPresence = new Map<string, number>();
+    const PRESENCE_MIN_MS = 40; // ≤ 25 msgs/s per kind per socket
+    const finite = (v: unknown, min: number, max: number): number | null =>
+      typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : null;
+    const relayPresence = (kind: 'look' | 'arm' | 'hover', payload: any, data: Record<string, unknown> | null) => {
+      if (!data || typeof payload?.roomCode !== 'string') return;
+      const now = Date.now();
+      if (now - (lastPresence.get(kind) ?? 0) < PRESENCE_MIN_MS) return;
+      lastPresence.set(kind, now);
+      const room = roomManager.getRoom(payload.roomCode);
+      const player = room?.players.find((p) => p.socketId === socket.id);
+      if (!room || !player) return;
+      socket.to(room.roomCode).emit(`presence:${kind}`, { playerId: player.id, ...data });
+    };
+    socket.on('presence:look', (payload: any) => {
+      const yaw = finite(payload?.yaw, -Math.PI, Math.PI);
+      const pitch = finite(payload?.pitch, -1.6, 1.6);
+      relayPresence('look', payload, yaw === null || pitch === null ? null : { yaw, pitch });
+    });
+    socket.on('presence:arm', (payload: any) => {
+      const slot = finite(payload?.slot, -1, 5);
+      const fwd = finite(payload?.fwd, -1, 1);
+      const lat = finite(payload?.lat, -1, 1);
+      const valid = slot !== null && fwd !== null && lat !== null;
+      relayPresence('arm', payload, valid ? { slot: Math.round(slot), fwd, lat, holding: payload?.holding === true } : null);
+    });
+    socket.on('presence:hover', (payload: any) => {
+      const slot = finite(payload?.slot, -1, 5);
+      relayPresence('hover', payload, slot === null ? null : { slot: Math.round(slot) });
+    });
+
+    /**
      * Handle disconnection
      */
     socket.on('disconnect', () => {

@@ -6,7 +6,7 @@
 import Fastify from 'fastify';
 import FastifyIO from 'fastify-socket.io';
 import { setupSocketHandlers } from './socket.js';
-import { initDB, query, closeDB } from './db.js';
+import { initDB, query, closeDB, dbEnabled } from './db.js';
 import {
   hashPassword,
   verifyPassword,
@@ -50,6 +50,11 @@ async function start() {
 
     if (request.method === 'OPTIONS') {
       return reply.status(204).send();
+    }
+
+    // Guest-only mode: account endpoints need the database
+    if (!dbEnabled && /^\/api\/(auth|rankings|user)/.test(request.url)) {
+      return reply.status(503).send({ error: 'Cuentas no disponibles en este servidor (modo invitado)' });
     }
   });
 
@@ -253,7 +258,7 @@ async function start() {
     await fastify.listen({ port: PORT, host: HOST });
     console.log(`🎮 La Base Server running on http://${HOST}:${PORT}`);
     console.log(`📡 Socket.io ready for connections`);
-    console.log(`💾 Database connected`);
+    console.log(dbEnabled ? '💾 Database connected' : '👤 Guest-only mode (no database)');
   } catch (err) {
     fastify.log.error(err);
     await closeDB();

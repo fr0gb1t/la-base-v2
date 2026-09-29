@@ -5,16 +5,18 @@
 
 import { Pool, QueryResult } from 'pg';
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://labase:labase_dev@localhost:5432/labase';
+const DATABASE_URL = process.env.DATABASE_URL;
 
-const pool = new Pool({
-  connectionString: DATABASE_URL,
-});
+/** Without DATABASE_URL the server runs guest-only (no accounts, rankings or history). */
+export const dbEnabled = Boolean(DATABASE_URL);
+
+const pool = dbEnabled ? new Pool({ connectionString: DATABASE_URL }) : null;
 
 /**
  * Execute a query and return results
  */
 export async function query(text: string, values?: any[]): Promise<QueryResult> {
+  if (!pool) throw new Error('Database disabled (DATABASE_URL not set)');
   const start = Date.now();
   try {
     const result = await pool.query(text, values);
@@ -32,6 +34,10 @@ export async function query(text: string, values?: any[]): Promise<QueryResult> 
  * Creates tables if they don't exist
  */
 export async function initDB(): Promise<void> {
+  if (!dbEnabled) {
+    console.warn('[DB] DATABASE_URL not set: running guest-only (auth, rankings and history disabled)');
+    return;
+  }
   console.log('[DB] Initializing database schema...');
 
   try {
@@ -83,6 +89,7 @@ export async function initDB(): Promise<void> {
  * Close database connection
  */
 export async function closeDB(): Promise<void> {
+  if (!pool) return;
   await pool.end();
   console.log('[DB] Connection pool closed');
 }
