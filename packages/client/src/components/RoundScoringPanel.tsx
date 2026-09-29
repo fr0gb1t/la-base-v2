@@ -1,4 +1,9 @@
+import { useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
+
+// The server starts the next round right away, so the round summary must never block the table:
+// it floats over it without catching clicks and closes by itself. Game over still blocks.
+const ROUND_SUMMARY_MS = 5000;
 
 export function RoundScoringPanel() {
   const {
@@ -13,6 +18,12 @@ export function RoundScoringPanel() {
     setGameState,
     setPlayerHand,
   } = useGameStore();
+
+  useEffect(() => {
+    if (!roundScore || gameOver) return;
+    const t = window.setTimeout(() => setRoundScore(null), ROUND_SUMMARY_MS);
+    return () => window.clearTimeout(t);
+  }, [roundScore, gameOver, setRoundScore]);
 
   if (!roundScore && !gameOver) {
     return null;
@@ -95,8 +106,9 @@ export function RoundScoringPanel() {
 
   if (roundScore) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-slate-900 rounded-lg p-8 max-w-2xl w-full mx-4 shadow-2xl">
+      <div className="fixed top-14 right-4 z-50 pointer-events-none">
+        {/* compact card in the corner: the next round's bidding panel owns the centre */}
+        <div className="bg-slate-900/90 rounded-lg p-6 w-[30rem] shadow-2xl pointer-events-auto origin-top-right scale-[0.62]">
           {/* Header */}
           <h2 className="text-3xl font-bold mb-6 text-center text-white">
             Ronda {roundScore.round + 1} puntuada
@@ -146,7 +158,7 @@ export function RoundScoringPanel() {
             }}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg transition text-lg"
           >
-            Siguiente ronda
+            Cerrar
           </button>
         </div>
       </div>
