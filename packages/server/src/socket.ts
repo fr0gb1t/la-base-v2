@@ -134,6 +134,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
 
       io.to(roomCode).emit('game:baseResolved', {
         winner: winner.name,
+        winnerPlayerId: winner.id,
         winnerTeam,
         basesWon: room.gameState.basesWon,
         cards: room.gameState.currentBaseCards,
