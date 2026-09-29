@@ -1,0 +1,25 @@
+{
+  "name": "la-base-v2",
+  "version": "0.1.0",
+  "description": "La Base - Multiplayer card game",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/client"
+  ],
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.20.0",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.9",
+    "typescript": "^5.0.0"
+  }
+}

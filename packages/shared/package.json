@@ -1,0 +1,28 @@
+{
+  "name": "@la-base/shared",
+  "version": "0.1.0",
+  "description": "Shared types and game engine for La Base",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js",
+    "./types": "./dist/types.js",
+    "./card": "./dist/card.js",
+    "./engine": "./dist/engine.js",
+    "./scoring": "./dist/scoring.js",
+    "./structures": "./dist/structures.js"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/**/*.test.js",
+    "watch": "tsc --watch"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,1055 @@
+/**
+ * Socket.io event handlers for La Base game
+ */
+
+import type { Server as SocketIOServer, Socket } from 'socket.io';
+import { roomManager } from './rooms.js';
+import type { RoomPlayer } from './rooms.js';
+import { cardRank, type GameState, type Card } from '@la-base/shared';
+import {
+  createShuffledDeck,
+  dealCards,
+  validatePieBid,
+  getValidPieBidRange,
+  completeBase,
+  updateBasesWon,
+  isRoundComplete,
+  scoreRound,
+  applyRoundScores,
+  checkKamikazeViolation,
+  resetRoundState,
+  getNextPlayerInTurn,
+  allPlayersPlayed,
+  getFirstPlayerFromOtherTeam,
+} from './game-logic.js';
+
+export function setupSocketHandlers(io: SocketIOServer) {
+  io.on('connection', (socket: Socket) => {
+    console.log(`Player connected: ${socket.id}`);
+
+    const publicRoomPlayers = (players: any[]) => players.map((p) => ({
+      id: p.id,
+      name: p.name,
+      team: p.team,
+      isConnected: p.isConnected,
+      handCount: p.hand.length,
+    }));
+
+    const sendPrivateHands = (room: any) => {
+      room.players.forEach((player: any) => {
+        const playerSocket = io.sockets.sockets.get(player.socketId);
+        if (playerSocket) {
+          playerSocket.emit('player:hand', { hand: player.hand });
+        }
+      });
+    };
+
+    const dealCurrentRound = (room: any) => {
+      if (!room.gameState) return;
+      const cardsPerPlayer = room.gameState.structureSequence[room.gameState.roundIndex];
+      dealCards(room.players, cardsPerPlayer);
+      sendPrivateHands(room);
+    };
+
+    const beginBiddingAfterInitialDraw = (roomCode: string) => {
+      const room = roomManager.getRoom(roomCode);
+      if (!room || !room.gameState || room.gameState.phase !== 'initial_draw') return;
+
+      room.gameState.phase = 'bidding';
+      room.gameState.currentTurnPlayerId = room.gameState.currentManoPlayerId;
+      room.gameState.currentBidPlayerId = room.gameState.currentManoPlayerId;
+      dealCurrentRound(room);
+
+      io.to(roomCode).emit('room:updated', {
+        players: publicRoomPlayers(room.players),
+      });
+      io.to(roomCode).emit('game:state', room.gameState);
+    };
+
+    const getInitialDrawWinner = (drawnCards: NonNullable<GameState['initialDraw']>['drawnCards']) => {
+      return drawnCards.reduce((best, current) => {
+        const bestRank = cardRank(best.card);
+        const currentRank = cardRank(current.card);
+        if (currentRank > bestRank) return current;
+        if (currentRank === bestRank && current.order < best.order) return current;
+        return best;
+      }, drawnCards[0]);
+    };
+
+    const getFirstConnectedPlayerFromOtherTeam = (
+      players: RoomPlayer[],
+      currentPlayerId: string,
+      direction: 'antihorario' | 'horario'
+    ): RoomPlayer | null => {
+      const currentPlayer = players.find((player) => player.id === currentPlayerId);
+      if (!currentPlayer) return null;
+
+      let nextPlayer = getNextPlayerInTurn(players, currentPlayerId, direction, currentPlayerId);
+      for (let i = 0; i < players.length - 1; i++) {
+        if (!nextPlayer) return null;
+        if (nextPlayer.team !== currentPlayer.team && nextPlayer.isConnected) {
+          return nextPlayer;
+        }
+        nextPlayer = getNextPlayerInTurn(players, nextPlayer.id, direction, currentPlayerId);
+      }
+
+      return null;
+    };
+
+    const continueAfterBaseResolution = (roomCode: string) => {
+      const room = roomManager.getRoom(roomCode);
+      if (!room || !room.gameState) return;
+
+      const maxBases = room.gameState.structureSequence[room.gameState.roundIndex];
+      room.gameState.currentBaseCards = [];
+      room.gameState.phase = 'playing';
+
+      io.to(roomCode).emit('game:nextBase', {
+        basesPlayed: room.gameState.basesWon.nosotros + room.gameState.basesWon.ellos,
+        basesRemaining: maxBases - (room.gameState.basesWon.nosotros + room.gameState.basesWon.ellos),
+      });
+      io.to(roomCode).emit('game:state', room.gameState);
+    };
+
+    const resolveCompletedBase = (roomCode: string): { success: boolean; error?: string } => {
+      const room = roomManager.getRoom(roomCode);
+      if (!room || !room.gameState) {
+        return { success: false, error: 'Game not found' };
+      }
+
+      if (room.gameState.currentBaseCards.length !== room.players.length) {
+        return { success: false, error: 'Faltan jugadores por jugar' };
+      }
+
+      const { winner, winnerTeam } = completeBase(
+        room.gameState.currentBaseCards,
+        room.gameState,
+        room.players
+      );
+
+      updateBasesWon(room.gameState, winnerTeam);
+      room.gameState.currentManoPlayerId = winner.id;
+      room.gameState.currentTurnPlayerId = winner.id;
+      room.gameState.lastBaseWinnerPlayerId = winner.id;
+
+      io.to(roomCode).emit('game:baseResolved', {
+        winner: winner.name,
+        winnerTeam,
+        basesWon: room.gameState.basesWon,
+        cards: room.gameState.currentBaseCards,
+      });
+
+      const maxBases = room.gameState.structureSequence[room.gameState.roundIndex];
+      if (isRoundComplete(room.gameState, maxBases)) {
+        const { nosotrosScore, ellosScore } = scoreRound(room.gameState);
+        const kamikazeViolation = checkKamikazeViolation(room.gameState);
+
+        if (kamikazeViolation) {
+          const manoBid = room.gameState.bids[0];
+          io.to(roomCode).emit('game:gameOver', {
+            winner: manoBid.team === 'nosotros' ? 'ellos' : 'nosotros',
+            reason: 'Kamikaze violation - Mano lost by 2+ bases',
+            finalScores: room.gameState.scores,
+          });
+
+          room.gameState.phase = 'game_over';
+          io.to(roomCode).emit('game:state', room.gameState);
+          return { success: true };
+        }
+
+        applyRoundScores(room.gameState, nosotrosScore, ellosScore);
+
+        io.to(roomCode).emit('game:roundScored', {
+          nosotrosScore,
+          ellosScore,
+          totalScores: room.gameState.scores,
+          round: room.gameState.roundIndex,
+        });
+
+        if (room.gameState.roundIndex >= room.gameState.structureSequence.length - 1) {
+          io.to(roomCode).emit('game:gameOver', {
+            winner: room.gameState.scores.nosotros > room.gameState.scores.ellos ? 'nosotros' : 'ellos',
+            reason: 'All rounds complete',
+            finalScores: room.gameState.scores,
+          });
+
+          room.gameState.phase = 'game_over';
+          io.to(roomCode).emit('game:state', room.gameState);
+          return { success: true };
+        }
+
+        resetRoundState(room.gameState);
+        room.gameState.phase = 'bidding';
+        room.gameState.currentTurnPlayerId = room.gameState.currentManoPlayerId;
+        room.gameState.currentBidPlayerId = room.gameState.currentManoPlayerId;
+        dealCurrentRound(room);
+
+        io.to(roomCode).emit('room:updated', {
+          players: publicRoomPlayers(room.players),
+        });
+
+        io.to(roomCode).emit('game:roundComplete', {
+          nextRound: room.gameState.roundIndex,
+        });
+        io.to(roomCode).emit('game:state', room.gameState);
+        return { success: true };
+      }
+
+      const asOrosCard = room.gameState.currentBaseCards.find(
+        (played) => played.card.suit === 'oros' && played.card.value === 1
+      );
+      const asOrosPlayer = asOrosCard
+        ? room.players.find((player) => player.id === asOrosCard.playerId)
+        : null;
+
+      if (room.gameState.acePowers.oros && asOrosPlayer && asOrosPlayer.team === winnerTeam) {
+        room.gameState.pendingOrosChoice = {
+          chooserPlayerId: asOrosPlayer.id,
+          team: asOrosPlayer.team,
+          options: room.players
+            .filter((player) => player.team === asOrosPlayer.team)
+            .map((player) => player.id),
+        };
+        room.gameState.phase = 'base_resolution';
+        io.to(roomCode).emit('game:state', room.gameState);
+        return { success: true };
+      }
+
+      continueAfterBaseResolution(roomCode);
+
+      return { success: true };
+    };
+
+    /**
+     * room:create - Create a new game room
+     */
+    socket.on('room:create', (payload: { playerName: string; playerCount: number }, callback) => {
+      try {
+        const playerId = socket.id; // Use socket ID as player ID
+        const room = roomManager.createRoom(playerId, payload.playerName, payload.playerCount, 'clasica');
+        const player = room.players[0];
+        player.socketId = socket.id;
+        player.isConnected = true;
+
+        // Join socket to room
+        socket.join(room.roomCode);
+
+        // Emit initial room state
+        io.to(room.roomCode).emit('room:updated', {
+          players: publicRoomPlayers(room.players),
+        });
+
+        callback({
+          success: true,
+          roomCode: room.roomCode,
+          reconnectToken: player.reconnectToken,
+          player,
+          players: publicRoomPlayers(room.players),
+        });
+
+        console.log(`Room created: ${room.roomCode} by ${payload.playerName}`);
+      } catch (err) {
+        callback({ success: false, error: (err as Error).message });
+      }
+    });
+
+    /**
+     * room:join - Join an existing room
+     */
+    socket.on('room:join', (payload: { roomCode: string; playerName: string }, callback) => {
+      try {
+        const playerId = socket.id;
+        const player = roomManager.joinRoom(payload.roomCode, playerId, payload.playerName, socket.id);
+
+        if (!player) {
+          console.log(`[room:join] FAILED: Cannot join room ${payload.roomCode}`);
+          callback({ success: false, error: 'No se puede entrar a la sala' });
+          return;
+        }
+
+        const room = roomManager.getRoom(payload.roomCode);
+        if (!room) {
+          console.log(`[room:join] FAILED: Room ${payload.roomCode} not found`);
+          callback({ success: false, error: 'Sala no encontrada' });
+          return;
+        }
+
+        // Join socket to room
+        socket.join(payload.roomCode);
+        console.log(`[room:join] Player ${payload.playerName} joined room ${payload.roomCode}. Total players: ${room.players.length}`);
+
+        // Notify all players in room
+        const playerData = publicRoomPlayers(room.players);
+
+        console.log(`[room:join] Emitting room:updated to ${payload.roomCode} with ${playerData.length} players`);
+        io.to(payload.roomCode).emit('room:updated', {
+          players: playerData,
+        });
+
+        callback({
+          success: true,
+          roomCode: payload.roomCode,
+          reconnectToken: player.reconnectToken,
+          player,
+          players: playerData,
+        });
+      } catch (err) {
+        console.log(`[room:join] ERROR:`, (err as Error).message);
+        callback({ success: false, error: (err as Error).message });
+      }
+    });
+
+    /**
+     * room:reconnect - Reconnect with token
+     */
+    socket.on('room:reconnect', (payload: { reconnectToken: string }, callback) => {
+      try {
+        const player = roomManager.reconnectPlayer(payload.reconnectToken, socket.id);
+
+        if (!player) {
+          callback({ success: false, error: 'Reconexión inválida o vencida' });
+          return;
+        }
+
+        // Find room code from reconnect token (we need to search, this is a bit inefficient but works for MVP)
+        // In production, store this in the token payload
+        const rooms = roomManager.getAllRooms();
+        const room = rooms.find((r) => r.players.some((p) => p.id === player.id));
+
+        if (!room) {
+          callback({ success: false, error: 'Sala no encontrada' });
+          return;
+        }
+
+        socket.join(room.roomCode);
+
+        // Send full room state to reconnected player
+        io.to(room.roomCode).emit('room:updated', {
+          players: publicRoomPlayers(room.players),
+        });
+
+        // Send game state if game started
+        if (room.gameState) {
+          socket.emit('game:state', room.gameState);
+          // Send private hand
+          socket.emit('player:hand', { hand: player.hand });
+        }
+
+        callback({
+          success: true,
+          roomCode: room.roomCode,
+          player,
+          players: publicRoomPlayers(room.players),
+          gameState: room.gameState,
+        });
+
+        console.log(`Player ${player.name} reconnected to room ${room.roomCode}`);
+      } catch (err) {
+        callback({ success: false, error: (err as Error).message });
+      }
+    });
+
+    /**
+     * room:leave - Leave the current room.
+     */
+    socket.on('room:leave', (payload: { roomCode: string }, callback) => {
+      try {
+        const room = roomManager.getRoom(payload.roomCode);
+        if (!room) {
+          callback?.({ success: true });
+          return;
+        }
+
+        const player = room.players.find((p) => p.socketId === socket.id);
+        if (player) {
+          if (room.gameState) {
+            roomManager.disconnectPlayer(payload.roomCode, player.id);
+          } else {
+            roomManager.removePlayer(payload.roomCode, player.id);
+          }
+          socket.leave(payload.roomCode);
+        }
+
+        const updatedRoom = roomManager.getRoom(payload.roomCode);
+        if (updatedRoom) {
+          io.to(payload.roomCode).emit('room:updated', {
+            players: publicRoomPlayers(updatedRoom.players),
+          });
+        }
+
+        callback?.({ success: true });
+      } catch (err) {
+        callback?.({ success: false, error: (err as Error).message });
+      }
+    });
+
+    /**
+     * room:kick - Host removes a player from the waiting room.
+     */
+    socket.on('room:kick', (payload: { roomCode: string; playerId: string }, callback) => {
+      try {
+        const room = roomManager.getRoom(payload.roomCode);
+        if (!room) {
+          callback?.({ success: false, error: 'Sala no encontrada' });
+          return;
+        }
+
+        const requester = room.players.find((player) => player.socketId === socket.id);
+        if (!requester || room.host !== requester.id) {
+          callback?.({ success: false, error: 'Solo el anfitrión puede echar jugadores' });
+          return;
+        }
+
+        if (room.gameState) {
+          callback?.({ success: false, error: 'No se puede echar jugadores con la partida iniciada' });
+          return;
+        }
+
+        if (payload.playerId === room.host) {
+          callback?.({ success: false, error: 'No puedes echarte a ti mismo' });
+          return;
+        }
+
+        const player = room.players.find((p) => p.id === payload.playerId);
+        if (!player) {
+          callback?.({ success: false, error: 'Jugador no encontrado' });
+          return;
+        }
+
+        const playerSocket = io.sockets.sockets.get(player.socketId);
+        if (playerSocket) {
+          playerSocket.emit('room:kicked', { roomCode: payload.roomCode });
+          playerSocket.leave(payload.roomCode);
+        }
+
+        roomManager.removePlayer(payload.roomCode, payload.playerId);
+
+        const updatedRoom = roomManager.getRoom(payload.roomCode);
+        if (updatedRoom) {
+          io.to(payload.roomCode).emit('room:updated', {
+            players: publicRoomPlayers(updatedRoom.players),
+          });
+        }
+
+        callback?.({ success: true });
+      } catch (err) {
+        callback?.({ success: false, error: (err as Error).message });
+      }
+    });
+
+    /**
+     * game:config - Host configures game settings
+     */
+    socket.on('game:config', (payload: { roomCode: string; structure: string; acePowers: any; customStructure?: number[]; kamikazesPerTeam?: number }, callback) => {
+      try {
+        const room = roomManager.getRoom(payload.roomCode);
+        const requester = room?.players.find((player) => player.socketId === socket.id);
+        if (!room || !requester || room.host !== requester.id) {
+          callback({ success: false, error: 'Not room host' });
+          return;
+        }
+
+        room.structure = payload.structure as any;
+        room.acePowers = payload.acePowers;
+        if (payload.customStructure) {
+          room.customStructure = payload.customStructure;
+        }
+        if (payload.kamikazesPerTeam !== undefined) {
+          room.kamikazesPerTeam = Math.max(0, Math.min(3, payload.kamikazesPerTeam));
+        }
+
+        io.to(payload.roomCode).emit('game:config', {
+          structure: room.structure,
+          acePowers: room.acePowers,
+          kamikazesPerTeam: room.kamikazesPerTeam,
+        });
+
+        callback({ success: true });
+        console.log(`Game config set in room ${payload.roomCode}`);
+      } catch (err) {
+        callback({ success: false, error: (err as Error).message });
+      }
+    });
+
+    /**
+     * Reorder players so teams alternate around the table
+     * Ensures no two players from same team sit consecutively
+     */
+    const reorderPlayersForTeamBalance = (players: RoomPlayer[]): RoomPlayer[] => {
+      // Group players by team
+      const nosotrosPlayers = players.filter(p => p.team === 'nosotros');
+      const ellosPlayers = players.filter(p => p.team === 'ellos');
+
+      const result: RoomPlayer[] = [];
+      let nosotrosIdx = 0;
+      let ellosIdx = 0;
+
+      // Alternate between teams, starting with the team that has more players
+      const startWithNosotros = nosotrosPlayers.length >= ellosPlayers.length;
+
+      while (nosotrosIdx < nosotrosPlayers.length || ellosIdx < ellosPlayers.length) {
+        if (startWithNosotros) {
+          if (nosotrosIdx < nosotrosPlayers.length) result.push(nosotrosPlayers[nosotrosIdx++]);
+          if (ellosIdx < ellosPlayers.length) result.push(ellosPlayers[ellosIdx++]);
+        } else {
+          if (ellosIdx < ellosPlayers.length) result.push(ellosPlayers[ellosIdx++]);
+          if (nosotrosIdx < nosotrosPlayers.length) result.push(nosotrosPlayers[nosotrosIdx++]);
+        }
+      }
+
+      return result;
+    };
+
+    /**
+     * game:start - Host starts the game
+     */
+    socket.on('game:start', (payload: { roomCode: string }, callback) => {
+      try {
+        const room = roomManager.getRoom(payload.roomCode);
+        const requester = room?.players.find((player) => player.socketId === socket.id);
+        if (!room || !requester || room.host !== requester.id) {
+          callback({ success: false, error: 'Not room host' });
+          return;
+        }
+
+        // Auto-assign random team selections conditioned by fixed team balance
+        // Count current fixed team members
+        let nosotrosCount = room.players.filter(p => p.team === 'nosotros').length;
+        let ellosCount = room.players.filter(p => p.team === 'ellos').length;
+        const randomPlayers = room.players.filter(p => p.team === 'random');
+
+        // Assign each random player to the team with fewer members
+        randomPlayers.forEach((player) => {
+          if (nosotrosCount < ellosCount) {
+            player.team = 'nosotros';
+            nosotrosCount++;
+          } else if (ellosCount < nosotrosCount) {
+            player.team = 'ellos';
+            ellosCount++;
+          } else {
+            // Equal teams, randomly assign
+            const assignToNosotros = Math.random() < 0.5;
+            player.team = assignToNosotros ? 'nosotros' : 'ellos';
+            if (assignToNosotros) nosotrosCount++;
+            else ellosCount++;
+          }
+          console.log(`Auto-assigned player ${player.name} to team: ${player.team}`);
+        });
+
+        // Reorder players so teams alternate around the table
+        room.players = reorderPlayersForTeamBalance(room.players);
+        console.log(`Players reordered for team alternation: ${room.players.map(p => `${p.name}(${p.team})`).join(' -> ')}`);
+
+        const gameState = roomManager.startGame(payload.roomCode, room.structure, room.customStructure, room.acePowers, room.kamikazesPerTeam);
+
+        if (!gameState) {
+          callback({ success: false, error: 'No se pudo iniciar la partida' });
+          return;
+        }
+
+        const hostPlayer = room.players.find((player) => player.id === room.host) || room.players[0];
+        room.initialDrawDeck = createShuffledDeck();
+
+        gameState.phase = 'initial_draw';
+        gameState.currentTurnPlayerId = hostPlayer.id;
+        gameState.currentBidPlayerId = null;
+        gameState.initialDraw = {
+          currentDrawerPlayerId: hostPlayer.id,
+          drawnCards: [],
+          dealerPlayerId: null,
+          manoPlayerId: null,
+          completed: false,
+        };
+
+        io.to(payload.roomCode).emit('room:updated', {
+          players: publicRoomPlayers(room.players),
+        });
+
+        // Send game state to all players
+        io.to(payload.roomCode).emit('game:state', gameState);
+
+        callback({ success: true, gameState });
+        console.log(`Initial draw started in room ${payload.roomCode} from host ${hostPlayer.name}`);
+      } catch (err) {
+        callback({ success: false, error: (err as Error).message });
+      }
+    });
+
+    /**
+     * draw:initialCard - Initial draw to decide who deals and who is Mano.
+     */
+    socket.on('draw:initialCard', (payload: { roomCode: string }, callback) => {
+      try {
+        const room = roomManager.getRoom(payload.roomCode);
+        if (!room || !room.gameState || !room.gameState.initialDraw) {
+          callback({ success: false, error: 'Sorteo no disponible' });
+          return;
+        }
+
+        if (room.gameState.phase !== 'initial_draw') {
+          callback({ success: false, error: 'El sorteo inicial no está activo' });
+          return;
+        }
+
+        const player = room.players.find((p) => p.socketId === socket.id);
+        if (!player) {
+          callback({ success: false, error: 'Jugador no encontrado en la sala' });
+          return;
+        }
+
+        const initialDraw = room.gameState.initialDraw;
+        if (initialDraw.completed) {
+          callback({ success: false, error: 'El sorteo ya terminó' });
+          return;
+        }
+
+        if (initialDraw.currentDrawerPlayerId !== player.id) {
+          const currentDrawer = room.players.find((p) => p.id === initialDraw.currentDrawerPlayerId);
+          callback({ success: false, error: `Le toca sacar a ${currentDrawer?.name || 'otro jugador'}` });
+          return;
+        }
+
+        if (initialDraw.drawnCards.some((drawn) => drawn.playerId === player.id)) {
+          callback({ success: false, error: 'Ya sacaste una carta' });
+          return;
+        }
+
+        if (room.initialDrawDeck.length === 0) {
+          room.initialDrawDeck = createShuffledDeck();
+        }
+
+        const card = room.initialDrawDeck.pop();
+        if (!card) {
+          callback({ success: false, error: 'No quedan cartas para sortear' });
+          return;
+        }
+
+        initialDraw.drawnCards.push({
+          playerId: player.id,
+          card,
+          order: initialDraw.drawnCards.length,
+        });
+
+        if (initialDraw.drawnCards.length === room.players.length) {
+          const winnerDraw = getInitialDrawWinner(initialDraw.drawnCards);
+          const dealerPlayer = room.players.find((p) => p.id === winnerDraw.playerId) || player;
+          const manoPlayer = getNextPlayerInTurn(
+            room.players,
+            dealerPlayer.id,
+            'antihorario',
+            dealerPlayer.id
+          ) || dealerPlayer;
+
+          initialDraw.completed = true;
+          initialDraw.currentDrawerPlayerId = null;
+          initialDraw.dealerPlayerId = dealerPlayer.id;
+          initialDraw.manoPlayerId = manoPlayer.id;
+
+          room.gameState.currentManoPlayerId = manoPlayer.id;
+          room.gameState.currentTurnPlayerId = manoPlayer.id;
+          room.gameState.currentBidPlayerId = null;
+          room.players.forEach((roomPlayer) => {
+            roomPlayer.isMano = roomPlayer.id === manoPlayer.id;
+          });
+
+          console.log(`[initialDraw] ${dealerPlayer.name} reparte. Mano: ${manoPlayer.name}`);
+          io.to(payload.roomCode).emit('game:state', room.gameState);
+
+          setTimeout(() => {
+            beginBiddingAfterInitialDraw(payload.roomCode);
+          }, 1800);
+        } else {
+          const nextPlayer = getNextPlayerInTurn(
+            room.players,
+            player.id,
+            'antihorario',
+            room.host
+          );
+          initialDraw.currentDrawerPlayerId = nextPlayer?.id || null;
+          room.gameState.currentTurnPlayerId = nextPlayer?.id || player.id;
+          io.to(payload.roomCode).emit('game:state', room.gameState);
+        }
+
+        callback({ success: true, card });
+      } catch (err) {
+        callback({ success: false, error: (err as Error).message });
+      }
+    });
+
+    /**
+     * player:selectTeam - Player selects their team (nosotros, ellos, or random)
+     * No callback - client validates before sending
+     * Random assignments are resolved at game start based on fixed team balance
+     */
+    socket.on('player:selectTeam', (payload: { roomCode: string; playerId: string; teamChoice: 'nosotros' | 'ellos' | 'random' }) => {
+      try {
+        // Only verify ownership, no error callbacks
+        if (socket.id !== payload.playerId) return;
+
+        const room = roomManager.getRoom(payload.roomCode);
+        if (!room) return;
+
+        const player = room.players.find((p) => p.id === payload.playerId);
+        if (!player) return;
+
+        // Update team selection
+        player.team = payload.teamChoice;
+        console.log(`Player ${player.name} selected team: ${player.team}`);
+
+        // Emit updated room state to all players
+        io.to(payload.roomCode).emit('room:updated', {
+          players: publicRoomPlayers(room.players),
+        });
+      } catch (err) {
+        console.error('Error in player:selectTeam:', (err as Error).message);
+      }
+    });
+
+    /**
+     * bid:declare - Declare bid (Mano or Pie)
+     */
+    socket.on(
+      'bid:declare',
+      (payload: { roomCode: string; bidValue: number; isKamikaze?: boolean }, callback) => {
+        try {
+          const room = roomManager.getRoom(payload.roomCode);
+          if (!room || !room.gameState) {
+            callback({ success: false, error: 'Game not found or not started' });
+            return;
+          }
+
+          const player = room.players.find((p) => p.socketId === socket.id);
+          if (!player) {
+            callback({ success: false, error: 'Jugador no encontrado en la sala' });
+            return;
+          }
+
+          if (room.gameState.phase !== 'bidding') {
+            callback({ success: false, error: 'El canto no está activo' });
+            return;
+          }
+
+          const manoPlayer = room.players.find((p) => p.id === room.gameState!.currentManoPlayerId);
+          const manoTeam = manoPlayer?.team;
+          if (!manoTeam) {
+            callback({ success: false, error: 'Mano player not found' });
+            return;
+          }
+
+          const expectedTeam = room.gameState.bids.length === 0
+            ? manoTeam
+            : manoTeam === 'nosotros' ? 'ellos' : 'nosotros';
+
+          if (player.team !== expectedTeam) {
+            callback({ success: false, error: `Falta cantar: ${expectedTeam}` });
+            return;
+          }
+
+          if (room.gameState.currentBidPlayerId !== player.id) {
+            const bidPlayer = room.players.find((p) => p.id === room.gameState!.currentBidPlayerId);
+            callback({ success: false, error: `Falta cantar: ${bidPlayer?.name || 'otro jugador'}` });
+            return;
+          }
+
+          const maxBases = room.gameState.structureSequence[room.gameState.roundIndex];
+          if (payload.bidValue < 0 || payload.bidValue > maxBases) {
+            callback({ success: false, error: `Bid must be between 0 and ${maxBases}` });
+            return;
+          }
+
+          if (room.gameState.bids.length === 1) {
+            const manoBid = room.gameState.bids[0];
+            if (!validatePieBid(manoBid.value, payload.bidValue, maxBases)) {
+              callback({ success: false, error: `Mano + Pie cannot equal ${maxBases}` });
+              return;
+            }
+          }
+
+          // By game time, all teams are assigned (random gets resolved at game start)
+          const assignedTeam = player.team as 'nosotros' | 'ellos';
+
+          if (payload.isKamikaze) {
+            if (room.gameState.bids.length !== 0) {
+              callback({ success: false, error: 'Only Mano can declare Kamikaze' });
+              return;
+            }
+            if (payload.bidValue !== 0 && payload.bidValue !== maxBases) {
+              callback({ success: false, error: `Kamikaze must be 0 or ${maxBases}` });
+              return;
+            }
+            if (room.gameState.kamikazesRemaining[assignedTeam] <= 0) {
+              callback({ success: false, error: 'No Kamikazes remaining' });
+              return;
+            }
+            room.gameState.kamikazesRemaining[assignedTeam]--;
+          }
+
+          const bid: any = {
+            team: assignedTeam,
+            value: payload.bidValue,
+            isKamikaze: payload.isKamikaze || false,
+          };
+
+          room.gameState.bids.push(bid);
+
+          if (room.gameState.bids.length === 1) {
+            const piePlayer = getFirstConnectedPlayerFromOtherTeam(
+              room.players,
+              room.gameState.currentManoPlayerId,
+              room.gameState.playDirection
+            ) || getFirstPlayerFromOtherTeam(
+              room.players,
+              room.gameState.currentManoPlayerId,
+              room.gameState.playDirection
+            );
+            room.gameState.currentBidPlayerId = piePlayer?.id || null;
+          }
+
+          // If both teams have declared, move to playing phase
+          if (room.gameState.bids.length === 2) {
+            room.gameState.phase = 'playing';
+            room.gameState.currentBidPlayerId = null;
+            // Set current turn to mano (first player to bid) to open the first base
+            room.gameState.currentTurnPlayerId = room.gameState.currentManoPlayerId;
+            console.log(`[bid:declare] Both bids declared. Starting playing phase. Mano (${room.players.find((p) => p.id === room.gameState!.currentManoPlayerId)?.name}) opens first base`);
+          }
+
+          io.to(payload.roomCode).emit('game:bidDeclared', {
+            team: player.team,
+            bidValue: payload.bidValue,
+            isKamikaze: payload.isKamikaze || false,
+            totalBids: room.gameState.bids.length,
+          });
+
+          io.to(payload.roomCode).emit('game:state', room.gameState);
+
+          // If both bids declared, auto-transition to playing after a brief delay
+          if (room.gameState.bids.length === 2) {
+            setTimeout(() => {
+              if (room.gameState && room.gameState.phase === 'playing') {
+                io.to(payload.roomCode).emit('game:state', room.gameState);
+              }
+            }, 1000);
+          }
+
+          callback({ success: true });
+        } catch (err) {
+          callback({ success: false, error: (err as Error).message });
+        }
+      }
+    );
+
+    /**
+     * bid:bidValueChanged - Broadcast live bid value changes
+     */
+    socket.on('bid:bidValueChanged', (payload: { roomCode: string; bidValue: number; playerId: string }) => {
+      try {
+        io.to(payload.roomCode).emit('bid:bidValueUpdated', {
+          bidValue: payload.bidValue,
+          playerId: payload.playerId,
+        });
+      } catch (err) {
+        console.error('Error in bid:bidValueChanged:', (err as Error).message);
+      }
+    });
+
+    /**
+     * card:play - Play a card
+     */
+    socket.on('card:play', (payload: { roomCode: string; card: Card; copasDirection?: 'mantener' | 'invertir' }, callback) => {
+      try {
+        console.log(`[card:play] ${socket.id} trying to play ${payload.card.value}${payload.card.suit} in room ${payload.roomCode}`);
+
+        const room = roomManager.getRoom(payload.roomCode);
+        if (!room || !room.gameState) {
+          console.log(`[card:play] Room not found: ${payload.roomCode}`);
+          callback({ success: false, error: 'Game not found or not started' });
+          return;
+        }
+
+        const player = room.players.find((p) => p.socketId === socket.id);
+        if (!player) {
+          console.log(`[card:play] Player not found in room: ${socket.id}`);
+          callback({ success: false, error: 'Jugador no encontrado en la sala' });
+          return;
+        }
+
+        if (room.gameState.phase !== 'playing') {
+          console.log(`[card:play] Wrong phase: ${room.gameState.phase}`);
+          callback({ success: false, error: 'It is not time to play cards' });
+          return;
+        }
+
+        if (room.gameState.currentTurnPlayerId !== player.id) {
+          const currentTurnPlayer = room.players.find((p) => p.id === room.gameState!.currentTurnPlayerId);
+          console.log(`[card:play] Not player's turn. Current: ${currentTurnPlayer?.name}`);
+          callback({ success: false, error: `It is ${currentTurnPlayer?.name || 'another player'}'s turn` });
+          return;
+        }
+
+        if (room.gameState.currentBaseCards.some((played) => played.playerId === player.id)) {
+          console.log(`[card:play] Player already played in this base`);
+          callback({ success: false, error: 'You already played in this base' });
+          return;
+        }
+
+        // Validate card is in hand
+        const cardInHand = player.hand.some((c) => c.suit === payload.card.suit && c.value === payload.card.value);
+        if (!cardInHand) {
+          console.log(`[card:play] Card not in hand`);
+          callback({ success: false, error: 'Card not in hand' });
+          return;
+        }
+
+        const cardIndex = player.hand.findIndex(
+          (c) => c.suit === payload.card.suit && c.value === payload.card.value
+        );
+
+        // Add to played cards
+        const playedCard = {
+          playerId: player.id,
+          card: payload.card,
+          order: room.gameState.currentBaseCards.length,
+        };
+
+        room.gameState.currentBaseCards.push(playedCard);
+        player.hand.splice(cardIndex, 1);
+        console.log(`[card:play] Card played successfully by ${player.name}`);
+
+        if (
+          room.gameState.acePowers.copas &&
+          payload.card.suit === 'copas' &&
+          payload.card.value === 1 &&
+          payload.copasDirection === 'invertir'
+        ) {
+          room.gameState.playDirection = room.gameState.playDirection === 'antihorario' ? 'horario' : 'antihorario';
+          console.log(`[card:play] Play direction inverted to ${room.gameState.playDirection}`);
+        }
+
+        if (allPlayersPlayed(room.gameState.currentBaseCards, room.players.length)) {
+          console.log(`[card:play] All players played, resolving base`);
+          room.gameState.phase = 'base_resolution';
+          setTimeout(() => {
+            try {
+              const result = resolveCompletedBase(payload.roomCode);
+              if (!result.success) {
+                console.log(`[base:autoResolve] ${result.error}`);
+              }
+            } catch (timeoutErr) {
+              console.error(`[base:autoResolve] Error:`, timeoutErr);
+            }
+          }, 900);
+        } else {
+          const nextPlayer = getNextPlayerInTurn(
+            room.players,
+            player.id,
+            room.gameState.playDirection,
+            room.gameState.currentManoPlayerId
+          );
+          if (nextPlayer) {
+            room.gameState.currentTurnPlayerId = nextPlayer.id;
+            console.log(`[card:play] Next player: ${nextPlayer.name}`);
+          }
+        }
+
+        // Notify all players
+        io.to(payload.roomCode).emit('game:cardPlayed', {
+          playerId: player.id,
+          playerName: player.name,
+          card: payload.card,
+          order: playedCard.order,
+          cardsPlayed: room.gameState.currentBaseCards.length,
+        });
+        io.to(payload.roomCode).emit('room:updated', {
+          players: publicRoomPlayers(room.players),
+        });
+        io.to(payload.roomCode).emit('game:state', room.gameState);
+        socket.emit('player:hand', { hand: player.hand });
+
+        callback({ success: true, playedCard });
+      } catch (err) {
+        console.error(`[card:play] Caught error:`, err);
+        callback({ success: false, error: (err as Error).message });
+      }
+    });
+
+    /**
+     * base:complete - Resolve a base and check if round complete
+     */
+    socket.on('base:complete', (payload: { roomCode: string }, callback) => {
+      try {
+        const room = roomManager.getRoom(payload.roomCode);
+        if (!room || !room.gameState) {
+          callback({ success: false, error: 'Game not found' });
+          return;
+        }
+
+        if (room.gameState.currentBaseCards.length !== room.players.length) {
+          callback({ success: false, error: 'Faltan jugadores por jugar' });
+          return;
+        }
+
+        callback(resolveCompletedBase(payload.roomCode));
+      } catch (err) {
+        callback({ success: false, error: (err as Error).message });
+      }
+    });
+
+    /**
+     * ace:oros:choose - As de Oros owner chooses who opens next base.
+     */
+    socket.on('ace:oros:choose', (payload: { roomCode: string; playerId: string }, callback) => {
+      try {
+        const room = roomManager.getRoom(payload.roomCode);
+        if (!room || !room.gameState || !room.gameState.pendingOrosChoice) {
+          callback({ success: false, error: 'No Oros choice pending' });
+          return;
+        }
+
+        const chooser = room.players.find((player) => player.socketId === socket.id);
+        const pending = room.gameState.pendingOrosChoice;
+        if (!chooser || chooser.id !== pending.chooserPlayerId) {
+          callback({ success: false, error: 'Only the As de Oros player can choose' });
+          return;
+        }
+
+        if (!pending.options.includes(payload.playerId)) {
+          callback({ success: false, error: 'Elección inválida' });
+          return;
+        }
+
+        room.gameState.currentManoPlayerId = payload.playerId;
+        room.gameState.currentTurnPlayerId = payload.playerId;
+        room.gameState.pendingOrosChoice = null;
+        continueAfterBaseResolution(payload.roomCode);
+
+        callback({ success: true });
+      } catch (err) {
+        callback({ success: false, error: (err as Error).message });
+      }
+    });
+
+    /**
+     * Handle disconnection
+     */
+    socket.on('disconnect', () => {
+      console.log(`Player disconnected: ${socket.id}`);
+
+      // Find and disconnect player from all rooms
+      const rooms = roomManager.getAllRooms();
+      rooms.forEach((room) => {
+        const player = room.players.find((p) => p.socketId === socket.id);
+        if (player) {
+          roomManager.disconnectPlayer(room.roomCode, player.id);
+          io.to(room.roomCode).emit('room:playerDisconnected', {
+            playerId: player.id,
+            playerName: player.name,
+          });
+          io.to(room.roomCode).emit('room:updated', {
+            players: publicRoomPlayers(room.players),
+          });
+        }
+      });
+    });
+  });
+}

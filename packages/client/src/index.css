@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@keyframes deal-card {
+  0% {
+    opacity: 0;
+    transform: translateY(-42vh) translateX(-18px) rotate(-18deg) scale(0.42);
+    filter: blur(1px);
+  }
+  58% {
+    opacity: 1;
+    transform: translateY(6px) translateX(4px) rotate(4deg) scale(1.04);
+    filter: blur(0);
+  }
+  78% {
+    transform: translateY(-4px) translateX(0) rotate(-2deg) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) translateX(0) rotate(0deg) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes draw-card {
+  from {
+    opacity: 0;
+    transform: translateX(92px) rotateY(74deg) rotate(8deg) scale(0.78);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) rotateY(0deg) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes play-card {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes action-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.95), 0 18px 34px rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.2), 0 18px 34px rgba(0, 0, 0, 0.4);
+  }
+}
+
+.card-deal {
+  transform-origin: 50% 120%;
+  animation: deal-card 520ms cubic-bezier(0.2, 0.85, 0.22, 1) both;
+  will-change: transform, opacity;
+}
+
+.card-played {
+  animation: play-card 220ms ease-out both;
+}
+
+.card-drawn {
+  transform-origin: 50% 50%;
+  animation: draw-card 360ms cubic-bezier(0.2, 0.85, 0.22, 1) both;
+  will-change: transform, opacity;
+}
+
+.action-seat {
+  animation: action-pulse 950ms ease-in-out infinite;
+}
