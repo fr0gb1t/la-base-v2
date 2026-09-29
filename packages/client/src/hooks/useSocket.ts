@@ -21,7 +21,15 @@ function ensureCoreListeners(socket: Socket) {
         const latestStore = useGameStore.getState();
 
         if (!response.success) {
+          // The saved room no longer exists (server restarted, room expired, or it belongs to another
+          // server on the same origin): forget it and go back to the lobby instead of an empty table.
           console.warn('[useSocket] Reconnect failed:', response.error);
+          latestStore.setRoomCode(null);
+          latestStore.setReconnectToken(null);
+          latestStore.setRoomPlayers([]);
+          latestStore.setGameState(null);
+          latestStore.setPlayerHand([]);
+          latestStore.setCurrentPage(latestStore.currentPlayer ? 'lobby' : 'auth');
           return;
         }
 

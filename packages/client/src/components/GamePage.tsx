@@ -296,6 +296,16 @@ export function GamePage() {
 
       <div className="phase-line">{status || phaseLine}</div>
 
+      {!gameState && (
+        <div className="overlay-center">
+          <div className="ritual-panel">
+            <h2>Reconectando…</h2>
+            <p>Buscando la sala {roomCode || ''} en el servidor.</p>
+            <button className="ritual-btn" onClick={handleLeaveGame}>volver al lobby</button>
+          </div>
+        </div>
+      )}
+
       {gameState?.phase === 'initial_draw' && !initialDraw?.completed && (
         <div className="overlay-bottom">
           <button className="ritual-btn" disabled={!isMyDraw} onClick={handleInitialDraw}>

@@ -171,7 +171,7 @@ export const useGameStore = create<GameStore>((set) => ({
         },
         roomCode: roomCode || null,
         reconnectToken: reconnectToken || null,
-        currentPage: roomCode && reconnectToken ? 'game' : 'lobby',
+        currentPage: 'lobby', // useSocket's room:reconnect moves you to the table if the room still exists
       });
     } else if (guestName) {
       // Guest user - use SAME guest ID to maintain identity
@@ -190,7 +190,7 @@ export const useGameStore = create<GameStore>((set) => ({
         },
         roomCode: roomCode || null,
         reconnectToken: reconnectToken || null,
-        currentPage: roomCode && reconnectToken ? 'game' : 'lobby',
+        currentPage: 'lobby', // useSocket's room:reconnect moves you to the table if the room still exists
       });
     }
   },
