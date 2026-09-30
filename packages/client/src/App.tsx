@@ -6,6 +6,7 @@ import { RoomWaiting } from './components/RoomWaiting';
 import { GameConfig } from './components/GameConfig';
 import { GamePage } from './components/GamePage';
 import { useSocket } from './hooks/useSocket';
+import { MenuBackdrop } from './menu/MenuBackdrop';
 
 function App() {
   const currentPage = useGameStore((state) => state.currentPage);
@@ -21,6 +22,8 @@ function App() {
 
   return (
     <>
+      {/* the menu's 3D basement lives behind every screen except the game table itself */}
+      {currentPage !== 'game' && <MenuBackdrop />}
       {currentPage === 'auth' && <AuthModal />}
       {currentPage === 'lobby' && <Lobby />}
       {currentPage === 'game:waiting' && <RoomWaiting />}
