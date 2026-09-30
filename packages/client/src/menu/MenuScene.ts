@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { buildLamp, buildRoom, type SeatLabel } from '../table3d/table'
-import { TABLE_Y } from '../table3d/seats'
+import { TABLE_Y, CARD_H } from '../table3d/seats'
 import { makeAvatar, type Avatar } from '../table3d/avatar'
 import { makeCard, type CardView } from '../table3d/cards'
 import { drawFace, toTexture, type Rank, type Suit } from '../table3d/cardFace'
@@ -38,6 +38,7 @@ export const MENU_OPTIONS: Array<{ id: 'crear' | 'unirse' | 'reglas'; title: str
 
 const ACE_SUITS: Array<keyof AcePowers> = ['espadas', 'copas', 'oros']
 const FACE_UP = -Math.PI / 2
+const OPTION_SCALE = 1.8 // cards are already 1.75x real size in the game
 const FACE_DOWN = Math.PI / 2
 const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -183,7 +184,7 @@ export class MenuScene {
       const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.22 })
       const face = view.root.children[0] as THREE.Mesh
       face.material = mat
-      view.root.scale.setScalar(2.05)
+      view.root.scale.setScalar(OPTION_SCALE)
       view.root.userData.option = i
       this.scene.add(view.root)
       this.options.push({ view, mesh: face, lift: 0 })
@@ -281,9 +282,13 @@ export class MenuScene {
       const active = this.station === 'lobby' && (i === this.hovered || i === this.focusIndex)
       o.lift += ((active ? 1 : 0) - o.lift) * k * 2.5
       const x = (i - 1) * 0.36
-      const y = TABLE_Y + 0.004 + o.lift * 0.07 + (showOptions ? 0 : -0.5)
-      o.view.root.position.set(x, y, 0.42 - o.lift * 0.08)
-      o.view.root.rotation.set(FACE_UP + o.lift * 0.75, (1 - i) * 0.12, 0, 'YXZ')
+      // the card tilts around its centre: raise it by half its tilted height (+ a hover gap) so the
+      // lower edge never sinks into the felt
+      const tilt = o.lift * 0.75
+      const halfH = (CARD_H * OPTION_SCALE) / 2
+      const y = TABLE_Y + 0.004 + Math.sin(tilt) * halfH + o.lift * 0.04 + (showOptions ? 0 : -0.5)
+      o.view.root.position.set(x, y, 0.42 - o.lift * 0.06)
+      o.view.root.rotation.set(FACE_UP + tilt, (1 - i) * 0.12, 0, 'YXZ')
       o.view.root.visible = showOptions
     })
 

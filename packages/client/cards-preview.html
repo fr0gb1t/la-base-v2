@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Figuras — vista previa</title>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&display=swap" rel="stylesheet" />
+    <style>body{margin:0;background:#0b0908;display:grid;grid-template-columns:repeat(6,auto);gap:14px;padding:14px;justify-content:start}canvas{width:200px;height:auto}</style>
+  </head>
+  <body>
+    <script type="module">
+      import { drawFace } from '/src/table3d/cardFace.ts'
+      await document.fonts.load('40px "IM Fell English SC"')
+      for (const suit of ['oros', 'copas', 'espadas', 'bastos'])
+        for (const rank of [10, 11, 12]) document.body.appendChild(drawFace(suit, rank))
+      document.body.dataset.ready = '1'
+    </script>
+  </body>
+</html>

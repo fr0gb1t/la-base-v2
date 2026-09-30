@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { PALETTE, SUIT_INK } from './look'
+import { sota, caballo, rey } from './courts'
 
 export type Suit = keyof typeof SUIT_INK
 export const SUITS: Suit[] = ['oros', 'copas', 'espadas', 'bastos']
@@ -131,45 +132,6 @@ const LAYOUT: Record<number, [number, number][]> = {
   7: [[0.33, 0.22], [0.67, 0.22], [0.5, 0.36], [0.33, 0.5], [0.67, 0.5], [0.33, 0.78], [0.67, 0.78]],
 }
 
-// Courts: grotesque masked figures (Sola Busca / Sol Cesto), not the Fournier kings.
-function court(g: CanvasRenderingContext2D, suit: Suit, rank: Rank) {
-  const c = SUIT_INK[suit]
-  g.lineWidth = 2.5
-  g.strokeStyle = PALETTE.ink
-  g.fillStyle = PALETTE.soot
-  g.beginPath() // robe
-  g.moveTo(W * 0.28, H * 0.86)
-  g.quadraticCurveTo(W * 0.5, H * 0.3, W * 0.72, H * 0.86)
-  g.closePath()
-  g.fill()
-  g.stroke()
-  g.fillStyle = PALETTE.bone // mask
-  g.beginPath()
-  g.ellipse(W * 0.5, H * 0.3, W * 0.13, H * 0.1, 0, 0, Math.PI * 2)
-  g.fill()
-  g.stroke()
-  g.fillStyle = PALETTE.ink
-  g.fillRect(W * 0.43, H * 0.28, 6, 4)
-  g.fillRect(W * 0.54, H * 0.28, 6, 4)
-  for (let i = 0; i < 5; i++) g.fillRect(W * 0.44 + i * 4, H * 0.35, 2, 4) // teeth
-  if (rank === 12) {
-    g.fillStyle = c // crown
-    g.beginPath()
-    g.moveTo(W * 0.38, H * 0.2)
-    for (let i = 0; i <= 4; i++) g.lineTo(W * (0.38 + i * 0.06), H * (i % 2 ? 0.1 : 0.2))
-    g.closePath()
-    g.fill()
-    g.stroke()
-  } else if (rank === 11) {
-    g.fillStyle = PALETTE.bone // horse skull beside the rider
-    g.beginPath()
-    g.ellipse(W * 0.72, H * 0.52, W * 0.07, H * 0.12, -0.5, 0, Math.PI * 2)
-    g.fill()
-    g.stroke()
-  }
-  pip(g, suit, W * 0.5, H * 0.66, 16)
-}
-
 function index(g: CanvasRenderingContext2D, rank: Rank) {
   // Index ≥ 16% of card height: must read at ~60 px on screen after the post pass.
   g.fillStyle = PALETTE.ink
@@ -195,7 +157,9 @@ export function drawFace(suit: Suit, rank: Rank): HTMLCanvasElement {
     pip(g, suit, W / 2, H / 2, 46)
     const brava = suit === 'espadas' || suit === 'bastos'
     if (brava) sun(g, W / 2, H * 0.18, 12, PALETTE.rose) // the bravas get an extra watching sun
-  } else if (rank >= 10) court(g, suit, rank)
+  } else if (rank === 10) sota(g, suit, pip)
+  else if (rank === 11) caballo(g, suit, pip)
+  else if (rank === 12) rey(g, suit, pip)
   else for (const [x, y] of LAYOUT[rank]) pip(g, suit, x * W, y * H, rank > 5 ? 16 : 20)
   index(g, rank)
   return cv
