@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from '../settings/audioSettings'
 
 // Sound design: real card recordings (Kenney "Casino Audio", CC0) placed in 3D (HRTF) inside a small
 // wooden room (short convolution reverb). No noise beds: the room is almost silent, only the lamp
@@ -31,7 +32,9 @@ let ctx: AudioContext
 let master: GainNode
 let wet: GainNode
 let hum: GainNode
-let muted = false
+let sfxBus: GainNode // cards, table, knocks (dry + reverb send)
+let ambBus: GainNode // lamp hum and crackle
+const MASTER = 0.9
 const buffers = new Map<string, AudioBuffer>()
 
 // Small room with wood: 0.45 s decaying, darkened impulse (stereo, decorrelated).
@@ -57,7 +60,10 @@ export async function initAudio(camera: THREE.Camera) {
   camera.add(listener)
   ctx = listener.context
   master = ctx.createGain()
-  master.gain.value = 0.9
+  sfxBus = ctx.createGain()
+  ambBus = ctx.createGain()
+  sfxBus.connect(master)
+  ambBus.connect(master)
   const comp = ctx.createDynamicsCompressor()
   comp.threshold.value = -14
   comp.ratio.value = 3
@@ -66,7 +72,7 @@ export async function initAudio(camera: THREE.Camera) {
   verb.buffer = roomImpulse(ctx)
   wet = ctx.createGain()
   wet.gain.value = 0.22
-  wet.connect(verb).connect(master)
+  wet.connect(verb).connect(sfxBus)
 
   // Lamp hum: two low partials through a low-pass, barely audible, breathing slowly.
   hum = ctx.createGain()
@@ -88,7 +94,9 @@ export async function initAudio(camera: THREE.Camera) {
   lfoGain.gain.value = 0.004
   lfo.connect(lfoGain).connect(hum.gain)
   lfo.start()
-  lp.connect(hum).connect(master)
+  lp.connect(hum).connect(ambBus)
+  applySettings(getAudioSettings())
+  onAudioSettings(applySettings)
 
   const names = [...new Set(Object.values(FILES).flat())]
   await Promise.all(
@@ -110,7 +118,7 @@ function spatial(at: THREE.Vector3) {
   p.positionZ.value = at.z
   const send = ctx.createGain()
   send.gain.value = 1
-  p.connect(master)
+  p.connect(sfxBus)
   p.connect(send).connect(wet)
   return p
 }
@@ -142,7 +150,7 @@ function knock(at: THREE.Vector3, volume: number) {
 }
 
 export function sfx(kind: Sfx, at: THREE.Vector3, volume = 1) {
-  if (!listener || muted) return
+  if (!listener || !getAudioSettings().effects) return
   if (kind === 'knock') return knock(at, volume)
   const list = FILES[kind]
   const buf = buffers.get(list[Math.floor(Math.random() * list.length)])
@@ -160,7 +168,7 @@ export function sfx(kind: Sfx, at: THREE.Vector3, volume = 1) {
 // Filament crackle while the lamp flickers.
 let lastBuzz = 0
 export function lampBuzz(at: THREE.Vector3) {
-  if (!listener || muted || ctx.currentTime - lastBuzz < 0.3) return
+  if (!listener || !getAudioSettings().ambient || ctx.currentTime - lastBuzz < 0.3) return
   lastBuzz = ctx.currentTime
   const o = ctx.createOscillator()
   o.type = 'sawtooth'
@@ -174,13 +182,38 @@ export function lampBuzz(at: THREE.Vector3) {
   g.gain.setValueAtTime(0.0001, t)
   g.gain.exponentialRampToValueAtTime(0.03, t + 0.02)
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18)
-  o.connect(bp).connect(g).connect(spatial(at))
+  const out = ctx.createPanner() // positional, but on the ambient bus
+  out.panningModel = 'HRTF'
+  out.positionX.value = at.x
+  out.positionY.value = at.y
+  out.positionZ.value = at.z
+  out.connect(ambBus)
+  o.connect(bp).connect(g).connect(out)
   o.start(t)
   o.stop(t + 0.2)
 }
 
-export function toggleMute() {
-  muted = !muted
-  if (master) master.gain.value = muted ? 0 : 0.9
-  return muted
+function applySettings(st: AudioSettings) {
+  if (!ctx) return
+  const t = ctx.currentTime
+  master.gain.setTargetAtTime(MASTER * st.volume * st.volume, t, 0.05) // perceptual (squared) curve
+  sfxBus.gain.setTargetAtTime(st.effects ? 1 : 0, t, 0.05)
+  ambBus.gain.setTargetAtTime(st.ambient ? 1 : 0, t, 0.05)
 }
+
+/** Mutes/unmutes everything (keyboard M); the settings menu controls each bus. */
+export function toggleMute() {
+  const st = getAudioSettings()
+  const on = st.effects || st.ambient
+  setAudioSettings({ effects: !on, ambient: !on })
+  return on
+}
+
+/** A short card-on-felt sound at the listener, to hear a volume change. */
+export function previewSound() {
+  if (!listener) return
+  const at = listener.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0.2, -0.4, -0.3))
+  sfx('place', at)
+}
+
+export const audioReady = () => Boolean(listener)

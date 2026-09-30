@@ -1451,3 +1451,552 @@ button {
   max-height: 46vh;
   width: min(330px, 90vw);
 }
+
+/* ================================================================================
+   PAPER HUD — the score pad (anotador) and everything around the table is paper and
+   ink lit by the same lamp: warm near the table, burnt dark at the far edges.
+   ================================================================================ */
+
+:root {
+  --paper-grain:
+    radial-gradient(circle at 60% 40%, rgba(20, 14, 12, 0.06) 0 1px, transparent 2px) 0 0 / 7px 7px,
+    radial-gradient(circle at 20% 70%, rgba(20, 14, 12, 0.05) 0 1px, transparent 2px) 3px 4px / 9px 9px;
+  --paper-stain:
+    radial-gradient(ellipse at 22% 16%, rgba(96, 34, 23, 0.1), transparent 40%),
+    radial-gradient(ellipse at 84% 88%, rgba(90, 60, 30, 0.18), transparent 42%);
+}
+
+.paper {
+  color: var(--ink);
+  background: var(--paper-stain), var(--paper-grain), var(--bone);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.75), inset 0 0 26px rgba(90, 60, 30, 0.35);
+}
+
+/* ---- the pad ---- */
+.hud {
+  font-family: var(--font-print);
+  text-shadow: none;
+}
+
+.pad {
+  position: relative;
+  width: min(330px, 46vw);
+  padding: 12px 16px 10px;
+  color: var(--ink);
+  background:
+    /* the lamp: light falls from the table side (right), paper burns toward the far corner */
+    linear-gradient(115deg, rgba(11, 9, 8, 0.38) 0%, rgba(11, 9, 8, 0) 45%),
+    repeating-linear-gradient(transparent 0 27px, rgba(79, 127, 138, 0.18) 27px 28px),
+    var(--paper-stain), var(--paper-grain), var(--bone);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(90, 60, 30, 0.4), inset 0 0 2px rgba(20, 14, 12, 0.6);
+  transform: rotate(-1.4deg);
+  transform-origin: top left;
+  pointer-events: none;
+  /* a slightly irregular, torn edge */
+  clip-path: polygon(0 1%, 12% 0, 33% 0.8%, 58% 0, 81% 0.9%, 100% 0, 99.4% 34%, 100% 67%, 99.2% 100%, 72% 99.2%, 45% 100%, 19% 99.1%, 0 100%, 0.6% 62%, 0 30%);
+}
+
+/* the thumbtack holding it */
+.pad::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  width: 11px;
+  height: 11px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e3c77a, #846425 60%, #3d2e11);
+  box-shadow: 1px 2px 2px rgba(0, 0, 0, 0.6);
+}
+
+.pad-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-top: 6px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--ink);
+  font-family: var(--font-sc);
+  font-size: 19px;
+}
+
+.pad-head small {
+  font-size: 14px;
+  opacity: 0.65;
+}
+
+.pad-dir {
+  margin-left: auto;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.pad-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.pad-col {
+  padding: 6px 8px 4px;
+  position: relative;
+}
+
+.pad-col + .pad-col {
+  border-left: 2px solid var(--ink);
+}
+
+.pad-team {
+  font-family: var(--font-sc);
+  font-size: 19px;
+  line-height: 1.1;
+  display: flex;
+  flex-direction: column;
+}
+
+.pad-team small {
+  font-family: var(--font-print);
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+.pad-col.mine .pad-team {
+  color: #2c4a53;
+}
+
+.pad-col.rival .pad-team {
+  color: var(--oxblood);
+}
+
+/* whose turn it is: an ink circle scribbled around the column heading */
+.pad-col.acting .pad-team::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: calc(100% - 8px);
+  height: 36px;
+  border: 1.6px solid var(--ink);
+  border-radius: 48% 52% 46% 54% / 60% 45% 55% 40%;
+  transform: rotate(-3deg);
+  opacity: 0.7;
+}
+
+.pad-pts {
+  font-family: var(--font-print);
+  font-style: italic;
+  font-size: 40px;
+  line-height: 1.05;
+  margin: 2px 0;
+}
+
+.pad-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 16px;
+}
+
+.pad-row span {
+  opacity: 0.7;
+  min-width: 2.8em;
+}
+
+.pad-row b {
+  font-weight: normal;
+  font-style: italic;
+  font-size: 22px;
+}
+
+.pad .kami {
+  color: #8e2a22;
+  font-family: var(--font-sc);
+  font-size: 13px;
+}
+
+.porotos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0 2px;
+  min-height: 14px;
+}
+
+.porotos.empty,
+.porotos .cero {
+  font-style: italic;
+  opacity: 0.55;
+  font-size: 14px;
+}
+
+.poroto {
+  display: inline-block;
+  width: 11px;
+  height: 8px;
+  border-radius: 55% 45% 50% 50% / 60% 60% 40% 40%;
+  border: 1.5px solid var(--ink);
+  transform: rotate(-12deg);
+}
+
+.poroto.on {
+  background: var(--ink);
+}
+
+.poroto.over {
+  background: #8e2a22;
+  border-color: #8e2a22;
+}
+
+.pad-foot {
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+.pad-players {
+  list-style: none;
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(20, 14, 12, 0.5);
+  display: grid;
+  gap: 1px;
+  font-size: 15px;
+}
+
+.pad-players li {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.pad-players li.mine .pad-name {
+  color: #2c4a53;
+}
+
+.pad-players li.rival .pad-name {
+  color: var(--oxblood);
+}
+
+.pad-hand::after {
+  content: ' c.';
+  opacity: 0.55;
+  font-size: 12px;
+}
+
+.pad-tags {
+  font-style: italic;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.pad-ready {
+  font-family: var(--font-sc);
+  opacity: 0.5;
+}
+
+.pad-ready.ok {
+  opacity: 1;
+  color: #535f29;
+}
+
+.pad-foot-line {
+  margin-top: 4px;
+  font-family: var(--font-term);
+  font-size: 15px;
+  opacity: 0.5;
+  text-align: right;
+}
+
+/* ---- paper tabs (top-right) ---- */
+.hud-tabs {
+  display: flex;
+  gap: 6px;
+  pointer-events: auto;
+  align-items: flex-start;
+}
+
+.hud-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px 7px;
+  color: var(--ink);
+  background: var(--paper-grain), var(--bone);
+  border: 0;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.7), inset 0 0 10px rgba(90, 60, 30, 0.35);
+  font-family: var(--font-sc);
+  font-size: 15px;
+  cursor: pointer;
+  clip-path: polygon(0 0, 100% 0, 100% 86%, 96% 100%, 4% 100%, 0 86%);
+  transform: translateY(-3px);
+  transition: transform 0.12s;
+}
+
+.hud-tab:hover,
+.hud-tab:focus-visible {
+  transform: translateY(0);
+}
+
+.hud-tab.danger {
+  color: var(--oxblood);
+}
+
+.hud-tab svg {
+  font-size: 17px;
+}
+
+.menu-settings-btn {
+  position: fixed;
+  right: 16px;
+  bottom: 14px;
+  z-index: 25;
+}
+
+/* ---- the phase line: a paper strip pinned over the table ---- */
+.phase-line {
+  top: 12px;
+  padding: 4px 16px 5px;
+  font-family: var(--font-print);
+  font-size: 19px;
+  color: var(--ink);
+  background: var(--paper-grain), var(--bone);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.7), inset 0 0 12px rgba(90, 60, 30, 0.35);
+  text-shadow: none;
+  transform: translateX(-50%) rotate(0.6deg);
+}
+
+.phase-line:empty {
+  display: none;
+}
+
+.help-line {
+  color: var(--chalk);
+  opacity: 0.35;
+}
+
+/* ---- the other table panels become paper too ---- */
+.tally,
+.gate-panel,
+.ritual-panel {
+  color: var(--ink);
+  background: var(--paper-stain), var(--paper-grain), var(--bone);
+  border: 3px double rgba(20, 14, 12, 0.85);
+  box-shadow: 0 0 0 5px rgba(11, 9, 8, 0.55), 0 24px 60px rgba(0, 0, 0, 0.85), inset 0 0 30px rgba(90, 60, 30, 0.35);
+}
+
+.tally {
+  transform: rotate(0.8deg);
+}
+
+.tally-title,
+.gate-panel h2,
+.ritual-panel h2,
+.gate-panel b {
+  color: var(--ink);
+}
+
+.tally-sub,
+.gate-panel p,
+.ritual-panel p {
+  color: rgba(20, 14, 12, 0.75);
+}
+
+.tally-line b {
+  color: var(--oxblood);
+}
+
+.tally-num {
+  background: transparent;
+  border: 2px solid var(--ink);
+  color: var(--ink);
+}
+
+.tally-num.on {
+  background: var(--ink);
+  color: var(--bone);
+  border-color: var(--ink);
+}
+
+.tally-kami {
+  color: var(--ink);
+  border-color: rgba(20, 14, 12, 0.45);
+}
+
+.tally-kami.on {
+  color: #8e2a22;
+  border-color: #8e2a22;
+  background: rgba(142, 42, 34, 0.1);
+}
+
+.gate-panel .mine {
+  color: #2c4a53;
+}
+
+.gate-panel .rival {
+  color: var(--oxblood);
+}
+
+.round-table {
+  color: var(--ink);
+}
+
+.round-table td {
+  border-top-color: rgba(20, 14, 12, 0.25);
+}
+
+.round-table tr.mine td:first-child {
+  color: #2c4a53;
+}
+
+.round-table tr.rival td:first-child {
+  color: var(--oxblood);
+}
+
+.round-table .ok {
+  color: #535f29;
+}
+
+.round-table .bad {
+  color: #8e2a22;
+}
+
+.chip {
+  border-color: rgba(20, 14, 12, 0.35);
+  color: var(--ink);
+}
+
+.chip.ok {
+  border-color: #535f29;
+  color: #535f29;
+}
+
+.ritual-link {
+  color: var(--ink);
+}
+
+/* ---- settings ---- */
+.settings-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 45%, rgba(11, 9, 8, 0.35), rgba(11, 9, 8, 0.8));
+}
+
+.ledger.settings {
+  width: min(430px, 94vw);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: transparent;
+  border: 2px solid rgba(20, 14, 12, 0.25);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.setting-row.on {
+  opacity: 1;
+  border-color: var(--oxblood);
+  background: rgba(96, 34, 23, 0.08);
+}
+
+.setting-icon {
+  font-size: 28px;
+  flex: none;
+}
+
+.setting-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.setting-text b,
+.setting-volume b {
+  font-family: var(--font-sc);
+  font-weight: normal;
+  font-size: 19px;
+}
+
+.setting-text small {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.setting-state {
+  margin-left: auto;
+  font-family: var(--font-term);
+  font-size: 20px;
+}
+
+.setting-volume {
+  display: block;
+  margin-top: 12px;
+}
+
+.setting-volume-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* the volume slider: an ink rule filled in oxblood, with a brass tack as the knob */
+.setting-volume input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  margin-top: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.setting-volume input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  background: linear-gradient(90deg, var(--oxblood) 0 var(--fill), transparent var(--fill)), rgba(20, 14, 12, 0.12);
+  border: 1.5px solid var(--ink);
+}
+
+.setting-volume input[type='range']::-moz-range-track {
+  height: 6px;
+  background: rgba(20, 14, 12, 0.12);
+  border: 1.5px solid var(--ink);
+}
+
+.setting-volume input[type='range']::-moz-range-progress {
+  height: 6px;
+  background: var(--oxblood);
+}
+
+.setting-volume input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e3c77a, #846425 60%, #3d2e11);
+  border: 1.5px solid var(--ink);
+  box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.5);
+}
+
+.setting-volume input[type='range']::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #e3c77a, #846425 60%, #3d2e11);
+  border: 1.5px solid var(--ink);
+}
+
+.setting-volume input[type='range']:focus-visible {
+  outline: 2px dashed var(--oxblood);
+  outline-offset: 3px;
+}

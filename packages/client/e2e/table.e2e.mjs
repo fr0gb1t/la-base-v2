@@ -219,6 +219,10 @@ while (Date.now() < until) {
   lastRound = round
 }
 await shot('end')
+await page.keyboard.press('o')
+await sleep(600)
+await shot('settings')
+await page.keyboard.press('Escape')
 console.log(errors.length ? errors.join('\n') : 'no browser errors')
 await browser.close()
 process.exit(0)

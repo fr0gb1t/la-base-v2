@@ -9,6 +9,8 @@ import { RoundScoringPanel } from './RoundScoringPanel';
 import { LiveBidDisplay } from './LiveBidDisplay';
 import { ToastContainer } from './ToastContainer';
 import { TableScene, type TablePlayer } from '../table3d/TableScene';
+import { SettingsButton } from '../settings/SettingsPanel';
+import { GiExitDoor, GiScrollUnfurled } from 'react-icons/gi';
 
 // First-person 3D table (La Base v2). The table shows every card movement; the non-card phases
 // (initial draw, bidding, ace choices, ready gates, scoring) are dark minimal overlays over it.
@@ -39,19 +41,19 @@ function dealerOf(gs: GameState | null, players: { id: string }[]) {
   return players[(i - 1 + players.length) % players.length].id;
 }
 
-/** Declared bases as tokens: filled = already won, hollow = still owed, red = won beyond the bid. */
+/** Declared bases as beans (porotos) drawn in ink: filled = won, hollow = still owed, crossed red = won beyond the bid. */
 function BidPips({ bid, won }: { bid?: Bid; won: number }) {
-  if (!bid) return <span className="pips dim">sin pedido</span>;
+  if (!bid) return <span className="porotos empty">—</span>;
   const extra = Math.max(0, won - bid.value);
   return (
-    <span className="pips" aria-label={`pidió ${bid.value}, lleva ${won}`}>
+    <span className="porotos" aria-label={`pidió ${bid.value}, lleva ${won}`}>
       {Array.from({ length: bid.value }, (_, i) => (
-        <i key={i} className={i < won ? 'pip on' : 'pip'} />
+        <i key={i} className={i < won ? 'poroto on' : 'poroto'} />
       ))}
       {Array.from({ length: extra }, (_, i) => (
-        <i key={`x${i}`} className="pip over" />
+        <i key={`x${i}`} className="poroto over" />
       ))}
-      {bid.value === 0 && extra === 0 && <span className="dim">cero</span>}
+      {bid.value === 0 && extra === 0 && <span className="cero">cero</span>}
     </span>
   );
 }
@@ -80,7 +82,6 @@ export function GamePage() {
   const [stamp, setStamp] = useState<{ text: string; key: number } | null>(null);
   const [announce, setAnnounce] = useState<{ title: string; sub: string; mine: boolean; key: number } | null>(null);
   const [copasAsk, setCopasAsk] = useState<((choice: CopasChoice | null) => void) | null>(null);
-  const [muted, setMuted] = useState(false);
   const [hud, setHud] = useState<HudMode>(() => {
     try {
       const v = localStorage.getItem('laBase.hud') as HudMode | null;
@@ -350,36 +351,37 @@ export function GamePage() {
       ? 'Tu turno — click en una carta, o mantené para llevarla vos'
       : `Juega ${nameOf(gameState.currentTurnPlayerId)} (${relLabel(teamOfPlayer(gameState.currentTurnPlayerId)).toLowerCase()})`;
   } else if (gameState?.phase === 'base_resolution' && !gate) {
-    phaseLine = canChooseOros ? 'As de Oros: elegí quién abre' : `As de Oros: elige ${nameOf(gameState.pendingOrosChoice?.chooserPlayerId)}`;
+    phaseLine = !gameState.pendingOrosChoice
+      ? 'Resolviendo la base…'
+      : canChooseOros
+        ? 'As de Oros: elegí quién abre'
+        : `As de Oros: elige ${nameOf(gameState.pendingOrosChoice.chooserPlayerId)}`;
   }
 
-  const teamCard = (team: AssignedTeam) => {
+  const column = (team: AssignedTeam) => {
     const bid = bidOf(team);
     const won = gameState?.basesWon[team] ?? 0;
     const acting =
       (gameState?.phase === 'bidding' && teamOfPlayer(gameState.currentBidPlayerId) === team) ||
       (gameState?.phase === 'playing' && teamOfPlayer(gameState.currentTurnPlayerId) === team);
     return (
-      <div className={`team-card ${team === myTeam ? 'mine' : 'rival'} ${acting ? 'acting' : ''}`}>
-        <div className="team-head">
-          <span className="team-rel">{relLabel(team)}</span>
-          <span className="team-abs">{teamName(team)}</span>
-          <span className="team-pts">{gameState?.scores[team] ?? 0}<small> pts</small></span>
+      <div className={`pad-col ${team === myTeam ? 'mine' : 'rival'} ${acting ? 'acting' : ''}`}>
+        <div className="pad-team">
+          {relLabel(team)}
+          <small>{teamName(team)}</small>
         </div>
-        <div className="team-bid">
-          {bid ? (
-            <>
-              pidió <b>{bid.value}</b>
-              {bid.isKamikaze && <span className="kami"> kamikaze</span>} · lleva <b>{won}</b>
-            </>
-          ) : gameState?.phase === 'bidding' ? (
-            'todavía no pidió'
-          ) : (
-            `lleva ${won}`
-          )}
-          <BidPips bid={bid} won={won} />
+        <div className="pad-pts">{gameState?.scores[team] ?? 0}</div>
+        <div className="pad-row">
+          <span>pidió</span>
+          <b>{bid ? bid.value : gameState?.phase === 'bidding' ? '…' : '—'}</b>
+          {bid?.isKamikaze && <span className="kami">kamikaze</span>}
         </div>
-        {hud === 'completo' && <div className="team-foot">kamikazes: {gameState?.kamikazesRemaining[team] ?? 0}</div>}
+        <div className="pad-row">
+          <span>lleva</span>
+          <b>{won}</b>
+        </div>
+        <BidPips bid={bid} won={won} />
+        {hud === 'completo' && <div className="pad-foot">kamikazes {gameState?.kamikazesRemaining[team] ?? 0}</div>}
       </div>
     );
   };
@@ -412,50 +414,50 @@ export function GamePage() {
 
       <header className={`hud hud-${hud}`}>
         {hud !== 'oculto' ? (
-          <div className="hud-block">
-            <div className="hud-title">
-              LA BASE · sala {roomCode || '…'} · ronda {gameState ? gameState.roundIndex + 1 : 0} de {gameState?.structureSequence.length ?? 0}
+          <div className="pad" aria-label="Anotador">
+            <div className="pad-head">
+              <span>Ronda {gameState ? gameState.roundIndex + 1 : 0}<small> de {gameState?.structureSequence.length ?? 0}</small></span>
+              <span>base {Math.min(basesPlayed + (gate ? 0 : 1), maxBases)}<small> de {maxBases}</small></span>
+              <span className="pad-dir" title={gameState?.playDirection === 'horario' ? 'sentido horario' : 'sentido antihorario'}>
+                {gameState?.playDirection === 'horario' ? '↻' : '↺'}
+              </span>
             </div>
-            <div className="hud-line">
-              {maxBases} {maxBases === 1 ? 'base' : 'bases'} en juego · base {Math.min(basesPlayed + (gate ? 0 : 1), maxBases)} de {maxBases}
-              {' · '}
-              {gameState?.playDirection === 'horario' ? 'sentido horario ↻' : 'sentido antihorario ↺'}
+            <div className="pad-cols">
+              {column(myTeam)}
+              {column(rivalTeam)}
             </div>
-            {teamCard(myTeam)}
-            {teamCard(rivalTeam)}
             {hud === 'completo' && (
-              <div className="hud-players">
+              <ul className="pad-players">
                 {roomPlayers.map((p) => {
                   const tags = [
-                    p.id === myId ? 'vos' : '',
                     p.id === gameState?.currentManoPlayerId && gameState?.phase !== 'initial_draw' ? 'mano' : '',
                     p.id === gameState?.currentTurnPlayerId && gameState?.phase === 'playing' ? 'juega' : '',
                     p.id === gameState?.currentBidPlayerId && gameState?.phase === 'bidding' ? 'declara' : '',
                     p.isBot ? 'bot' : '',
-                    p.isConnected ? '' : 'desconectado',
+                    p.isConnected ? '' : 'se fue',
                   ].filter(Boolean);
+                  const ready = gate ? gate.readyPlayerIds.includes(p.id) : null;
                   return (
-                    <div key={p.id} className={`hud-player ${p.team === myTeam ? 'mine' : 'rival'}`}>
-                      <span className="hud-player-name">{p.name}</span>
-                      <span className="dim">{p.handCount ?? 0} cartas</span>
-                      {tags.map((t) => (
-                        <span key={t} className="tag">{t}</span>
-                      ))}
-                      {gate && <span className={gate.readyPlayerIds.includes(p.id) ? 'tag ok' : 'tag'}>{gate.readyPlayerIds.includes(p.id) ? 'listo' : '…'}</span>}
-                    </div>
+                    <li key={p.id} className={p.team === myTeam ? 'mine' : 'rival'}>
+                      <span className="pad-name">{p.id === myId ? `${p.name} (vos)` : p.name}</span>
+                      <span className="pad-hand">{p.handCount ?? 0}</span>
+                      <span className="pad-tags">{tags.join(' · ')}</span>
+                      {ready !== null && <span className={ready ? 'pad-ready ok' : 'pad-ready'}>{ready ? '✓' : '…'}</span>}
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
+            <div className="pad-foot-line">mesa {roomCode || '…'}</div>
           </div>
         ) : (
           <div />
         )}
-        <div className="hud-actions">
-          <button className="hud-btn" onClick={cycleHud} title="Tecla H">hud: {hud === 'basico' ? 'básico' : hud}</button>
-          <button className="hud-btn" onClick={() => setMuted(Boolean(sceneRef.current?.toggleMute()))}>{muted ? 'sonido: no' : 'sonido: sí'}</button>
-          <button className="hud-btn danger" onClick={handleLeaveGame}>salir</button>
-        </div>
+        <nav className="hud-tabs">
+          <button className="hud-tab" onClick={cycleHud} title="Tecla H"><GiScrollUnfurled aria-hidden /> anotador: {hud === 'basico' ? 'básico' : hud === 'completo' ? 'completo' : 'oculto'}</button>
+          <SettingsButton />
+          <button className="hud-tab danger" onClick={handleLeaveGame}><GiExitDoor aria-hidden /> salir</button>
+        </nav>
       </header>
 
       <div className="phase-line">{status || phaseLine}</div>
@@ -566,7 +568,7 @@ export function GamePage() {
       )}
 
       <div className="help-line">
-        H: hud · click en la mesa: mirar / soltar la vista · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom
+        H: anotador · O: ajustes · click en la mesa: mirar / soltar la vista · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom
       </div>
 
       {gameState?.phase === 'bidding' && <BiddingPanel />}
