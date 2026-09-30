@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Card, GameState } from '@la-base/shared';
+import type { Card, GameState, AssignedTeam, Bid } from '@la-base/shared';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 import { useGameEvents } from '../hooks/useGameEvents';
@@ -11,14 +11,23 @@ import { ToastContainer } from './ToastContainer';
 import { TableScene, type TablePlayer } from '../table3d/TableScene';
 
 // First-person 3D table (La Base v2). The table shows every card movement; the non-card phases
-// (initial draw, bidding, ace choices, scoring) are dark minimal overlays over the live table.
+// (initial draw, bidding, ace choices, ready gates, scoring) are dark minimal overlays over it.
+// Teams are always named from YOUR point of view ("Tu equipo" / "Rivales").
 
 type CopasChoice = 'mantener' | 'invertir';
+type HudMode = 'completo' | 'basico' | 'oculto';
+const HUD_MODES: HudMode[] = ['completo', 'basico', 'oculto'];
 
 function teamName(team?: string) {
   if (team === 'nosotros') return 'Nosotros';
   if (team === 'ellos') return 'Ellos';
   return '—';
+}
+
+export function cardName(card: Pick<Card, 'suit' | 'value'>) {
+  if (card.value === 1 && card.suit === 'bastos') return 'ancho de bastos';
+  const n = card.value === 1 ? 'as' : card.value === 10 ? 'sota' : card.value === 11 ? 'caballo' : card.value === 12 ? 'rey' : String(card.value);
+  return `${n} de ${card.suit}`;
 }
 
 /** Who deals this round: the initial draw winner in round 1, otherwise the seat before the Mano. */
@@ -28,6 +37,23 @@ function dealerOf(gs: GameState | null, players: { id: string }[]) {
   const i = players.findIndex((p) => p.id === gs.currentManoPlayerId);
   if (i < 0) return null;
   return players[(i - 1 + players.length) % players.length].id;
+}
+
+/** Declared bases as tokens: filled = already won, hollow = still owed, red = won beyond the bid. */
+function BidPips({ bid, won }: { bid?: Bid; won: number }) {
+  if (!bid) return <span className="pips dim">sin pedido</span>;
+  const extra = Math.max(0, won - bid.value);
+  return (
+    <span className="pips" aria-label={`pidió ${bid.value}, lleva ${won}`}>
+      {Array.from({ length: bid.value }, (_, i) => (
+        <i key={i} className={i < won ? 'pip on' : 'pip'} />
+      ))}
+      {Array.from({ length: extra }, (_, i) => (
+        <i key={`x${i}`} className="pip over" />
+      ))}
+      {bid.value === 0 && extra === 0 && <span className="dim">cero</span>}
+    </span>
+  );
 }
 
 export function GamePage() {
@@ -52,16 +78,35 @@ export function GamePage() {
   const sceneRef = useRef<TableScene | null>(null);
   const [status, setStatus] = useState('');
   const [stamp, setStamp] = useState<{ text: string; key: number } | null>(null);
+  const [announce, setAnnounce] = useState<{ title: string; sub: string; mine: boolean; key: number } | null>(null);
   const [copasAsk, setCopasAsk] = useState<((choice: CopasChoice | null) => void) | null>(null);
   const [muted, setMuted] = useState(false);
+  const [hud, setHud] = useState<HudMode>(() => {
+    try {
+      const v = localStorage.getItem('laBase.hud') as HudMode | null;
+      return v && HUD_MODES.includes(v) ? v : 'completo';
+    } catch {
+      return 'completo';
+    }
+  });
   const myId = currentPlayer?.id || socket?.id || '';
 
   // latest values for socket handlers / scene callbacks
   const latest = useRef({ gameState, roomPlayers, roomCode, playerHand, myId });
   latest.current = { gameState, roomPlayers, roomCode, playerHand, myId };
 
-  const flash = useCallback((text: string) => {
-    setStamp({ text, key: Date.now() });
+  const flash = useCallback((text: string) => setStamp({ text, key: Date.now() }), []);
+
+  const cycleHud = useCallback(() => {
+    setHud((h) => {
+      const next = HUD_MODES[(HUD_MODES.indexOf(h) + 1) % HUD_MODES.length];
+      try {
+        localStorage.setItem('laBase.hud', next);
+      } catch {
+        /* storage unavailable: the mode just won't persist */
+      }
+      return next;
+    });
   }, []);
 
   // ---- mount the scene once
@@ -150,6 +195,10 @@ export function GamePage() {
   useEffect(() => {
     if (!socket) return;
     let prevHandLen = latest.current.playerHand.length;
+    const relative = (team?: string) => {
+      const mine = latest.current.roomPlayers.find((p) => p.id === latest.current.myId)?.team;
+      return team && team === mine ? 'tu equipo' : 'rivales';
+    };
     const onHand = (data: { hand: Card[] }) => {
       const scene = sceneRef.current;
       if (!scene) return;
@@ -166,15 +215,27 @@ export function GamePage() {
     const onCardPlayed = (data: { playerId: string; card: Card }) => sceneRef.current?.cardPlayed(data.playerId, data.card);
     const onBaseResolved = (data: { winner: string; winnerTeam: string; winnerPlayerId?: string }) => {
       const id = data.winnerPlayerId ?? latest.current.roomPlayers.find((p) => p.name === data.winner)?.id;
-      if (id) sceneRef.current?.baseResolved(id);
-      setStatus(`${data.winner} ganó la base (${teamName(data.winnerTeam)})`);
+      // the cards stay on the table (winner glowing) until everybody confirms
+      if (id) sceneRef.current?.markWinner(id);
+    };
+    const onGateReleased = (data: { kind: 'base' | 'round'; winnerPlayerId: string }) => {
+      sceneRef.current?.markWinner(null);
+      sceneRef.current?.baseResolved(data.winnerPlayerId);
     };
     const onBid = (data: { team: string; bidValue: number; isKamikaze: boolean }) => {
+      // game:bidDeclared arrives before the state update: the declarer is still the current bidder
+      const who = latest.current.roomPlayers.find((p) => p.id === latest.current.gameState?.currentBidPlayerId);
+      const rel = relative(data.team);
+      setAnnounce({
+        title: who?.id === latest.current.myId ? `Pedís ${data.bidValue}` : `${who?.name ?? teamName(data.team)} pide ${data.bidValue}`,
+        sub: `${rel === 'tu equipo' ? 'Tu equipo' : 'Rivales'} (${teamName(data.team)})${data.isKamikaze ? ' · KAMIKAZE: todo o nada' : ''}`,
+        mine: rel === 'tu equipo',
+        key: Date.now(),
+      });
       if (data.isKamikaze) {
         sceneRef.current?.moment('truco');
         flash('¡KAMIKAZE!');
       }
-      setStatus(`${teamName(data.team)} pide ${data.bidValue}${data.isKamikaze ? ' (kamikaze)' : ''}`);
     };
     const presence = (kind: 'look' | 'arm' | 'hover') => (data: { playerId: string } & Record<string, unknown>) =>
       sceneRef.current?.presence(kind, data.playerId, data);
@@ -184,6 +245,7 @@ export function GamePage() {
     socket.on('player:hand', onHand);
     socket.on('game:cardPlayed', onCardPlayed);
     socket.on('game:baseResolved', onBaseResolved);
+    socket.on('game:gateReleased', onGateReleased);
     socket.on('game:bidDeclared', onBid);
     socket.on('presence:look', onLook);
     socket.on('presence:arm', onArm);
@@ -192,6 +254,7 @@ export function GamePage() {
       socket.off('player:hand', onHand);
       socket.off('game:cardPlayed', onCardPlayed);
       socket.off('game:baseResolved', onBaseResolved);
+      socket.off('game:gateReleased', onGateReleased);
       socket.off('game:bidDeclared', onBid);
       socket.off('presence:look', onLook);
       socket.off('presence:arm', onArm);
@@ -199,12 +262,38 @@ export function GamePage() {
     };
   }, [socket, flash]);
 
-  // transient status lines fade after a while
+  // transient lines fade after a while
   useEffect(() => {
     if (!status) return;
     const t = window.setTimeout(() => setStatus(''), 2600);
     return () => window.clearTimeout(t);
   }, [status]);
+  useEffect(() => {
+    if (!announce) return;
+    const t = window.setTimeout(() => setAnnounce(null), 3600);
+    return () => window.clearTimeout(t);
+  }, [announce]);
+
+  const gate = gameState?.readyGate ?? null;
+  const iAmReady = Boolean(gate && gate.readyPlayerIds.includes(myId));
+  const handleReady = useCallback(() => {
+    if (!socket || !roomCode) return;
+    socket.emit('game:ready', { roomCode }, (res: { success: boolean; error?: string }) => {
+      if (!res?.success) setStatus(res?.error || 'No se pudo confirmar');
+    });
+  }, [socket, roomCode]);
+
+  // keyboard: H cycles the HUD, Enter confirms a pending gate
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      if (e.key === 'h' || e.key === 'H') cycleHud();
+      if (e.key === 'Enter' && gate && !iAmReady) handleReady();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [cycleHud, gate, iAmReady, handleReady]);
 
   const handleLeaveGame = () => {
     if (socket && roomCode) socket.emit('room:leave', { roomCode });
@@ -230,12 +319,16 @@ export function GamePage() {
     });
   };
 
-  // ---- derived HUD values
+  // ---- derived values, always from YOUR point of view
   const nameOf = (id?: string | null) => roomPlayers.find((p) => p.id === id)?.name || '—';
   const me = roomPlayers.find((p) => p.id === myId);
+  const myTeam: AssignedTeam = me?.team === 'ellos' ? 'ellos' : 'nosotros';
+  const rivalTeam: AssignedTeam = myTeam === 'nosotros' ? 'ellos' : 'nosotros';
+  const relLabel = (team?: string) => (team === myTeam ? 'Tu equipo' : 'Rivales');
+  const teamOfPlayer = (id?: string | null) => roomPlayers.find((p) => p.id === id)?.team;
   const maxBases = gameState ? gameState.structureSequence[gameState.roundIndex] ?? 0 : 0;
   const basesPlayed = (gameState?.basesWon.nosotros || 0) + (gameState?.basesWon.ellos || 0);
-  const bidOf = (team: 'nosotros' | 'ellos') => gameState?.bids.find((b) => b.team === team);
+  const bidOf = (team: AssignedTeam) => gameState?.bids.find((b) => b.team === team);
   const initialDraw = gameState?.initialDraw;
   const isMyDraw = gameState?.phase === 'initial_draw' && !initialDraw?.completed && initialDraw?.currentDrawerPlayerId === myId;
   const canChooseOros = Boolean(gameState?.pendingOrosChoice && gameState.pendingOrosChoice.chooserPlayerId === myId);
@@ -248,25 +341,68 @@ export function GamePage() {
         ? 'Sorteo: sacá una carta del mazo'
         : `Sorteo: saca ${nameOf(initialDraw?.currentDrawerPlayerId)}`;
   } else if (gameState?.phase === 'bidding') {
-    phaseLine = gameState.currentBidPlayerId === myId ? 'Te toca declarar' : `Declara ${nameOf(gameState.currentBidPlayerId)}`;
+    const bidder = gameState.currentBidPlayerId;
+    const first = gameState.bids[0];
+    const already = first ? `${relLabel(first.team)} pidió ${first.value}${first.isKamikaze ? ' (kamikaze)' : ''} · ` : '';
+    phaseLine = already + (bidder === myId ? 'te toca declarar' : `declara ${nameOf(bidder)} (${relLabel(teamOfPlayer(bidder)).toLowerCase()})`);
   } else if (gameState?.phase === 'playing') {
     phaseLine = gameState.currentTurnPlayerId === myId
       ? 'Tu turno — click en una carta, o mantené para llevarla vos'
-      : `Juega ${nameOf(gameState.currentTurnPlayerId)}`;
-  } else if (gameState?.phase === 'base_resolution') {
-    phaseLine = canChooseOros ? 'As de Oros: elegí quién abre' : 'Resolviendo la base…';
+      : `Juega ${nameOf(gameState.currentTurnPlayerId)} (${relLabel(teamOfPlayer(gameState.currentTurnPlayerId)).toLowerCase()})`;
+  } else if (gameState?.phase === 'base_resolution' && !gate) {
+    phaseLine = canChooseOros ? 'As de Oros: elegí quién abre' : `As de Oros: elige ${nameOf(gameState.pendingOrosChoice?.chooserPlayerId)}`;
   }
 
-  const teamRow = (team: 'nosotros' | 'ellos') => {
+  const teamCard = (team: AssignedTeam) => {
     const bid = bidOf(team);
+    const won = gameState?.basesWon[team] ?? 0;
+    const acting =
+      (gameState?.phase === 'bidding' && teamOfPlayer(gameState.currentBidPlayerId) === team) ||
+      (gameState?.phase === 'playing' && teamOfPlayer(gameState.currentTurnPlayerId) === team);
     return (
-      <div className={`hud-team ${team}`}>
-        <span className="hud-team-name">{teamName(team)}</span>
-        <span className="hud-score">{gameState?.scores[team] ?? 0}</span>
-        <span className="hud-bases">
-          {bid ? `pidió ${bid.value}${bid.isKamikaze ? ' ✶' : ''}` : 'sin pedido'} · ganó {gameState?.basesWon[team] ?? 0}
-        </span>
+      <div className={`team-card ${team === myTeam ? 'mine' : 'rival'} ${acting ? 'acting' : ''}`}>
+        <div className="team-head">
+          <span className="team-rel">{relLabel(team)}</span>
+          <span className="team-abs">{teamName(team)}</span>
+          <span className="team-pts">{gameState?.scores[team] ?? 0}<small> pts</small></span>
+        </div>
+        <div className="team-bid">
+          {bid ? (
+            <>
+              pidió <b>{bid.value}</b>
+              {bid.isKamikaze && <span className="kami"> kamikaze</span>} · lleva <b>{won}</b>
+            </>
+          ) : gameState?.phase === 'bidding' ? (
+            'todavía no pidió'
+          ) : (
+            `lleva ${won}`
+          )}
+          <BidPips bid={bid} won={won} />
+        </div>
+        {hud === 'completo' && <div className="team-foot">kamikazes: {gameState?.kamikazesRemaining[team] ?? 0}</div>}
       </div>
+    );
+  };
+
+  const gateWinner = gate ? roomPlayers.find((p) => p.id === gate.winnerPlayerId) : null;
+  const gateCard = gate?.baseCards.find((c) => c.playerId === gate.winnerPlayerId)?.card;
+
+  const roundRow = (team: AssignedTeam) => {
+    const r = gate?.round;
+    if (!r) return null;
+    const bid = r.bids.find((b) => b.team === team);
+    const won = r.basesWon[team];
+    const pts = r.points[team];
+    const met = bid ? bid.value === won : false;
+    return (
+      <tr className={team === myTeam ? 'mine' : 'rival'}>
+        <td>{relLabel(team)} <span className="dim">({teamName(team)})</span></td>
+        <td>{bid ? bid.value : '—'}{bid?.isKamikaze ? ' ✶' : ''}</td>
+        <td>{won}</td>
+        <td className={met ? 'ok' : 'bad'}>{met ? 'cumplió' : 'falló'}</td>
+        <td className={pts >= 0 ? 'ok' : 'bad'}>{pts > 0 ? `+${pts}` : pts}</td>
+        <td><b>{r.totals[team]}</b></td>
+      </tr>
     );
   };
 
@@ -274,27 +410,62 @@ export function GamePage() {
     <div className="table-page">
       <div ref={mountRef} className="table-canvas" />
 
-      <header className="hud">
-        <div className="hud-block">
-          <div className="hud-title">LA BASE · sala {roomCode || '…'}</div>
-          <div className="hud-line">
-            Ronda {gameState ? gameState.roundIndex + 1 : 0}/{gameState?.structureSequence.length ?? 0} · base {Math.min(basesPlayed + 1, maxBases)}/{maxBases}
-            {' · '}
-            {gameState?.playDirection === 'horario' ? 'horario ↻' : 'antihorario ↺'}
+      <header className={`hud hud-${hud}`}>
+        {hud !== 'oculto' ? (
+          <div className="hud-block">
+            <div className="hud-title">
+              LA BASE · sala {roomCode || '…'} · ronda {gameState ? gameState.roundIndex + 1 : 0} de {gameState?.structureSequence.length ?? 0}
+            </div>
+            <div className="hud-line">
+              {maxBases} {maxBases === 1 ? 'base' : 'bases'} en juego · base {Math.min(basesPlayed + (gate ? 0 : 1), maxBases)} de {maxBases}
+              {' · '}
+              {gameState?.playDirection === 'horario' ? 'sentido horario ↻' : 'sentido antihorario ↺'}
+            </div>
+            {teamCard(myTeam)}
+            {teamCard(rivalTeam)}
+            {hud === 'completo' && (
+              <div className="hud-players">
+                {roomPlayers.map((p) => {
+                  const tags = [
+                    p.id === myId ? 'vos' : '',
+                    p.id === gameState?.currentManoPlayerId && gameState?.phase !== 'initial_draw' ? 'mano' : '',
+                    p.id === gameState?.currentTurnPlayerId && gameState?.phase === 'playing' ? 'juega' : '',
+                    p.id === gameState?.currentBidPlayerId && gameState?.phase === 'bidding' ? 'declara' : '',
+                    p.isBot ? 'bot' : '',
+                    p.isConnected ? '' : 'desconectado',
+                  ].filter(Boolean);
+                  return (
+                    <div key={p.id} className={`hud-player ${p.team === myTeam ? 'mine' : 'rival'}`}>
+                      <span className="hud-player-name">{p.name}</span>
+                      <span className="dim">{p.handCount ?? 0} cartas</span>
+                      {tags.map((t) => (
+                        <span key={t} className="tag">{t}</span>
+                      ))}
+                      {gate && <span className={gate.readyPlayerIds.includes(p.id) ? 'tag ok' : 'tag'}>{gate.readyPlayerIds.includes(p.id) ? 'listo' : '…'}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          {teamRow('nosotros')}
-          {teamRow('ellos')}
-          <div className="hud-line dim">
-            Vos: {me?.name || '—'} ({teamName(me?.team)}) · kamikazes N{gameState?.kamikazesRemaining.nosotros ?? '-'} E{gameState?.kamikazesRemaining.ellos ?? '-'}
-          </div>
-        </div>
+        ) : (
+          <div />
+        )}
         <div className="hud-actions">
+          <button className="hud-btn" onClick={cycleHud} title="Tecla H">hud: {hud === 'basico' ? 'básico' : hud}</button>
           <button className="hud-btn" onClick={() => setMuted(Boolean(sceneRef.current?.toggleMute()))}>{muted ? 'sonido: no' : 'sonido: sí'}</button>
           <button className="hud-btn danger" onClick={handleLeaveGame}>salir</button>
         </div>
       </header>
 
       <div className="phase-line">{status || phaseLine}</div>
+
+      {announce && (
+        <div key={announce.key} className={`announce ${announce.mine ? 'mine' : 'rival'}`}>
+          <div className="announce-title">{announce.title}</div>
+          <div className="announce-sub">{announce.sub}</div>
+        </div>
+      )}
 
       {!gameState && (
         <div className="overlay-center">
@@ -311,6 +482,54 @@ export function GamePage() {
           <button className="ritual-btn" disabled={!isMyDraw} onClick={handleInitialDraw}>
             {isMyDraw ? 'sacar carta del mazo' : `esperando a ${nameOf(initialDraw?.currentDrawerPlayerId)}`}
           </button>
+        </div>
+      )}
+
+      {gate && (
+        <div className="overlay-bottom">
+          <div className="gate-panel">
+            {gate.kind === 'base' ? (
+              <>
+                <h2>Base {gate.baseNumber} de {gate.basesInRound}</h2>
+                <p>
+                  La gana <b>{gateWinner?.name ?? '—'}</b>{' '}
+                  <span className={gate.winnerTeam === myTeam ? 'mine' : 'rival'}>({relLabel(gate.winnerTeam).toLowerCase()})</span>
+                  {gateCard && <> con <b>{cardName(gateCard)}</b></>}
+                </p>
+                <p className="dim">
+                  Tu equipo lleva {gameState?.basesWon[myTeam] ?? 0}
+                  {bidOf(myTeam) ? ` (pidió ${bidOf(myTeam)!.value})` : ''} · Rivales llevan {gameState?.basesWon[rivalTeam] ?? 0}
+                  {bidOf(rivalTeam) ? ` (pidieron ${bidOf(rivalTeam)!.value})` : ''}
+                </p>
+              </>
+            ) : (
+              <>
+                <h2>Ronda {(gate.round?.index ?? 0) + 1} terminada</h2>
+                <p className="dim">
+                  Última base: {gateWinner?.name ?? '—'} ({relLabel(gate.winnerTeam).toLowerCase()}){gateCard ? ` con ${cardName(gateCard)}` : ''}
+                </p>
+                <table className="round-table">
+                  <thead>
+                    <tr><th /><th>pidió</th><th>ganó</th><th /><th>puntos</th><th>total</th></tr>
+                  </thead>
+                  <tbody>
+                    {roundRow(myTeam)}
+                    {roundRow(rivalTeam)}
+                  </tbody>
+                </table>
+              </>
+            )}
+            <div className="gate-ready">
+              {roomPlayers.filter((p) => p.isConnected).map((p) => (
+                <span key={p.id} className={gate.readyPlayerIds.includes(p.id) ? 'chip ok' : 'chip'}>
+                  {gate.readyPlayerIds.includes(p.id) ? '✓' : '…'} {p.id === myId ? 'vos' : p.name}
+                </span>
+              ))}
+            </div>
+            <button className="ritual-btn" disabled={iAmReady} onClick={handleReady}>
+              {iAmReady ? 'esperando a los demás…' : gate.kind === 'base' ? 'listo · siguiente base (enter)' : 'listo · repartir (enter)'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -347,7 +566,7 @@ export function GamePage() {
       )}
 
       <div className="help-line">
-        click en la mesa: mirar / soltar la vista · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom (en la mitad lejana te parás)
+        H: hud · click en la mesa: mirar / soltar la vista · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom
       </div>
 
       {gameState?.phase === 'bidding' && <BiddingPanel />}

@@ -1,11 +1,11 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 
 const TEAMS = [
-  { id: 'nosotros', label: '👕 Nosotros', colorStart: '#3b82f6', colorEnd: '#2563eb' },
-  { id: 'random', label: '🎲 Aleatorio', colorStart: '#facc15', colorEnd: '#eab308' },
-  { id: 'ellos', label: '👕 Ellos', colorStart: '#ef4444', colorEnd: '#dc2626' },
+  { id: 'nosotros', label: '👕 Nosotros', colorStart: '#5ea2b0', colorEnd: '#4f7f8a' },
+  { id: 'random', label: '🎲 Aleatorio', colorStart: '#c9a043', colorEnd: '#a88232' },
+  { id: 'ellos', label: '👕 Ellos', colorStart: '#b76d6e', colorEnd: '#8e2a22' },
 ] as const;
 
 function TeamToggleSelector({
@@ -165,6 +165,15 @@ export function RoomWaiting() {
     setCurrentPage('lobby');
   };
 
+  const [botError, setBotError] = useState('');
+  const handleAddBot = () => {
+    if (!socket || !roomCode || !isHost) return;
+    setBotError('');
+    socket.emit('room:addBot', { roomCode }, (res: { success: boolean; error?: string }) => {
+      if (!res?.success) setBotError(res?.error || 'No se pudo agregar el bot');
+    });
+  };
+
   const handleKickPlayer = (playerId: string) => {
     if (!socket || !roomCode || !isHost) return;
     socket.emit('room:kick', {
@@ -180,6 +189,7 @@ export function RoomWaiting() {
         : 'bg-slate-900/10'
     }`}>
       <p className="text-white font-semibold flex-1">{player.name}{isCurrentPlayer && ' (tú)'}</p>
+      {player.isBot && <span className="text-xs text-slate-300 border border-slate-500 rounded px-1">bot</span>}
       <div className="flex items-center gap-2">
         <span className="ml-2">{player.isConnected ? '🟢' : '⚪'}</span>
         {isHost && !isCurrentPlayer && (
@@ -281,6 +291,7 @@ export function RoomWaiting() {
       )}
 
       {/* Actions */}
+      {botError && <p className="max-w-3xl mx-auto mb-2 text-rose-300 text-sm">{botError}</p>}
       <div className="max-w-3xl mx-auto flex gap-3">
         {canGameStart && isHost ? (
           <button
@@ -301,6 +312,16 @@ export function RoomWaiting() {
               : !isHost
               ? 'Esperando al host'
               : 'No disponible'}
+          </button>
+        )}
+
+        {isHost && players.length < 8 && (
+          <button
+            onClick={handleAddBot}
+            title="Agregar un jugador controlado por la computadora"
+            className="px-5 bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-lg transition"
+          >
+            + bot
           </button>
         )}
 

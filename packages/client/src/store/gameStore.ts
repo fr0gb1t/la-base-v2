@@ -9,6 +9,7 @@ export interface RoomPlayer {
   name: string;
   team: string;
   isConnected: boolean;
+  isBot?: boolean;
   handCount?: number;
 }
 

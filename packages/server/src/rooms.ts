@@ -9,6 +9,7 @@ import type { GameStructure } from '@la-base/shared';
 
 export interface RoomPlayer extends Player {
   socketId: string;
+  isBot?: boolean;
   isConnected: boolean;
   lastActivity: Date;
 }

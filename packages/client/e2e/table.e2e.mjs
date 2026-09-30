@@ -34,7 +34,10 @@ async function act(b) {
   if (!st || b.busy || !b.room) return
   b.busy = true
   try {
-    if (st.phase === 'initial_draw' && st.initialDraw?.currentDrawerPlayerId === b.id && !st.initialDraw.completed) {
+    if (st.readyGate && !st.readyGate.readyPlayerIds.includes(b.id)) {
+      await sleep(1200)
+      await emit(b, 'game:ready', { roomCode: b.room })
+    } else if (st.phase === 'initial_draw' && st.initialDraw?.currentDrawerPlayerId === b.id && !st.initialDraw.completed) {
       await sleep(700)
       await emit(b, 'draw:initialCard', { roomCode: b.room })
     } else if (st.phase === 'bidding' && st.currentBidPlayerId === b.id) {
@@ -119,12 +122,10 @@ await clickText('entrar')
 await sleep(1200)
 await shot('room')
 
-for (const name of ['Beto', 'Caro']) {
-  const b = bot(name)
-  await sleep(500)
-  const r = await emit(b, 'room:join', { roomCode: host.room, playerName: name })
-  b.room = host.room
-  log(name, 'joined', r.success)
+for (let i = 0; i < 2; i++) {
+  const r = await emit(host, 'room:addBot', { roomCode: host.room })
+  log('in-app bot', r.success, r.error ?? '')
+  await sleep(400)
 }
 await sleep(800)
 await emit(host, 'game:config', { roomCode: host.room, structure: 'postpandemia', acePowers: { espadas: true, copas: true, oros: true }, kamikazesPerTeam: 2 })
@@ -133,7 +134,7 @@ log('start', started.success, started.error ?? '')
 
 // ---------------- browser plays by itself through the UI ----------------
 const until = Date.now() + Number(secsArg) * 1000
-const shots = { draw: 0, bid: 0, deal: 0, play: 0, collect: 0, round2: 0, ace: 0 }
+const shots = { draw: 0, bid: 0, deal: 0, play: 0, collect: 0, round2: 0, ace: 0, gateBase: 0, gateRound: 0, announce: 0 }
 let lastRound = -1
 while (Date.now() < until) {
   await sleep(350)
@@ -145,12 +146,12 @@ while (Date.now() < until) {
   const t = ui.table
   if (!t) continue
   const round = Number((ui.hud.match(/Ronda (\d+)/) || [])[1] || 0)
-  if (ui.phase.includes('sacá una carta') && (await clickText('sacar carta del mazo'))) {
+  if (ui.phase.toLowerCase().includes('sacá una carta') && (await clickText('sacar carta del mazo'))) {
     await sleep(900)
     if (!shots.draw++) await shot('initial-draw')
     continue
   }
-  if (await page.$('button') && ui.phase.includes('Te toca declarar')) {
+  if (await page.$('button') && ui.phase.toLowerCase().includes('te toca declarar')) {
     if (!shots.bid++) await shot('bidding-panel')
     // first enabled number button, then confirm
     await page.evaluate(() => {
@@ -162,6 +163,15 @@ while (Date.now() < until) {
     await sleep(600)
     continue
   }
+  // ready gate: read it (screenshot the first ones), then confirm
+  if (await page.evaluate(() => Boolean(document.querySelector('.gate-panel button:not([disabled])')))) {
+    const kind = await page.evaluate(() => document.querySelector('.gate-panel h2')?.textContent ?? '')
+    if (kind.includes('Ronda') ? shots.gateRound++ < 2 : shots.gateBase++ < 2) await shot(kind.includes('Ronda') ? 'gate-round' : 'gate-base')
+    await sleep(700)
+    await page.evaluate(() => document.querySelector('.gate-panel button:not([disabled])')?.click())
+    await sleep(500)
+    continue
+  }
   // ace choices: As de Copas (keep/invert) and As de Oros (who opens)
   if (await page.evaluate(() => Boolean(document.querySelector('.ritual-panel')))) {
     if (!shots.ace++) await shot('ace-choice')
@@ -170,7 +180,11 @@ while (Date.now() < until) {
     continue
   }
   if (t.handShown > 0 && !shots.deal++) await shot('dealt')
-  if (t.canPlay && t.queued === 0 && !t.busy && ui.phase.includes('Tu turno')) {
+  if (shots.announce < 2 && (await page.$('.announce'))) {
+    shots.announce++
+    await shot('bid-announce')
+  }
+  if (t.canPlay && t.queued === 0 && !t.busy && ui.phase.toLowerCase().includes('tu turno')) {
     const c = await page.evaluate(() => window.__table.vmScreen(0))
     if (c.visible) {
       await page.mouse.move(c.x, c.y)

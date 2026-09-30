@@ -57,6 +57,8 @@ const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 
 const seg = (t: number, a: number, b: number) => THREE.MathUtils.clamp((t - a) / (b - a), 0, 1)
 const quatOf = (rx: number, yaw: number, roll = 0) => new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, yaw, roll, 'YXZ'))
 const now = () => performance.now() / 1000
+const CARD_Y_REST = TABLE_Y + 0.004
+const CARD_Y_WIN = TABLE_Y + 0.014
 
 export class TableScene {
   private renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' })
@@ -124,6 +126,7 @@ export class TableScene {
 
   private zoneFx: THREE.Mesh[] = []
   private turnSeat = -1
+  private winnerSeat = -1 // base resolved, waiting for everyone to confirm: the winning card glows
   private raycaster = new THREE.Raycaster()
   private backTex = toTexture(drawBack())
 
@@ -207,6 +210,11 @@ export class TableScene {
     const s = this.seatOf(playerId)
     if (s < 0) return
     this.enqueue(() => this.animateRemotePlay(s, card))
+  }
+
+  /** Highlight the winning card while the table waits for everyone to confirm (null = clear). */
+  markWinner(playerId: string | null) {
+    this.winnerSeat = playerId ? this.seatOf(playerId) : -1
   }
 
   baseResolved(winnerId: string) {
@@ -550,6 +558,7 @@ export class TableScene {
   }
 
   private async animateCollect(w: number) {
+    this.winnerSeat = -1
     const cards = [...this.onTable.values()]
     this.onTable.clear()
     const stackAt = playSlot(w, this.n).pos
@@ -946,13 +955,25 @@ export class TableScene {
     this.updateRemoteArms()
     if (this.lamp.update(time)) lampBuzz(new THREE.Vector3(0, 1.67, 0))
 
-    // turn: the dotted zone of whoever must play glows; yours pulses and brightens under your card
+    // turn: the dotted zone of whoever must play glows; yours pulses and brightens under your card.
+    // After a base, the winner's zone burns amber and their card lifts until everyone confirms.
     const ready = this.localReady()
     this.zoneFx.forEach((z, s) => {
+      const mat = z.material as THREE.MeshBasicMaterial
+      const card = this.onTable.get(s)
+      if (s === this.winnerSeat) {
+        z.visible = true
+        mat.color.set(hex(PALETTE.amber)).multiplyScalar(2.2)
+        mat.opacity = 0.7 + 0.3 * Math.sin(time * 5)
+        if (card) card.root.position.y = CARD_Y_WIN + Math.sin(time * 3) * 0.003
+        return
+      }
+      if (card && card.root.position.y > CARD_Y_REST + 0.001) card.root.position.y = CARD_Y_REST
+      mat.color.set(hex(PALETTE.chalk)).multiplyScalar(1.6)
       const mine = s === 0 && ready
       z.visible = mine || (s === this.turnSeat && s !== 0)
       const over = mine && this.drag && this.inZone(this.drag.view.root.position)
-      ;(z.material as THREE.MeshBasicMaterial).opacity = over ? 1 : mine ? 0.25 + 0.15 * Math.sin(time * 4) : 0.18
+      mat.opacity = over ? 1 : mine ? 0.25 + 0.15 * Math.sin(time * 4) : 0.18
     })
 
     const ts = Math.floor(time * 15) / 15

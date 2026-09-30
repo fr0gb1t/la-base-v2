@@ -51,6 +51,7 @@ export function createGameState(
       ellos: 0,
     },
     lastBaseWinnerPlayerId: null,
+    readyGate: null,
     kamikazeTeam: null,
     initialDraw: null,
   };

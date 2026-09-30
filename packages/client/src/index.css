@@ -97,31 +97,6 @@ button {
   opacity: 0.6;
 }
 
-.hud-team {
-  display: grid;
-  grid-template-columns: 5.5em 2.5em 1fr;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.hud-team.nosotros .hud-team-name {
-  color: var(--teal);
-}
-
-.hud-team.ellos .hud-team-name {
-  color: var(--rose);
-}
-
-.hud-score {
-  font-size: 26px;
-  color: var(--bone);
-  text-align: right;
-}
-
-.hud-bases {
-  opacity: 0.75;
-}
-
 .hud-actions {
   display: flex;
   gap: 8px;
@@ -296,4 +271,294 @@ button {
     animation-duration: 0.01s;
     opacity: 1;
   }
+}
+
+/* ---------------- scoreboard (always from the viewer's point of view) ---------------- */
+
+.hud.hud-basico .hud-block {
+  max-width: min(360px, 60vw);
+}
+
+.team-card {
+  margin-top: 6px;
+  padding: 6px 10px 7px;
+  background: rgba(11, 9, 8, 0.72);
+  border-left: 3px solid var(--rose);
+  pointer-events: none;
+}
+
+.team-card.mine {
+  border-left-color: var(--teal);
+}
+
+.team-card.acting {
+  box-shadow: inset 0 0 0 1px rgba(255, 197, 138, 0.35);
+}
+
+.team-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.team-rel {
+  font-size: 22px;
+  color: var(--bone);
+}
+
+.team-card.mine .team-rel {
+  color: var(--teal);
+}
+
+.team-card.rival .team-rel {
+  color: var(--rose);
+}
+
+.team-abs {
+  opacity: 0.5;
+}
+
+.team-pts {
+  margin-left: auto;
+  font-size: 28px;
+  color: var(--bone);
+}
+
+.team-pts small {
+  font-size: 16px;
+  opacity: 0.6;
+}
+
+.team-bid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 20px;
+}
+
+.team-bid b {
+  color: var(--bone);
+  font-weight: normal;
+  font-size: 24px;
+}
+
+.kami {
+  color: #d23a2a;
+}
+
+.team-foot {
+  opacity: 0.5;
+  font-size: 16px;
+}
+
+.pips {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.pip {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--chalk);
+  opacity: 0.8;
+}
+
+.pip.on {
+  background: var(--chalk);
+}
+
+.pip.over {
+  border-color: #d23a2a;
+  background: #d23a2a;
+}
+
+.dim {
+  opacity: 0.55;
+}
+
+.hud-players {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 17px;
+}
+
+.hud-player {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.hud-player-name {
+  min-width: 7em;
+}
+
+.hud-player.mine .hud-player-name {
+  color: var(--teal);
+}
+
+.hud-player.rival .hud-player-name {
+  color: var(--rose);
+}
+
+.tag {
+  border: 1px solid rgba(207, 198, 168, 0.35);
+  padding: 0 4px;
+  font-size: 15px;
+  opacity: 0.85;
+}
+
+.tag.ok {
+  border-color: var(--led);
+  color: var(--led);
+}
+
+/* ---------------- bid announcement ---------------- */
+
+.announce {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  transform: translateX(-50%);
+  z-index: 35;
+  text-align: center;
+  pointer-events: none;
+  animation: announce 3.6s ease-out forwards;
+  text-shadow: 0 0 18px #000, 3px 3px 0 #000;
+}
+
+.announce-title {
+  font-family: var(--font-sc);
+  font-size: clamp(40px, 6vw, 78px);
+  color: var(--bone);
+}
+
+.announce.mine .announce-title {
+  color: var(--teal);
+}
+
+.announce.rival .announce-title {
+  color: var(--rose);
+}
+
+.announce-sub {
+  font-family: var(--font-term);
+  font-size: 26px;
+  color: var(--chalk);
+}
+
+@keyframes announce {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px) scale(1.15);
+  }
+  10% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---------------- ready gate ---------------- */
+
+.gate-panel {
+  pointer-events: auto;
+  background: rgba(11, 9, 8, 0.86);
+  border: 1px solid rgba(207, 198, 168, 0.35);
+  box-shadow: 0 0 0 4px rgba(11, 9, 8, 0.6), 0 20px 60px #000;
+  padding: 14px 22px 16px;
+  max-width: min(620px, 94vw);
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.gate-panel h2 {
+  font-size: 28px;
+  color: var(--bone);
+}
+
+.gate-panel p {
+  margin: 4px 0;
+  color: var(--chalk);
+  font-size: 19px;
+}
+
+.gate-panel b {
+  color: var(--bone);
+}
+
+.gate-panel .mine {
+  color: var(--teal);
+}
+
+.gate-panel .rival {
+  color: var(--rose);
+}
+
+.round-table {
+  margin: 8px auto 4px;
+  border-collapse: collapse;
+  font-family: var(--font-term);
+  font-size: 20px;
+  color: var(--chalk);
+}
+
+.round-table th {
+  font-weight: normal;
+  opacity: 0.55;
+  padding: 0 10px;
+}
+
+.round-table td {
+  padding: 2px 10px;
+  border-top: 1px solid rgba(207, 198, 168, 0.15);
+}
+
+.round-table tr.mine td:first-child {
+  color: var(--teal);
+}
+
+.round-table tr.rival td:first-child {
+  color: var(--rose);
+}
+
+.round-table .ok {
+  color: var(--led);
+}
+
+.round-table .bad {
+  color: #d23a2a;
+}
+
+.gate-ready {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 10px 0;
+  font-family: var(--font-term);
+  font-size: 18px;
+}
+
+.chip {
+  border: 1px solid rgba(207, 198, 168, 0.3);
+  padding: 1px 8px;
+  color: var(--chalk);
+  opacity: 0.7;
+}
+
+.chip.ok {
+  border-color: var(--led);
+  color: var(--led);
+  opacity: 1;
 }

@@ -64,6 +64,30 @@ export type InitialDrawState = {
   completed: boolean;
 };
 
+/**
+ * Ready gate (v2): after every base (kind 'base') and every round (kind 'round') the game waits
+ * until every connected player confirms, so everybody can read what happened. The base's cards
+ * stay on the table meanwhile. For 'round', `round` summarises the round that just ended.
+ */
+export type RoundSummary = {
+  index: number;
+  bids: Bid[];
+  basesWon: Record<AssignedTeam, number>;
+  points: Record<AssignedTeam, number>;
+  totals: Record<AssignedTeam, number>;
+};
+
+export type ReadyGate = {
+  kind: 'base' | 'round';
+  readyPlayerIds: string[];
+  baseCards: PlayedCard[];
+  winnerPlayerId: string;
+  winnerTeam: AssignedTeam;
+  baseNumber: number;
+  basesInRound: number;
+  round?: RoundSummary;
+};
+
 export type GamePhase =
   | 'lobby'
   | 'config'
@@ -94,6 +118,7 @@ export type GameState = {
   lastBaseWinnerPlayerId: string | null;
   kamikazeTeam: AssignedTeam | null;
   initialDraw: InitialDrawState | null;
+  readyGate?: ReadyGate | null;
 };
 
 export type GameConfig = {

@@ -25,7 +25,8 @@ export function RoundScoringPanel() {
     return () => window.clearTimeout(t);
   }, [roundScore, gameOver, setRoundScore]);
 
-  if (!roundScore && !gameOver) {
+  // v2: the round summary lives in the table's ready-gate panel; this component only shows game over
+  if (!gameOver) {
     return null;
   }
 

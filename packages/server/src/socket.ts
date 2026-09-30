@@ -4,6 +4,7 @@
 
 import type { Server as SocketIOServer, Socket } from 'socket.io';
 import { roomManager } from './rooms.js';
+import { BOT_TOKEN, botNameFor, spawnBot } from './bots.js';
 import type { RoomPlayer } from './rooms.js';
 import { cardRank, type GameState, type Card } from '@la-base/shared';
 import {
@@ -32,6 +33,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
       name: p.name,
       team: p.team,
       isConnected: p.isConnected,
+      isBot: Boolean(p.isBot),
       handCount: p.hand.length,
     }));
 
@@ -141,6 +143,16 @@ export function setupSocketHandlers(io: SocketIOServer) {
       });
 
       const maxBases = room.gameState.structureSequence[room.gameState.roundIndex];
+      const basesPlayed = room.gameState.basesWon.nosotros + room.gameState.basesWon.ellos;
+      const gateBase = {
+        readyPlayerIds: [] as string[],
+        baseCards: [...room.gameState.currentBaseCards],
+        winnerPlayerId: winner.id,
+        winnerTeam: winnerTeam as 'nosotros' | 'ellos',
+        baseNumber: basesPlayed,
+        basesInRound: maxBases,
+      };
+
       if (isRoundComplete(room.gameState, maxBases)) {
         const { nosotrosScore, ellosScore } = scoreRound(room.gameState);
         const kamikazeViolation = checkKamikazeViolation(room.gameState);
@@ -179,46 +191,73 @@ export function setupSocketHandlers(io: SocketIOServer) {
           return { success: true };
         }
 
+        // v2: wait until everybody has read the round before dealing the next one
+        room.gameState.readyGate = {
+          kind: 'round',
+          ...gateBase,
+          round: {
+            index: room.gameState.roundIndex,
+            bids: [...room.gameState.bids],
+            basesWon: { ...room.gameState.basesWon },
+            points: { nosotros: nosotrosScore, ellos: ellosScore },
+            totals: { ...room.gameState.scores },
+          },
+        };
+        room.gameState.phase = 'round_scoring';
+        io.to(roomCode).emit('game:state', room.gameState);
+        return { success: true };
+      }
+
+      // v2: wait until everybody has seen the base (cards stay on the table)
+      room.gameState.readyGate = { kind: 'base', ...gateBase };
+      room.gameState.phase = 'base_resolution';
+      io.to(roomCode).emit('game:state', room.gameState);
+      return { success: true };
+    };
+
+    /** Everyone confirmed: collect the base and go on (Oros choice, next base, or next round). */
+    const releaseReadyGate = (roomCode: string) => {
+      const room = roomManager.getRoom(roomCode);
+      const gate = room?.gameState?.readyGate;
+      if (!room || !room.gameState || !gate) return;
+      room.gameState.readyGate = null;
+      io.to(roomCode).emit('game:gateReleased', { kind: gate.kind, winnerPlayerId: gate.winnerPlayerId });
+
+      if (gate.kind === 'round') {
         resetRoundState(room.gameState);
         room.gameState.phase = 'bidding';
         room.gameState.currentTurnPlayerId = room.gameState.currentManoPlayerId;
         room.gameState.currentBidPlayerId = room.gameState.currentManoPlayerId;
         dealCurrentRound(room);
-
-        io.to(roomCode).emit('room:updated', {
-          players: publicRoomPlayers(room.players),
-        });
-
-        io.to(roomCode).emit('game:roundComplete', {
-          nextRound: room.gameState.roundIndex,
-        });
+        io.to(roomCode).emit('room:updated', { players: publicRoomPlayers(room.players) });
+        io.to(roomCode).emit('game:roundComplete', { nextRound: room.gameState.roundIndex });
         io.to(roomCode).emit('game:state', room.gameState);
-        return { success: true };
+        return;
       }
 
-      const asOrosCard = room.gameState.currentBaseCards.find(
-        (played) => played.card.suit === 'oros' && played.card.value === 1
-      );
-      const asOrosPlayer = asOrosCard
-        ? room.players.find((player) => player.id === asOrosCard.playerId)
-        : null;
-
-      if (room.gameState.acePowers.oros && asOrosPlayer && asOrosPlayer.team === winnerTeam) {
+      const asOrosCard = gate.baseCards.find((played) => played.card.suit === 'oros' && played.card.value === 1);
+      const asOrosPlayer = asOrosCard ? room.players.find((player) => player.id === asOrosCard.playerId) : null;
+      if (room.gameState.acePowers.oros && asOrosPlayer && asOrosPlayer.team === gate.winnerTeam) {
         room.gameState.pendingOrosChoice = {
           chooserPlayerId: asOrosPlayer.id,
           team: asOrosPlayer.team,
-          options: room.players
-            .filter((player) => player.team === asOrosPlayer.team)
-            .map((player) => player.id),
+          options: room.players.filter((player) => player.team === asOrosPlayer.team).map((player) => player.id),
         };
+        room.gameState.currentBaseCards = [];
         room.gameState.phase = 'base_resolution';
         io.to(roomCode).emit('game:state', room.gameState);
-        return { success: true };
+        return;
       }
-
       continueAfterBaseResolution(roomCode);
+    };
 
-      return { success: true };
+    /** Release the gate when every connected player is ready (disconnected players never block it). */
+    const checkReadyGate = (roomCode: string) => {
+      const room = roomManager.getRoom(roomCode);
+      const gate = room?.gameState?.readyGate;
+      if (!room || !gate) return;
+      const pending = room.players.filter((p) => p.isConnected && !gate.readyPlayerIds.includes(p.id));
+      if (pending.length === 0) releaseReadyGate(roomCode);
     };
 
     /**
@@ -257,10 +296,12 @@ export function setupSocketHandlers(io: SocketIOServer) {
     /**
      * room:join - Join an existing room
      */
-    socket.on('room:join', (payload: { roomCode: string; playerName: string }, callback) => {
+    socket.on('room:join', (payload: { roomCode: string; playerName: string; isBot?: boolean }, callback) => {
       try {
         const playerId = socket.id;
         const player = roomManager.joinRoom(payload.roomCode, playerId, payload.playerName, socket.id);
+        // only our own in-process bots (holding the startup secret) may flag themselves as bots
+        if (player && payload.isBot && socket.handshake.auth?.botToken === BOT_TOKEN) player.isBot = true;
 
         if (!player) {
           console.log(`[room:join] FAILED: Cannot join room ${payload.roomCode}`);
@@ -297,6 +338,32 @@ export function setupSocketHandlers(io: SocketIOServer) {
       } catch (err) {
         console.log(`[room:join] ERROR:`, (err as Error).message);
         callback({ success: false, error: (err as Error).message });
+      }
+    });
+
+    /**
+     * room:addBot - Host adds an in-app bot to the room (before the game starts)
+     */
+    socket.on('room:addBot', async (payload: { roomCode: string }, callback?: (res: { success: boolean; error?: string }) => void) => {
+      try {
+        const room = roomManager.getRoom(payload?.roomCode);
+        const requester = room?.players.find((p) => p.socketId === socket.id);
+        if (!room || !requester || room.host !== requester.id) {
+          callback?.({ success: false, error: 'Sólo el anfitrión puede agregar bots' });
+          return;
+        }
+        if (room.gameState) {
+          callback?.({ success: false, error: 'La partida ya empezó' });
+          return;
+        }
+        if (room.players.length >= room.maxPlayers) {
+          callback?.({ success: false, error: 'La sala está llena' });
+          return;
+        }
+        const name = botNameFor(room.roomCode, room.players.map((p) => p.name));
+        callback?.(await spawnBot(room.roomCode, name));
+      } catch (err) {
+        callback?.({ success: false, error: (err as Error).message });
       }
     });
 
@@ -1031,6 +1098,27 @@ export function setupSocketHandlers(io: SocketIOServer) {
     });
 
     /**
+     * game:ready - A player confirms they saw the base/round result (v2 ready gate)
+     */
+    socket.on('game:ready', (payload: { roomCode: string }, callback?: (res: { success: boolean; error?: string }) => void) => {
+      try {
+        const room = roomManager.getRoom(payload?.roomCode);
+        const gate = room?.gameState?.readyGate;
+        const player = room?.players.find((p) => p.socketId === socket.id);
+        if (!room || !gate || !player) {
+          callback?.({ success: false, error: 'No hay nada que confirmar' });
+          return;
+        }
+        if (!gate.readyPlayerIds.includes(player.id)) gate.readyPlayerIds.push(player.id);
+        io.to(room.roomCode).emit('game:state', room.gameState);
+        callback?.({ success: true });
+        checkReadyGate(room.roomCode);
+      } catch (err) {
+        callback?.({ success: false, error: (err as Error).message });
+      }
+    });
+
+    /**
      * Presence relay (v2 3D table): where each player looks, their card hand/arm and hovered card.
      * Purely cosmetic: never game state, never card identities. Validated, clamped and rate-limited.
      */
@@ -1077,6 +1165,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
         const player = room.players.find((p) => p.socketId === socket.id);
         if (player) {
           roomManager.disconnectPlayer(room.roomCode, player.id);
+          checkReadyGate(room.roomCode);
           io.to(room.roomCode).emit('room:playerDisconnected', {
             playerId: player.id,
             playerName: player.name,
