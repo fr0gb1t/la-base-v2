@@ -55,6 +55,7 @@ export interface InkOpts {
   hatchAngle?: number // radians; lines run along this direction
   hatchFrom?: number // 0..1 across the shape's width where shadow starts (0.55 = right 45%)
   cross?: boolean // add a second hatch layer for the deepest darks
+  highlight?: number // white-line engraving on the lit (left) side, for dark masses: line spacing
 }
 
 /** Outline a filled contour: thin everywhere, heavier on the shadow (right) side. */
@@ -77,7 +78,7 @@ function inkOutline(g: CanvasRenderingContext2D, pts: V[], o: InkOpts, closed = 
 }
 
 /** Parallel, slightly curved hatching inside a contour, only on the shadow side. */
-export function hatchInside(g: CanvasRenderingContext2D, pts: V[], spacing: number, angle = 1.1, from = 0.55, alpha = 0.75) {
+export function hatchInside(g: CanvasRenderingContext2D, pts: V[], spacing: number, angle = 1.1, from = 0.55, alpha = 0.75, rgb = '20,14,12', side: 'right' | 'left' = 'right') {
   const xs = pts.map((p) => p.x)
   const ys = pts.map((p) => p.y)
   const x0 = Math.min(...xs)
@@ -89,9 +90,10 @@ export function hatchInside(g: CanvasRenderingContext2D, pts: V[], spacing: numb
   path(g, pts)
   g.clip()
   g.beginPath()
-  g.rect(sx, y0 - 2, x1 - sx + 4, y1 - y0 + 4)
+  if (side === 'right') g.rect(sx, y0 - 2, x1 - sx + 4, y1 - y0 + 4)
+  else g.rect(x0 - 4, y0 - 2, sx - x0 + 4, y1 - y0 + 4)
   g.clip()
-  g.strokeStyle = `rgba(20,14,12,${alpha})`
+  g.strokeStyle = `rgba(${rgb},${alpha})`
   g.lineWidth = 0.7
   const dx = Math.cos(angle)
   const dy = Math.sin(angle)
@@ -118,6 +120,7 @@ export function shape(g: CanvasRenderingContext2D, pts: V[], fill: string, o: In
   path(g, c)
   g.fillStyle = fill
   g.fill()
+  if (o.highlight) hatchInside(g, c, o.highlight, (o.hatchAngle ?? 1.1) + 0.25, 0.42, 0.42, '236,223,194', 'left')
   if (o.hatch) {
     hatchInside(g, c, o.hatch, o.hatchAngle ?? 1.1, o.hatchFrom ?? 0.55)
     if (o.cross) hatchInside(g, c, o.hatch * 1.4, (o.hatchAngle ?? 1.1) - 1.3, (o.hatchFrom ?? 0.55) + 0.2, 0.5)
@@ -173,7 +176,12 @@ export function limb(
   path(g, outline)
   g.fillStyle = fill
   g.fill()
-  if (o.hatch) hatchInside(g, outline, o.hatch, o.hatchAngle ?? 1.1, o.hatchFrom ?? 0.55)
+  // cross-contour hatching as a band hugging the shadow-side contour (it wraps the limb and fades
+  // in from the root like the contour) — never a clipped block, which reads as a pasted patch
+  const rightIsShadow = right.reduce((a, p) => a + p.x, 0) > left.reduce((a, p) => a + p.x, 0)
+  const ramp0 = o.closedRoot ? 0 : o.ramp ?? 0.28
+  if (o.hatch) bandHatch(g, rightIsShadow ? right : left, rightIsShadow ? left : right, o.hatch, 0.4, ramp0, 'rgba(20,14,12,0.75)')
+  if (o.highlight) bandHatch(g, rightIsShadow ? left : right, rightIsShadow ? right : left, o.highlight, 0.34, ramp0, 'rgba(236,223,194,0.45)')
   if (o.closedRoot) {
     inkOutline(g, outline, o)
     return outline
@@ -182,7 +190,7 @@ export function limb(
   // contours emerge gradually (tapered from zero), so the limb reads as part of the body instead
   // of a cut-out laid on top. The heavier contour goes on the side that faces away from the light.
   const ramp = o.ramp ?? 0.28
-  const rightHeavier = right.reduce((a, p) => a + p.x, 0) > left.reduce((a, p) => a + p.x, 0)
+  const rightHeavier = rightIsShadow
   const lw = o.line ?? 1.1
   const sw = o.shadow ?? 2.2
   inkEdge(g, left, rightHeavier ? lw : sw, ramp)
@@ -196,6 +204,35 @@ export function limb(
   g.lineCap = 'round'
   g.stroke()
   return outline
+}
+
+/** Hatch lines across a limb from one edge toward the other, spaced along the edge. */
+function bandHatch(g: CanvasRenderingContext2D, edge: V[], other: V[], spacing: number, depth: number, ramp: number, color: string) {
+  const n = edge.length
+  let acc = spacing
+  g.strokeStyle = color
+  g.lineWidth = 0.7
+  g.lineCap = 'round'
+  for (let i = 1; i < n; i++) {
+    acc += Math.hypot(edge[i].x - edge[i - 1].x, edge[i].y - edge[i - 1].y)
+    if (acc < spacing) continue
+    acc = 0
+    const t = i / (n - 1)
+    const k = ramp > 0 ? Math.min(1, t / ramp) : 1
+    const f = depth * k * k * (3 - 2 * k) * (0.8 + 0.2 * Math.sin(i * 1.7)) // slight irregularity, hand-cut
+    if (f < 0.04) continue
+    const a = edge[i]
+    const b = other[i]
+    const end = v(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f)
+    const mid = v((a.x + end.x) / 2, (a.y + end.y) / 2)
+    // bow toward the root so the line wraps around the cylinder
+    const j = Math.max(0, i - 2)
+    const bow = v(mid.x + (edge[j].x - a.x) * 0.35, mid.y + (edge[j].y - a.y) * 0.35)
+    g.beginPath()
+    g.moveTo(a.x, a.y)
+    g.quadraticCurveTo(bow.x, bow.y, end.x, end.y)
+    g.stroke()
+  }
 }
 
 /** A contour line whose width grows from 0 over the first `ramp` fraction (emerging from a mass). */

@@ -213,90 +213,156 @@ export function rey(g: CanvasRenderingContext2D, suit: Suit, pip: PipFn) {
 
 // ------------------------------------------------------------------ Caballo
 
-const HORSE = '#e9ddc4' // an engraved white horse: form comes from the hatching
+// A dark bay: brown coat, black points (mane, tail, lower legs). On a dark mass ink hatching
+// disappears, so its form is cut in with light lines on the lit side (white-line woodcut).
+const HORSE = '#5a3421'
+const HORSE_SHADE = '#3c2216'
+const POINTS = '#1c1410' // black lower legs, mane, tail
+const HL = { highlight: 1.5 }
 
+/**
+ * The knight: a big white horse in a collected parade walk (passage) — high arched neck, head
+ * tucked, near foreleg lifted high — dressed in a caparison down to the knees (scalloped hem,
+ * fringe, embroidered border, the suit on a medallion). The rider sits tall, cape blown back,
+ * holding the suit up; the other hand keeps the reins.
+ */
 export function caballo(g: CanvasRenderingContext2D, suit: Suit, pip: PipFn) {
   const c = SUIT_INK[suit]
-  ground(g, 86, 46)
-  const leg = (pts: V[], w: number[], shade: string) =>
-    limb(g, pts, w, shade, { line: 0.9, shadow: 1.6, hatch: 1.3, hatchFrom: 0.5 })
-  const hoof = (x: number, y: number) => shape(g, [v(x - 4, y - 5), v(x + 3, y - 5), v(x + 4, y), v(x - 6, y)], SOOT, { line: 0.7, shadow: 1 })
-
-  // far legs (behind the body, in shade)
-  leg([v(76, 182), v(73, 202), v(71, 214), v(68, 219)], [9, 6, 4.5, 4.5], '#cbbd9f')
-  hoof(67, 223)
-  leg([v(116, 180), v(120, 199), v(116, 214), v(112, 219)], [11, 6, 4.5, 4.5], '#cbbd9f')
-  hoof(111, 223)
-
-  // tail, flowing
-  shape(g, [v(134, 150), v(142, 158), v(146, 184), v(142, 206), v(136, 208), v(138, 184), v(134, 164)], SOOT, { line: 0.9, shadow: 1.5 })
-  for (let i = 0; i < 4; i++) stroke(g, [v(137 + i, 158), v(141 + i, 182), v(139 + i * 0.5, 204)], 0.5, 'rgba(216,199,160,0.4)')
-
-  // body: withers, dipped back, rounded croup, deep chest, belly rising to the stifle
-  shape(g, [v(94, 144), v(111, 150), v(128, 144), v(140, 158), v(139, 176), v(127, 185), v(104, 189), v(80, 189), v(62, 181), v(55, 165), v(64, 150)], HORSE, { hatch: 1.4, hatchFrom: 0.5, hatchAngle: 1.25 })
-  stroke(g, [v(64, 164), v(72, 178)], 0.6) // shoulder muscle
-  stroke(g, [v(126, 158), v(132, 176)], 0.6) // haunch
-
-  // near hind leg: stifle, gaskin sweeping back to the hock, cannon, sloped pastern
-  leg([v(124, 176), v(131, 199), v(125, 213), v(120, 219)], [15, 6.5, 4.8, 4.8], HORSE)
-  hoof(119, 223)
-
-  // caparison: saddle cloth in the suit colour with a scalloped hem
-  shape(g, [v(92, 146), v(118, 148), v(124, 170), v(119, 184), v(111, 180), v(103, 186), v(95, 181), v(87, 185), v(84, 168)], c, { hatch: 1.5, hatchFrom: 0.55 })
-  stroke(g, [v(86, 176), v(95, 177), v(103, 178), v(112, 176), v(120, 174)], 1, GOLD)
-
-  // neck (arched crest) and head as one wedge: forehead, long muzzle, bony cheek
-  shape(g, [v(97, 147), v(86, 128), v(70, 112), v(54, 102), v(45, 104), v(33, 116), v(22, 128), v(19, 136), v(25, 141), v(36, 137), v(45, 128), v(54, 140), v(62, 157)], HORSE, { hatch: 1.4, hatchFrom: 0.6, hatchAngle: 1.2 })
-  // blend the neck into the chest and shoulder: hide the neck's closing edge (no seam)
-  patch(g, [v(57, 158), v(64, 151), v(84, 146), v(96, 150), v(90, 161), v(70, 164)], HORSE)
-  stroke(g, [v(44, 116), v(46, 126), v(40, 133)], 0.6) // cheekbone
-  shape(g, [v(50, 104), v(52, 90), v(57, 102)], HORSE, { line: 0.8, shadow: 1.2 }) // ear
-  // mane along the crest
-  for (let i = 0; i < 9; i++) {
-    const t = i / 8
-    const x = 54 + t * 40
-    const y = 101 + t * t * 40
-    fold(g, [v(x, y), v(x + 4, y + 7), v(x + 3, y + 13)], 2.4, 0.2, SOOT)
+  ground(g, 90, 50)
+  // legs: coat above the knee/hock, black below (the bay's points)
+  const leg = (pts: V[], w: number[], shade: string) => {
+    limb(g, pts, w, shade, { line: 0.9, shadow: 1.7, hatch: 1.3, hatchFrom: 0.6, ramp: 0.2, ...HL })
+    limb(g, pts.slice(1), w.slice(1), POINTS, { line: 0.9, shadow: 1.7, ramp: 0.5, highlight: 1.8 })
   }
-  // eye and nostril
+  const hoof = (x: number, y: number, dx = 0) => shape(g, [v(x - 4 + dx, y - 5), v(x + 3 + dx, y - 5), v(x + 4, y), v(x - 6, y)], SOOT, { line: 0.7, shadow: 1 })
+
+  // far legs, in shade behind everything
+  leg([v(72, 172), v(69, 196), v(68, 213), v(65, 219)], [11, 7.5, 5.8, 5.8], HORSE_SHADE)
+  hoof(64, 223)
+  leg([v(126, 172), v(134, 195), v(130, 213), v(126, 219)], [13, 7, 5.6, 5.6], HORSE_SHADE)
+  hoof(125, 223)
+
+  // tail: a long flowing mass with strands
+  shape(g, [v(134, 146), v(142, 150), v(148, 168), v(150, 192), v(146, 208), v(140, 206), v(141, 186), v(137, 164)], POINTS, { line: 0.9, shadow: 1.5 })
+  for (let i = 0; i < 5; i++) stroke(g, [v(137 + i * 1.6, 154), v(142 + i * 1.4, 178), v(142 + i, 204)], 0.5, 'rgba(216,199,160,0.35)')
+
+  // body barrel (mostly under the caparison)
+  shape(g, [v(92, 140), v(108, 144), v(124, 139), v(137, 151), v(137, 172), v(126, 182), v(100, 186), v(72, 184), v(55, 172), v(50, 156), v(58, 142)], HORSE, { hatch: 1.4, hatchFrom: 0.6, hatchAngle: 1.25, ...HL })
+
+  // near hind leg under the body: gaskin, hock angled back, cannon, sloped pastern
+  leg([v(114, 170), v(120, 195), v(114, 213), v(110, 219)], [15, 7.5, 5.8, 5.8], HORSE)
+  hoof(109, 223)
+
+  // neck (high, arched crest) and the tucked head, as one mass: poll, forehead, long face, muzzle,
+  // round jowl, throat latch
+  shape(g, [v(94, 142), v(86, 122), v(72, 103), v(59, 90), v(53, 85), v(46, 87), v(40, 99), v(35, 112), v(31, 123), v(33, 130), v(40, 131), v(47, 123), v(52, 111), v(57, 106), v(60, 122), v(58, 140), v(55, 154)], HORSE, { hatch: 1.3, hatchFrom: 0.62, hatchAngle: 1.2, ...HL })
+  patch(g, [v(56, 156), v(60, 146), v(80, 140), v(94, 145), v(88, 158), v(66, 162)], HORSE)
+  // white blaze down the face, jowl and neck muscle cut in light
+  fold(g, [v(44, 90), v(40, 104), v(35, 118), v(33, 126)], 3.2, 2, '#ecdfc2')
+  stroke(g, [v(46, 106), v(51, 115), v(46, 123)], 0.7, 'rgba(236,223,194,0.6)')
+  stroke(g, [v(62, 110), v(66, 126)], 0.6, 'rgba(236,223,194,0.5)')
+  // ears, forelock, eye, nostril, mouth
+  shape(g, [v(52, 86), v(55, 72), v(59, 86)], HORSE, { line: 0.8, shadow: 1.2, highlight: 1.2 })
+  shape(g, [v(47, 86), v(48, 74), v(52, 86)], HORSE_SHADE, { line: 0.7, shadow: 1 })
+  for (let i = 0; i < 4; i++) fold(g, [v(50 + i, 86), v(46 + i * 1.5, 93), v(44 + i * 2, 99)], 1.6, 0.2, POINTS)
+  // eye with a pale rim (so it reads on the dark head), nostril and mouth cut in light
+  g.fillStyle = 'rgba(236,223,194,0.85)'
+  g.beginPath()
+  g.ellipse(46.5, 99, 3, 2.1, 0.9, 0, Math.PI * 2)
+  g.fill()
   g.fillStyle = INK
   g.beginPath()
-  g.ellipse(41, 113, 2.2, 1.4, -0.4, 0, Math.PI * 2)
+  g.ellipse(46.5, 99, 2, 1.4, 0.9, 0, Math.PI * 2)
   g.fill()
-  stroke(g, [v(22, 129), v(25, 131)], 0.9)
-  stroke(g, [v(20, 137), v(26, 138)], 0.6) // mouth
-  // bridle
-  stroke(g, [v(50, 104), v(38, 128), v(26, 134)], 0.9, BLOOD)
-  stroke(g, [v(34, 118), v(44, 112)], 0.9, BLOOD)
+  stroke(g, [v(32, 121), v(35, 124)], 1, 'rgba(236,223,194,0.8)')
+  stroke(g, [v(33, 128.5), v(38, 128)], 0.7, 'rgba(236,223,194,0.7)')
+  // mane falling on the near side of the crest
+  for (let i = 0; i < 11; i++) {
+    const t = i / 10
+    const x = 58 + t * 34
+    const y = 90 + t * t * 44 + t * 4
+    fold(g, [v(x, y), v(x + 5, y + 8), v(x + 3, y + 16)], 2.6, 0.2, POINTS)
+  }
+  // bridle with a rosette, bit
+  stroke(g, [v(55, 88), v(46, 111), v(35, 125)], 1.2, GOLD)
+  stroke(g, [v(40, 97), v(52, 94)], 1.2, GOLD)
+  stroke(g, [v(43, 120), v(56, 104)], 1.1, GOLD)
+  g.fillStyle = BLOOD
+  g.beginPath()
+  g.arc(47, 111, 2.4, 0, Math.PI * 2)
+  g.fill()
 
-  // near foreleg lifted mid-stride: forearm forward, knee bent, cannon folded back
-  leg([v(66, 178), v(55, 196), v(62, 208), v(58, 214)], [11, 6.5, 4.8, 4.8], HORSE)
-  shape(g, [v(54, 212), v(61, 212), v(62, 218), v(53, 218)], SOOT, { line: 0.7, shadow: 1 })
+  // caparison: a cloth over the body down to the knees, scalloped hem, embroidered border, fringe
+  const hem: V[] = []
+  for (let x = 139; x >= 52; x -= 7.25) hem.push(v(x, 181 + (Math.round((139 - x) / 7.25) % 2 ? 5 : 0)))
+  const cap = shape(g, [v(56, 150), v(66, 142), v(84, 137), v(104, 139), v(122, 136), v(136, 144), v(140, 162), ...hem, v(52, 168)], c, { hatch: 1.5, hatchFrom: 0.6, hatchAngle: 1.3 })
+  void cap
+  // pipe folds hanging from the back
+  for (const x of [70, 84, 100, 118, 130]) fold(g, [v(x, 146), v(x + 1, 164), v(x - 1, 180)], 1.3, 0.2)
+  // embroidered border along the hem + gold stitches
+  stroke(g, hem.map((p) => v(p.x, p.y - 5)), 3, BLOOD)
+  g.fillStyle = GOLD
+  hem.forEach((p) => {
+    g.beginPath()
+    g.arc(p.x, p.y - 5, 0.9, 0, Math.PI * 2)
+    g.fill()
+  })
+  // fringe
+  for (let x = 54; x < 139; x += 2.4) stroke(g, [v(x, 182 + (Math.round((139 - x) / 7.25) % 2 ? 4 : 0)), v(x, 187 + (Math.round((139 - x) / 7.25) % 2 ? 4 : 0))], 0.5, GOLD)
+  // medallion with the suit on the flank
+  g.save()
+  g.beginPath()
+  g.arc(118, 160, 11, 0, Math.PI * 2)
+  g.fillStyle = WHITE
+  g.fill()
+  g.lineWidth = 1.6
+  g.strokeStyle = INK
+  g.stroke()
+  g.restore()
+  hold(g, pip, suit, 118, 160, suit === 'espadas' || suit === 'bastos' ? 7 : 6.5, suit === 'espadas' || suit === 'bastos' ? 0.6 : 0)
+  // saddle
+  shape(g, [v(86, 136), v(96, 131), v(112, 134), v(116, 140), v(90, 142)], SOOT, { line: 0.8, shadow: 1.3 })
 
-  // rider: near leg down the flank to the stirrup
-  limb(g, [v(104, 148), v(92, 166), v(96, 188)], [11, 7, 5.5], BLOOD, { bulges: [{ at: 1.3, amount: 1.5, side: 1 }], hatch: 1.4, hatchFrom: 0.5 })
-  shape(g, [v(92, 184), v(100, 184), v(100, 194), v(88, 195), v(88, 190)], SOOT, { line: 0.8, shadow: 1.3 }) // boot
-  stroke(g, [v(98, 176), v(96, 195)], 0.8, GOLD) // stirrup leather
+  // near foreleg raised high (passage): forearm forward, knee bent, cannon hanging, hoof curled
+  leg([v(62, 172), v(46, 186), v(47, 203), v(52, 209)], [12, 8, 5.8, 5.2], HORSE) // passage: raised
+  shape(g, [v(49, 206), v(56, 206), v(57, 212), v(50, 213)], SOOT, { line: 0.7, shadow: 1 })
 
-  // torso, upright, with a short skirt over the saddle
-  shape(g, [v(96, 112), v(106, 112), v(110, 128), v(109, 146), v(98, 150), v(94, 132)], c, { hatch: 1.4, hatchFrom: 0.55 })
-  shape(g, [v(94, 140), v(111, 140), v(114, 152), v(92, 152)], BLOOD, { line: 0.8, shadow: 1.2 })
-  // rein arm
-  limb(g, [v(106, 116), v(110, 132), v(98, 138)], [8, 6.5, 5], c, { hatch: 1.4, hatchFrom: 0.4 })
-  hand(g, v(98, 138), Math.PI, 6, SKIN, true)
-  stroke(g, [v(94, 138), v(60, 132), v(28, 132)], 0.8, BLOOD) // reins
-
-  // head, plumed hat
-  shape(g, [v(96, 92), v(108, 92), v(110, 104), v(104, 108), v(100, 100)], SOOT, { line: 0.8, shadow: 1.2 }) // hair
-  head(g, 102, 101, 16, { skin: SKIN })
-  shape(g, [v(92, 94), v(99, 89), v(110, 89), v(114, 93), v(104, 95)], BLOOD, { line: 0.9, shadow: 1.5 })
-  fold(g, [v(108, 90), v(118, 80), v(126, 76)], 2.6, 0.5, WHITE)
-  stroke(g, [v(108, 90), v(118, 80), v(126, 76)], 0.5)
-
-  // raised arm with the suit symbol
-  limb(g, [v(98, 114), v(86, 102), v(80, 86)], [8, 6.5, 5], c, { hatch: 1.4, hatchFrom: 0.5 })
-  hand(g, v(80, 86), -Math.PI / 2 - 0.25, 6, SKIN, true)
-  if (suit === 'espadas') hold(g, pip, suit, 77, 58, 14, -0.15)
-  else if (suit === 'bastos') hold(g, pip, suit, 76, 66, 13, -0.2)
-  else hold(g, pip, suit, 78, 72, 10)
+  // rider: cape blown back over the croup (diaper fold between the shoulders and the wind)
+  shape(g, [v(100, 104), v(114, 104), v(132, 114), v(146, 128), v(140, 140), v(128, 136), v(112, 130)], BLOOD, { hatch: 1.5, hatchFrom: 0.4, hatchAngle: 1.5 })
+  fold(g, [v(114, 108), v(130, 122), v(140, 134)], 1.3, 0.2)
+  // near leg: thigh along the flank, knee, shin to the stirrup, boot
+  limb(g, [v(102, 136), v(88, 152), v(92, 172)], [12, 8, 6.5], c, { bulges: [{ at: 1.3, amount: 1.5, side: 1 }], hatch: 1.4, hatchFrom: 0.5, ramp: 0.35 })
+  shape(g, [v(86, 158), v(96, 158), v(98, 176), v(100, 180), v(86, 181), v(86, 172)], SOOT, { line: 0.8, shadow: 1.4 }) // boot
+  stroke(g, [v(97, 142), v(95, 181)], 0.8, GOLD) // stirrup leather
+  stroke(g, [v(86, 182), v(98, 182)], 1.4, GOLD) // stirrup
+  // torso, sitting tall, doublet with a skirt over the saddle
+  shape(g, [v(94, 102), v(108, 102), v(113, 113), v(111, 128), v(108, 140), v(94, 140), v(90, 126), v(90, 112)], BLOOD, { hatch: 1.4, hatchFrom: 0.55 })
+  shape(g, [v(89, 130), v(112, 130), v(117, 142), v(87, 142)], c, { line: 0.9, shadow: 1.5 })
+  for (const x of [95, 102, 109]) fold(g, [v(x, 131), v(x + 0.5, 141)], 0.9, 0.2)
+  g.fillStyle = GOLD
+  for (let y = 108; y < 128; y += 5) g.fillRect(98.5, y, 2, 2)
+  // rein arm: the hand low in front of the saddle
+  limb(g, [v(107, 108), v(113, 124), v(99, 131)], [9, 7, 5.5], c, { hatch: 1.4, hatchFrom: 0.4 })
+  hand(g, v(99, 131), Math.PI * 1.02, 7, SKIN, true)
+  stroke(g, [v(94, 132), v(70, 128), v(46, 120), v(36, 126)], 1, GOLD) // reins to the bit
+  // neck, ruff, head, hair, broad hat with a plume
+  limb(g, [v(101, 96), v(100, 104)], [7, 8], SKIN, { line: 0.7, shadow: 1 })
+  shape(g, [v(94, 101), v(100, 99), v(106, 101), v(104, 105), v(96, 105)], WHITE, { line: 0.7, shadow: 1 })
+  shape(g, [v(98, 78), v(110, 78), v(115, 88), v(113, 98), v(107, 97), v(105, 86)], SOOT, { line: 0.8, shadow: 1.2 })
+  head(g, 102, 88, 17, { skin: SKIN })
+  shape(g, [v(86, 81), v(96, 77), v(112, 76), v(121, 80), v(110, 83), v(92, 84)], c, { line: 1, shadow: 1.7, hatch: 1.3, hatchFrom: 0.6 }) // brim
+  shape(g, [v(96, 78), v(98, 69), v(110, 68), v(113, 77)], c, { line: 1, shadow: 1.7, hatch: 1.3, hatchFrom: 0.6 }) // crown
+  shape(g, [v(96, 76), v(113, 75), v(113, 78), v(96, 79)], BLOOD, { line: 0.6, shadow: 0.9 }) // hatband
+  fold(g, [v(111, 72), v(124, 62), v(138, 60), v(146, 66)], 3.4, 0.6, WHITE) // plume blown back
+  stroke(g, [v(111, 72), v(124, 62), v(138, 60), v(146, 66)], 0.6)
+  for (let i = 0; i < 9; i++) stroke(g, [v(116 + i * 3.4, 66 - Math.sin(i / 3) * 3), v(118 + i * 3.4, 70 - Math.sin(i / 3) * 3)], 0.45)
+  // raised arm with the suit
+  const elbow = v(84, 96)
+  const wrist = v(74, 80)
+  limb(g, [v(96, 108), elbow, wrist], [9.5, 7.5, 5.5], c, { bulges: [{ at: 0.3, amount: 1.2, side: -1 }], hatch: 1.4, hatchFrom: 0.5 })
+  shape(g, [v(wrist.x - 3.5, wrist.y - 1.5), v(wrist.x + 3.5, wrist.y - 2.5), v(wrist.x + 4, wrist.y + 1.5), v(wrist.x - 3, wrist.y + 2.5)], WHITE, { line: 0.6, shadow: 0.9 })
+  hand(g, v(wrist.x - 1, wrist.y - 2), -Math.PI / 2 - 0.3, 7, SKIN, true)
+  if (suit === 'espadas') hold(g, pip, suit, wrist.x - 7, wrist.y - 28, 17, -0.25)
+  else if (suit === 'bastos') hold(g, pip, suit, wrist.x - 6, wrist.y - 20, 15, -0.3)
+  else hold(g, pip, suit, wrist.x - 3, wrist.y - 14, 11)
 }
