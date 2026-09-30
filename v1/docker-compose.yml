@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: la-base-db
+    environment:
+      POSTGRES_USER: labase
+      POSTGRES_PASSWORD: labase_dev
+      POSTGRES_DB: labase
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labase"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+    container_name: la-base-server
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://labase:labase_dev@postgres:5432/labase
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Use the compiled JS to start server
+    command: node /app/packages/server/dist/index.js
+
+  client:
+    build:
+      context: .
+      dockerfile: packages/client/Dockerfile
+    container_name: la-base-client
+    ports:
+      - "5173:5173"
+    depends_on:
+      - server
+
+volumes:
+  postgres_data:

@@ -2000,3 +2000,142 @@ button {
   outline: 2px dashed var(--oxblood);
   outline-offset: 3px;
 }
+
+/* ---- waiting room: the same pinned paper pad as the in-game anotador ---- */
+.room-pad {
+  position: absolute;
+  right: 20px;
+  top: 18px;
+  width: min(390px, 92vw);
+  pointer-events: auto;
+  transform: rotate(1.2deg);
+  transform-origin: top right;
+  padding: 14px 18px 14px;
+}
+
+.room-pad .pad-head {
+  font-size: 24px;
+}
+
+.room-list {
+  list-style: none;
+  margin-top: 6px;
+  display: grid;
+}
+
+.room-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px; /* sits on the ruled lines */
+  font-size: 21px;
+}
+
+.room-item-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.room-item-name small {
+  font-family: var(--font-sc);
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+.room-item-icon {
+  font-size: 18px;
+  align-self: center;
+  opacity: 0.8;
+}
+
+.room-item-team {
+  font-style: italic;
+  font-size: 18px;
+  opacity: 0.75;
+}
+
+.room-item.nosotros .room-item-name {
+  color: #2c4a53;
+}
+
+.room-item.ellos .room-item-name {
+  color: var(--oxblood);
+}
+
+.room-pad .icon-btn {
+  color: var(--oxblood);
+  font-size: 22px;
+}
+
+/* connected = a filled ink dot, gone = a hollow one */
+.ink-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.6px solid var(--ink);
+}
+
+.ink-dot.on {
+  background: #535f29;
+  border-color: #3d461f;
+}
+
+.pad-error {
+  margin-top: 6px;
+  font-style: italic;
+  font-size: 17px;
+  color: #8e2a22;
+}
+
+/* bigger, easier-to-read in-game anotador */
+.pad {
+  width: min(360px, 48vw);
+}
+
+.pad-head {
+  font-size: 21px;
+}
+
+.pad-team {
+  font-size: 21px;
+}
+
+.pad-team small {
+  font-size: 15px;
+}
+
+.pad-pts {
+  font-size: 44px;
+}
+
+.pad-row {
+  font-size: 18px;
+}
+
+.pad-row b {
+  font-size: 24px;
+}
+
+.pad-players {
+  font-size: 17px;
+}
+
+.pad-tags {
+  font-size: 15px;
+}
+
+.poroto {
+  width: 13px;
+  height: 9px;
+}
+
+.hud-tab {
+  font-size: 17px;
+  padding: 6px 12px 8px;
+}
+
+.phase-line {
+  font-size: 21px;
+}

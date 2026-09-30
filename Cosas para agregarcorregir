@@ -1,0 +1,101 @@
+Cosas para agregar/corregir
+- El cambio de sentido de la mano cuando se juega el Ancho de Copas tiene un bug. Y es que cuando se gira el sentido, el juego interpreta que debe jugar el que está inmediatamente al lado en la ronda. cuando en realidad ese jugador puede que ya haya jugado la carta que le tocaba tirar en esta mano, por lo que tendría que saltearlo hasta encontrar el próximo jugador que todavía no haya tirado su carta. De hecho el juego se bloquea, ya que es el turno del jugador pero no le permite tirar ninguna carta. Arriba aparece una leyenda que dice "Game not found or not started" Por favor hacer el fix.
+
+- Apareció otro bug que no se a que se debe. pero estimo que puede tener que ver con el uso del As de Oros. Que fue jugado en la ultima mano por el equipo que ganó la base, por lo que le permitiría elegir quién de su equipo sería el encargado de iniciar la proxima mano. Pero en este caso, al ser la última mano, el próximo jugador ya está sseleccionado y puede resultar del equipo contrario. Y al querer elegir la cantidad de bases, otra vez aparece la leyenda "Game not found or not started" pero esta vez en el recuadro para pedir la cantidad de bases (o kamikase)
+REGLAS DEL AS DE OROS:
+""### As de Oros (1♦) - "El Elegidor"
+
+**Activación**: Power de Oros = ON
+
+**Poder Especial**: Si el equipo que jugó el As de Oros **gana esa base**, el jugador que tiró el As puede **elegir cuál jugador de su equipo abre la siguiente base**.
+
+**Regla Exacta:**
+
+1. Si el As de Oros se juega en una base:
+   - Y el equipo que lo tiró **GANA esa base**
+   - Y **NO ES LA ÚLTIMA BASE DE LA RONDA**
+   - Entonces el jugador que tiró el As elige cuál jugador de su equipo abre la siguiente base
+
+2. **Caso especial - Última base de la ronda:**
+   - Si el As de Oros se juega en la última base y el equipo gana
+   - El poder NO se puede aplicar (no hay siguiente base en esta ronda)
+   - En la siguiente ronda, quien recibe la primera carta en la repartición es el nuevo Mano
+
+3. Si el equipo que tiró el As de Oros **PIERDE esa base**:
+   - El poder no se activa
+   - El próximo Mano es automáticamente el ganador de la base (normal)
+
+**Ejemplo 1 (Equipo del As gana, poder activo):**
+
+```
+Durante una ronda, en una base cualquiera (excepto la  última de la ronda):
+  - Player 1 (Nosotros): As de Oros (1♦)
+  - Player 2 (Ellos): 2♠
+  - Player 3 (Nosotros): Rey♣ ← GANA (mayor que todas)
+  - Player 4 (Ellos): 5♦
+
+GANADOR: Rey♣ (Player 3, Nosotros)
+
+ACCIÓN: Como Nosotros ganó la base donde se jugó el As de Oros:
+  → Player 1 elige quién abre la siguiente base de esta ronda
+  → Opciones: Player 1 o Player 3 (cualquiera de Nosotros)
+```
+
+**Ejemplo 2 (Equipo del As pierde, poder NO activo):**
+
+```
+Durante una ronda, en una base cualquiera:
+  - Player 1 (Nosotros): As de Oros (1♦)
+  - Player 2 (Ellos): Rey♣ ← GANA
+  - Player 3 (Nosotros): 6♠
+  - Player 4 (Ellos): 3♦
+
+GANADOR: Rey♣ (Player 2, Ellos)
+
+ACCIÓN: Como Ellos ganó (Nosotros perdió), el poder NO se activa
+  → Player 2 abre la siguiente base automáticamente (ganador de base)"
+
+
+- Habilitar un panel hud (por defecto oculto) con el historial de movimientos/jugadas/pedidos, etc
+
+- el movimiento de la camara, debe funcionar arrastrando y soltando, en vez de un clic para activar movimiento y otro clic para bloquearlo
+
+- Agregar un boton dentro del menu de ajustes, para elegir entre dejar la cámara en el lugar posicionado luego de moverla o que vuelva a su estado original (debe ser un on/off).
+
+
+- al inicio del juego, cuando se saca una carta para comenzar, debería hacerse haciendo clic sobre el mazo que está en el centro de la mesa en vez de con un boton. Total para esto ya tenemos resuelto la superposición que generaria mover la camara, ya no sería con un clic, sino manteniendolo presionado. Pero sí debería haber alguna aclaración que indique lo que se debe hacer.
+
+- Agregar un boton/ficha, para marcar quien es el que pide las bases en cada una de las rondas
+
+- Agregar un boton/ficha para indicar quién es el dealer, el que repartió las cartas. este rota ciclicamente entre los jugadores
+
+- Para indicar la cantidad de Kamikases usados por equipo, Agregar una ficha (en la mesa) de un avioncito metálico (estilo fichas de monopoly) por cada kamikase pedido.
+
+- Para indicar las bases pedidas, dibujar sobre la mesa (al lado del lugar donde se ubica la carta del que pide las bases) circuitos vacios segun la cantidad solicitada, y luego ir completando con porotos las bases cumplidas. Cerca del centro de la mesa debe haber un montocito de porotos (por el momento solo serán una representación, pero mas adelante tal vez sean objetos que se puedan agarrar para colocar en el lugar correspondiente)
+
+
+- la ruedita para abajo y para arriba, debería servir para bajar/levantar las cartas en la mano. y no simplemente un "apagar/prender" sino que se le permita regular la altura, con el objetivo de poder regular la vision que se tiene sobre la mesa y las cartas que va tirando el resto
+
+- el clic del medio (el de la ruedita), lo vamos a reservar para un menú radial con las señas
+
+- los bots deben saber interpretar las señas y hacerlas
+
+- Tipos de señas (está sujeto a variaciones según lo que acordemos con el resto de mis amigos que somos los que estamos diseñando las reglas):
+                - Ancho de espadas (As de espadas): Levantar ambas cejas.
+                - Ancho de bastos (As de bastos): Guiñar el ojo derecho
+                - Ancho de copas (As de copas): Mover o ladear el labio hacia la derecha.
+                - Ancho de oros (As de oros): Mover o ladear el labio hacia la izquierda.
+                - Cualquier tres: Morderse el labio inferior.
+                - Cualquier dos: Poner los labios como para tirar un beso.
+                - Cartas porno (todas las del medio (del 4 al 7) que son dificiles para decidir si son buenas para hacer una base o dejarla pasar): Abrir ligeramente la boca (como un pez).
+                - No tener nada / Ciego: Cerrar los ojos (y volver a abrirlos, claro está)
+
+- El menú radial para las señas, debe tener la carita representando la seña, no solo la acción por escrito
+
+- El sistema de señas va a tener una particularidad para darle solución a algo que sucede en la realidad.
+Cuando (en la realidad) se esta jugando juegos de cartas que permiten señas para comunicar las cartas, las señas tratan de esconderse para los contrincantes. Se busca hacer la seña cuando nadie esta mirando y hacerlas de manera disimulada.
+Pero lo que sucede aca en el juego, es que tenemos mas visión sobre varios participantes al mismo tiempo. Por lo que las señas que hace el contrincante, deben estar ocultas por defecto pero con una gran excepción. Si el jugador tiene la cámara apuntada específicamente a la cara de uno de sus contrincantes, éste va a poder visualizar todas las señas que realice su rival.
+No basta con que el rival esté en el campo visual del jugador, específicamente el jugador debe colocar el punto central de la cámara sobre la cara de su rival.
+Sino, la cara por defecto siempre sera "cara de poker" (pokerface).
+
+- Mi idea en toda esta interfaz, que hoy en día solo sirve para "La Base", es que justamente sirva para diferentes juegos de cartas (o de mesa adaptables). Donde cada uno de los juegos va a ser un módulo elegible al inicio de la aplicación. Y si lo hacemos hasta pensando en grande, que estos módulos se puedan crear como modulos de workshop en steam (obviamente acá ya estaríamos saliendo del entorno web. pero si la vamos a pensar en grande, la pensamos en grande de verdad jaja). No quiero implementarlo ya porque faltan solucionar muchas cosas todavía, pero para que lo vayas anotando en pendientes para un futuro y empieces a pensar la manera de como hacer las cosas para ir direccionando hacia ese lado

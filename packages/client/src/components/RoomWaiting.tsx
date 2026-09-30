@@ -148,16 +148,21 @@ export function RoomWaiting() {
         ]}
       />
 
-      <aside className="room-panel compact" aria-label="Sala">
-        <h2>Sala · {players.length} {players.length === 1 ? 'jugador' : 'jugadores'}</h2>
-        <ul className="room-players">
+      <aside className="pad room-pad" aria-label="Sala">
+        <div className="pad-head">
+          <span>Sala</span>
+          <span>{players.length}<small> {players.length === 1 ? 'jugador' : 'jugadores'}</small></span>
+        </div>
+        <ul className="room-list">
           {players.map((p) => (
-            <li key={p.id} className={`room-player ${p.team}`}>
-              <span className={`led ${p.isConnected ? 'on' : ''}`} />
-              <span className="room-player-name">{p.name}{p.id === currentPlayer?.id ? ' (vos)' : ''}</span>
-              {p.isBot && <span className="tag"><GiRobotGolem aria-hidden /> bot</span>}
-              {p.id === hostPlayer?.id && <span className="tag">anfitrión</span>}
-              <span className="room-player-team">{teamLabel[p.team] ?? '—'}</span>
+            <li key={p.id} className={`room-item ${p.team}`}>
+              <span className={`ink-dot ${p.isConnected ? 'on' : ''}`} title={p.isConnected ? 'conectado' : 'desconectado'} />
+              <span className="room-item-name">
+                {p.name}{p.id === currentPlayer?.id ? ' (vos)' : ''}
+                {p.isBot && <GiRobotGolem aria-label="bot" className="room-item-icon" />}
+                {p.id === hostPlayer?.id && <small> anfitrión</small>}
+              </span>
+              <span className="room-item-team">{teamLabel[p.team] ?? '—'}</span>
               {isHost && p.id !== currentPlayer?.id && (
                 <button type="button" className="icon-btn" onClick={() => handleKickPlayer(p.id)} title={`Sacar a ${p.name}`} aria-label={`Sacar a ${p.name}`}>
                   <GiCancel aria-hidden />
@@ -167,9 +172,9 @@ export function RoomWaiting() {
           ))}
         </ul>
         {players.length >= 4 && !canGameStart && randomPlayers.length === 0 && (
-          <p className="ledger-error">Los equipos tienen que quedar parejos.</p>
+          <p className="pad-error">Los equipos tienen que quedar parejos.</p>
         )}
-        {botError && <p className="ledger-error" role="alert">{botError}</p>}
+        {botError && <p className="pad-error" role="alert">{botError}</p>}
       </aside>
     </main>
   );
