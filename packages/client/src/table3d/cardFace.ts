@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { PALETTE, SUIT_INK } from './look'
-import { sota, caballo, rey } from './courts'
+import { sota, caballo, rey } from './courts2d'
 
 export type Suit = keyof typeof SUIT_INK
 export const SUITS: Suit[] = ['oros', 'copas', 'espadas', 'bastos']
