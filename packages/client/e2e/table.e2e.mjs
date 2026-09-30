@@ -155,11 +155,11 @@ while (Date.now() < until) {
     if (!shots.bid++) await shot('bidding-panel')
     // first enabled number button, then confirm
     await page.evaluate(() => {
-      const nums = [...document.querySelectorAll('button')].filter((b) => /^\d+$/.test(b.textContent.trim()) && !b.disabled)
+      const nums = [...document.querySelectorAll('.tally-num')].filter((b) => !b.disabled)
       nums[0]?.click()
     })
     await sleep(300)
-    ;(await clickText('cantar')) || (await clickText('responder'))
+    await page.evaluate(() => document.querySelector('.tally .stamp-btn')?.click())
     await sleep(600)
     continue
   }
