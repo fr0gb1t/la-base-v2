@@ -37,7 +37,10 @@ export interface TableCallbacks {
 type Moment = keyof typeof DUOTONES
 
 interface HeldPose { pos: THREE.Vector3; quat: THREE.Quaternion }
-interface Drag { k: number; fwd: number; lat: number; from: HeldPose; t0: number; lastSound: THREE.Vector3 | null; view: CardView }
+// refCam: the camera frozen at grab time. With a free cursor the card goes where the cursor points
+// on the table (projected through refCam, so camera lean/follow can't drift it); pointer-locked uses
+// relative mouse motion instead.
+interface Drag { k: number; fwd: number; lat: number; from: HeldPose; t0: number; lastSound: THREE.Vector3 | null; view: CardView; refCam: THREE.PerspectiveCamera | null }
 interface RemoteArm { slot: number; fwd: number; lat: number; holding: boolean; t: number; view: CardView | null; from: HeldPose | null; t0: number }
 
 const FACE_DOWN = Math.PI / 2
@@ -60,6 +63,7 @@ const now = () => performance.now() / 1000
 // A bit tighter than a shooter's 58°: the table fills more of the screen (cards read without
 // zoom) while the masks of the players across still fit at the top.
 const BASE_FOV = 50
+const HAND_Y = -0.205 // your fan's grip height in camera space
 const CARD_Y_REST = TABLE_Y + 0.004
 const CARD_Y_WIN = TABLE_Y + 0.014
 
@@ -410,7 +414,9 @@ export class TableScene {
     this.vm.forEach((v, k) => {
       // held in the LEFT hand, off to the side: your own play zone must stay visible
       const off = k - (c - 1) / 2
-      v.base = { x: -0.15 + off * 0.026, y: -0.25 - Math.abs(off) * 0.004, z: -0.36 + k * 0.002, rz: -0.04 - off * 0.14 }
+      // height tuned for BASE_FOV 50: the whole card face stays on screen (at -0.25 its lower half
+      // fell below the frame and grabbing it failed near the edge)
+      v.base = { x: -0.15 + off * 0.026, y: HAND_Y - Math.abs(off) * 0.004, z: -0.36 + k * 0.002, rz: -0.04 - off * 0.14 }
       v.mesh.visible = k < c
       if (k < c) this.setVmFace(k, this.hand[k])
     })
@@ -672,8 +678,32 @@ export class TableScene {
     const view = this.take()
     view.root.position.copy(from.pos)
     view.root.quaternion.copy(from.quat)
-    this.drag = { k, fwd: HOLD_FWD, lat: 0, from, t0: now(), lastSound: null, view }
+    const locked = document.pointerLockElement === this.renderer.domElement
+    this.drag = { k, fwd: HOLD_FWD, lat: 0, from, t0: now(), lastSound: null, view, refCam: locked ? null : this.camera.clone() }
+    if (!locked) this.cursorToDrag()
     sfx('pick', from.pos)
+  }
+
+  /** Free cursor: the point under the cursor on the card-hover plane becomes the card's target. */
+  private cursorToDrag() {
+    const d = this.drag
+    if (!d?.refCam) return
+    d.refCam.updateMatrixWorld()
+    const ray = new THREE.Raycaster()
+    ray.setFromCamera(this.mouse, d.refCam)
+    const hit = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -HOVER_Y), new THREE.Vector3())
+    let fwd: number
+    let lat: number
+    if (hit) {
+      const rel = hit.sub(this.edge0)
+      fwd = rel.dot(this.outOf(0).negate())
+      lat = rel.dot(this.rightOf(0))
+    } else {
+      fwd = HOLD_FWD // cursor above the horizon: keep it in the hand
+      lat = d.lat
+    }
+    d.fwd = THREE.MathUtils.clamp(fwd, HOLD_FWD, 0.8)
+    d.lat = THREE.MathUtils.clamp(lat, -0.35, 0.35)
   }
 
   /** Local commit: animate out to the zone while the server confirms, then reveal (or return). */
@@ -745,7 +775,7 @@ export class TableScene {
     c.quaternion.copy(d.from.quat).slerp(target.quat, b)
     this.poses[0].rightWrist =
       d.fwd > -0.15 ? c.position.clone().addScaledVector(this.outOf(0), 0.075).add(new THREE.Vector3(0, 0.03, 0)) : c.position.clone().add(new THREE.Vector3(0, -0.06, 0))
-    this.poses[0].lean = THREE.MathUtils.clamp(d.fwd / 0.55, 0, 1) * 0.9
+    this.poses[0].lean = THREE.MathUtils.clamp(d.fwd / 0.55, 0, 1) * (d.refCam ? 0.35 : 0.9) // small lean: the view barely moves under a free cursor
     this.focus = c.position
     if (d.fwd >= 0) {
       if (!d.lastSound || d.lastSound.distanceTo(c.position) > 0.09) {
@@ -807,10 +837,16 @@ export class TableScene {
     this.on(window, 'pointermove', (e: PointerEvent) => {
       const r = el.getBoundingClientRect()
       this.mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
-      if (this.pending) this.pending.moved += Math.abs(e.movementX) + Math.abs(e.movementY)
+      if (this.pending) {
+        this.pending.moved += Math.abs(e.movementX) + Math.abs(e.movementY)
+        this.updatePending() // start the arm right away, don't wait for the next frame (low FPS)
+      }
       if (this.drag) {
-        this.drag.fwd = THREE.MathUtils.clamp(this.drag.fwd - e.movementY * ARM_SENS, HOLD_FWD, 0.8)
-        this.drag.lat = THREE.MathUtils.clamp(this.drag.lat + e.movementX * ARM_SENS, -0.35, 0.35)
+        if (this.drag.refCam) this.cursorToDrag()
+        else {
+          this.drag.fwd = THREE.MathUtils.clamp(this.drag.fwd - e.movementY * ARM_SENS, HOLD_FWD, 0.8)
+          this.drag.lat = THREE.MathUtils.clamp(this.drag.lat + e.movementX * ARM_SENS, -0.35, 0.35)
+        }
         this.cb.arm(this.drag.k, this.drag.fwd, this.drag.lat, true)
       } else if (this.peek) this.panPeek(e.movementX, e.movementY)
       else if (document.pointerLockElement === el) {
@@ -834,6 +870,7 @@ export class TableScene {
     })
     const endLeft = () => {
       el.style.cursor = 'crosshair'
+      this.updatePending() // a long hold is a drag even if no frame ran in between
       if (this.pending) {
         const k = this.pending.k
         this.pending = null
@@ -959,7 +996,7 @@ export class TableScene {
   private frame(time: number, dt: number) {
     if (this.disposed || !this.n) return
     this.poses = this.avatars.map(() => ({ lean: 0, headYaw: 0, headPitch: -0.15 }))
-    this.poses[0].leftWrist = this.viewmodel.localToWorld(new THREE.Vector3(-0.16, -0.29, -0.33))
+    this.poses[0].leftWrist = this.viewmodel.localToWorld(new THREE.Vector3(-0.16, HAND_Y - 0.04, -0.33))
     this.poses[0].rightWrist = polar(TABLE_R - 0.04, seatAngle(0, this.n), TABLE_Y + 0.03).addScaledVector(this.rightOf(0), 0.2)
     this.focus = null
     tickJobs(time)
@@ -1025,7 +1062,9 @@ export class TableScene {
 
     // camera
     this.yaw += (this.yawT - this.yaw) * 0.15
-    if (this.drag && this.drag.fwd > -0.05) {
+    // eyes follow the card only when steering with a captured mouse; with a free cursor the view
+    // stays put so the card stays under the pointer
+    if (this.drag && !this.drag.refCam && this.drag.fwd > -0.05) {
       const c = this.drag.view.root.getWorldPosition(new THREE.Vector3()).sub(this.eye)
       this.pitchT += (this.clampPitch(Math.atan2(c.y, Math.hypot(c.x, c.z)) + 0.14) - this.pitchT) * 0.08
     }
@@ -1071,6 +1110,14 @@ export class TableScene {
       handShown: this.vm.filter((v) => v.mesh.visible).length,
       hovered: this.hovered,
     }
+  }
+
+  /** Screen position of the card you're dragging (null if none). */
+  dragScreen() {
+    if (!this.drag) return null
+    const p = this.drag.view.root.getWorldPosition(new THREE.Vector3()).project(this.camera)
+    const r = this.renderer.domElement.getBoundingClientRect()
+    return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
   }
 
   /** Screen position of a seat's play zone (seat 0 = you, 1 = your left neighbour). */
