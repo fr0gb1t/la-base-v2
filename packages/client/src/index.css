@@ -1278,3 +1278,121 @@ button {
     animation: none;
   }
 }
+
+/* ---------------- bidding tally (bottom-right, never blocks the table) ---------------- */
+
+.tally {
+  position: absolute;
+  right: 16px;
+  bottom: 40px;
+  z-index: 30;
+  width: min(300px, 90vw);
+  padding: 12px 14px 12px;
+  background: rgba(11, 9, 8, 0.86);
+  border: 1px solid rgba(207, 198, 168, 0.35);
+  box-shadow: 0 0 0 3px rgba(11, 9, 8, 0.6), 0 14px 40px #000;
+  color: var(--chalk);
+  font-family: var(--font-term);
+  font-size: 19px;
+  pointer-events: auto;
+}
+
+.tally-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.tally-title {
+  font-family: var(--font-sc);
+  font-size: 22px;
+  color: var(--bone);
+}
+
+.tally-sub {
+  opacity: 0.6;
+  font-size: 16px;
+}
+
+.tally-line {
+  margin: 2px 0 8px;
+}
+
+.tally-line b {
+  color: var(--rose);
+  font-weight: normal;
+  font-size: 22px;
+}
+
+.tally-nums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 8px;
+}
+
+.tally-num {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(207, 198, 168, 0.06);
+  border: 2px solid rgba(207, 198, 168, 0.45);
+  color: var(--bone);
+  font-family: var(--font-term);
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.tally-num.on {
+  background: var(--chalk);
+  color: var(--ink);
+  border-color: var(--bone);
+}
+
+.tally-num:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.tally-kami {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 8px;
+  background: transparent;
+  border: 1px dashed rgba(207, 198, 168, 0.35);
+  color: var(--chalk);
+  font-family: var(--font-term);
+  font-size: 19px;
+  cursor: pointer;
+}
+
+.tally-kami.on {
+  border-style: solid;
+  border-color: #d23a2a;
+  color: #e46a5a;
+  background: rgba(210, 58, 42, 0.12);
+}
+
+.tally-kami:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.tally-error {
+  margin-top: 6px;
+  color: #e46a5a;
+}
+
+.tally .stamp-btn {
+  font-size: 20px;
+  padding: 8px 12px;
+}
+
+.tally button:focus-visible {
+  outline: 2px dashed var(--amber);
+  outline-offset: 2px;
+}

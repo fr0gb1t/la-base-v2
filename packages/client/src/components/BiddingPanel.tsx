@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
-import { useToast } from '../hooks/useToast';
+import { GiDynamite } from 'react-icons/gi';
 
 export function BiddingPanel() {
   const socket = useSocket();
   const { gameState, roomCode, currentPlayer, roomPlayers } = useGameStore();
-  const { error: showError } = useToast();
+  const [error, setError] = useState('');
+  const showError = (msg: string) => setError(msg);
   const [bidValue, setBidValue] = useState(0);
   const [isKamikaze, setIsKamikaze] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -41,10 +42,6 @@ export function BiddingPanel() {
       playerId: currentPlayer?.id,
     });
   }, [bidValue, isMyBidTurn, socket, roomCode, currentPlayer?.id]);
-  const bidPlayer = useMemo(
-    () => roomPlayers.find((player) => player.id === gameState?.currentBidPlayerId),
-    [gameState?.currentBidPlayerId, roomPlayers]
-  );
 
   const isMano = useMemo(() => {
     if (!gameState?.bids) return false;
@@ -94,6 +91,7 @@ export function BiddingPanel() {
       return;
     }
 
+    setError('');
     setLoading(true);
 
     socket.emit(
@@ -116,111 +114,80 @@ export function BiddingPanel() {
   };
 
   const isOpen = gameState?.phase === 'bidding';
-  // Only show the bidding panel to the player who has to act.
+  // Only the player who has to act sees it. It never covers the table: a compact tally sheet in
+  // the bottom-right corner (your cards are on the left), no backdrop, the 3D view stays usable
+  // behind it so you can keep looking at your partner's face.
   if (!(isOpen && isMyBidTurn)) return null;
 
+  const myTeam = currentRoomPlayer?.team === 'ellos' ? 'ellos' : 'nosotros';
+  const kamikazesLeft = gameState?.kamikazesRemaining?.[myTeam] ?? 0;
+  const manoBid = gameState?.bids?.[0];
+
   return (
-    <div className="fixed inset-0 z-40 pointer-events-none">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/30 pointer-events-auto" onClick={() => {}} />
+    <aside className="tally" aria-label="Declarar bases">
+      <header className="tally-head">
+        <span className="tally-title">{isMano ? 'Declarás (mano)' : 'Respondés (pie)'}</span>
+        <span className="tally-sub">{maxBases} {maxBases === 1 ? 'base' : 'bases'} en juego</span>
+      </header>
 
-      {/* Modal positioned at top */}
-      <div className="absolute left-1/2 top-6 -translate-x-1/2 z-50 w-full max-w-xl pointer-events-auto">
-        <div className="mx-4 rounded-lg bg-slate-900 shadow-2xl border border-slate-700 overflow-hidden">
-          {/* Header */}
-          <div className="border-b border-slate-700 px-6 py-4 bg-slate-800">
-            <h2 className="text-lg font-bold text-white">
-              {isMyBidTurn
-                ? isMano
-                  ? '📣 Cantar bases (Mano)'
-                  : '📣 Responder (Pie)'
-                : `Esperando a ${bidPlayer?.name || expectedTeam || 'el otro equipo'}`}
-            </h2>
-          </div>
+      {isPie && manoBid && (
+        <p className="tally-line">
+          rivales pidieron <b>{manoBid.value}</b>
+          {manoBid.isKamikaze && <span className="kami"> · kamikaze</span>}
+          <span className="dim"> · no podés pedir {maxBases - manoBid.value}</span>
+        </p>
+      )}
 
-          {/* Content */}
-          <div className="px-6 py-6">
-            {/* Mano's bid info for Pie */}
-            {isPie && gameState?.bids && gameState.bids.length > 0 && (
-              <div className="mb-6 p-4 bg-blue-950 border border-blue-700 rounded-lg">
-                <p className="text-blue-300 font-semibold">
-                  🎯 Mano cantó <span className="text-2xl font-bold">{gameState.bids[0].value}</span> bases
-                </p>
-              </div>
-            )}
-
-            {/* Bid Selection */}
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <label className="text-slate-200 font-bold">Elige bases:</label>
-                <div className="text-5xl font-bold text-emerald-400">{bidValue}</div>
-              </div>
-
-              <div className="grid grid-cols-6 gap-2">
-                {Array.from({ length: maxBases + 1 }, (_, value) => {
-                  const disabledByPie = isPie && !validBidsForPie.includes(value);
-                  const disabledByKamikaze = isMano && isKamikaze && value !== 0 && value !== maxBases;
-                  const disabled = !isMyBidTurn || disabledByPie || disabledByKamikaze;
-
-                  return (
-                    <button
-                      key={value}
-                      onClick={() => setBidValue(value)}
-                      disabled={disabled}
-                      className={`rounded-lg py-3 font-bold border-2 transition text-lg ${
-                        bidValue === value
-                          ? 'bg-emerald-600 border-emerald-700 text-white shadow-lg'
-                          : 'bg-slate-700 border-slate-600 text-slate-200 hover:border-emerald-600'
-                      } disabled:bg-slate-800 disabled:text-slate-500 disabled:border-slate-600 disabled:cursor-not-allowed`}
-                    >
-                      {value}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Valid bids hint for Pie */}
-              {isPie && !isValidPieBid && (
-                <div className="mt-4 p-3 bg-amber-950 border border-amber-700 rounded-lg">
-                  <p className="text-amber-300 text-sm">
-                    <span className="font-semibold">Opciones válidas:</span> {validBidsForPie.join(', ')}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Kamikaze Toggle */}
-            {isMano && (
-              <div className="p-4 bg-purple-950 border border-purple-700 rounded-lg">
-                <button
-                  onClick={() => setIsKamikaze(!isKamikaze)}
-                  className={`w-full p-3 rounded-lg font-bold transition border-2 ${
-                    isKamikaze
-                      ? 'bg-purple-800 border-purple-600 text-purple-200'
-                      : 'bg-slate-800 border-slate-600 text-slate-300 hover:border-purple-600'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>💣 Kamikaze (Todo o nada: 0 o {maxBases})</span>
-                    <span className="text-2xl">{isKamikaze ? '✅' : '❌'}</span>
-                  </div>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="border-t border-slate-700 bg-slate-800 px-6 py-4">
+      <div className="tally-nums" role="radiogroup" aria-label="Cantidad de bases">
+        {Array.from({ length: maxBases + 1 }, (_, value) => {
+          const disabledByPie = isPie && !validBidsForPie.includes(value);
+          const disabledByKamikaze = isMano && isKamikaze && value !== 0 && value !== maxBases;
+          const disabled = disabledByPie || disabledByKamikaze;
+          return (
             <button
-              onClick={handleBid}
-              disabled={loading || !isMyBidTurn || (isPie && !isValidPieBid)}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-600 disabled:text-slate-400 text-white font-bold py-3 rounded-lg transition"
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={bidValue === value}
+              disabled={disabled}
+              className={`tally-num ${bidValue === value ? 'on' : ''}`}
+              onClick={() => { setBidValue(value); setError(''); }}
             >
-              {loading ? 'Cantando...' : isMano ? 'Cantar' : 'Responder'}
+              {value}
             </button>
-          </div>
-        </div>
+          );
+        })}
       </div>
-    </div>
+
+      {isMano && (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isKamikaze}
+          disabled={kamikazesLeft <= 0}
+          className={`tally-kami ${isKamikaze ? 'on' : ''}`}
+          onClick={() => {
+            const next = !isKamikaze;
+            setIsKamikaze(next);
+            if (next && bidValue !== 0 && bidValue !== maxBases) setBidValue(maxBases);
+          }}
+          title="Todo o nada: 0 o todas las bases"
+        >
+          <GiDynamite aria-hidden /> kamikaze {isKamikaze ? 'sí' : 'no'}
+          <span className="dim"> · quedan {kamikazesLeft}</span>
+        </button>
+      )}
+
+      {error && <p className="tally-error" role="alert">{error}</p>}
+
+      <button
+        type="button"
+        className="stamp-btn"
+        onClick={handleBid}
+        disabled={loading || (isPie && !isValidPieBid)}
+      >
+        {loading ? 'anotando…' : `pedir ${bidValue}${isMano && isKamikaze ? ' · kamikaze' : ''}`}
+      </button>
+    </aside>
   );
 }

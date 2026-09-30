@@ -200,6 +200,16 @@ while (Date.now() < until) {
   if (t.onTable >= 3 && shots.collect < 2) {
     shots.collect++
     await shot('table-full')
+    if (shots.collect === 1) {
+      // zoom on the left neighbour's card: must stand up even with 4 players
+      const z = await page.evaluate(() => window.__table.zoneScreen(1))
+      await page.mouse.move(z.x, z.y)
+      await page.mouse.down({ button: 'right' })
+      await sleep(1400)
+      await shot('zoom-neighbour')
+      await page.mouse.up({ button: 'right' })
+      await sleep(600)
+    }
   }
   if (round >= 2 && round !== lastRound && shots.round2++ < 4) {
     await sleep(2500)

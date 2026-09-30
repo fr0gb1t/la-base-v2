@@ -57,6 +57,9 @@ const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 
 const seg = (t: number, a: number, b: number) => THREE.MathUtils.clamp((t - a) / (b - a), 0, 1)
 const quatOf = (rx: number, yaw: number, roll = 0) => new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, yaw, roll, 'YXZ'))
 const now = () => performance.now() / 1000
+// A bit tighter than a shooter's 58°: the table fills more of the screen (cards read without
+// zoom) while the masks of the players across still fit at the top.
+const BASE_FOV = 50
 const CARD_Y_REST = TABLE_Y + 0.004
 const CARD_Y_WIN = TABLE_Y + 0.014
 
@@ -104,9 +107,9 @@ export class TableScene {
 
   // camera
   private yaw = 0
-  private pitch = -0.36
+  private pitch = -0.34
   private yawT = 0
-  private pitchT = -0.36
+  private pitchT = -0.34
   private aim = 0
   private aimT = 0
   private lowered = 0
@@ -907,8 +910,10 @@ export class TableScene {
       this.lookTarget.copy(p.target)
       const onTable = p.target.y <= TABLE_Y + 0.01
       const far = p.target.clone().setY(0).dot(this.forward0)
-      if (!p.standing && onTable && far > 0.02) p.standing = true
-      else if (p.standing && (far < -0.05 || !onTable)) p.standing = false
+      // stand up for anything past your own side of the table (with 4 players the neighbours'
+      // cards lie on the centre line, so the threshold sits well before the middle)
+      if (!p.standing && onTable && far > -0.28) p.standing = true
+      else if (p.standing && (far < -0.4 || !onTable)) p.standing = false
     }
     this.stand += ((p?.standing ? 1 : 0) - this.stand) * 0.08
     const st = ease(THREE.MathUtils.clamp(this.stand, 0, 1))
@@ -920,7 +925,7 @@ export class TableScene {
     this.baseCam.aspect = this.camera.aspect
     this.baseCam.updateProjectionMatrix()
     this.baseCam.updateMatrixWorld()
-    const standing = this.eye.clone().addScaledVector(this.forward0, 0.32).add(new THREE.Vector3(0, 0.48, 0))
+    const standing = this.eye.clone().addScaledVector(this.forward0, 0.34).add(new THREE.Vector3(0, 0.62, 0))
     this.camera.position.copy(seated).lerp(standing, st)
     const look = Math.max(this.aim, st)
     this.camera.quaternion.copy(this.baseCam.quaternion)
@@ -928,7 +933,7 @@ export class TableScene {
       const m = new THREE.Matrix4().lookAt(this.camera.position, this.lookTarget, new THREE.Vector3(0, 1, 0))
       this.camera.quaternion.slerp(new THREE.Quaternion().setFromRotationMatrix(m), look)
     }
-    this.camera.fov = THREE.MathUtils.lerp(THREE.MathUtils.lerp(58, 24, this.aim), 20, st)
+    this.camera.fov = THREE.MathUtils.lerp(THREE.MathUtils.lerp(BASE_FOV, 24, this.aim), 20, st)
     this.camera.updateProjectionMatrix()
   }
 
@@ -1056,6 +1061,13 @@ export class TableScene {
       handShown: this.vm.filter((v) => v.mesh.visible).length,
       hovered: this.hovered,
     }
+  }
+
+  /** Screen position of a seat's play zone (seat 0 = you, 1 = your left neighbour). */
+  zoneScreen(seat: number) {
+    const p = playSlot(seat, this.n).pos.clone().project(this.camera)
+    const r = this.renderer.domElement.getBoundingClientRect()
+    return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
   }
 
   vmScreen(k: number) {

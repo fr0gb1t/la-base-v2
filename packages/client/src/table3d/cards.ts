@@ -13,7 +13,7 @@ function faceMat(suit: Suit, rank: Rank) {
     // Faces are slightly emissive so they stay the brightest thing under the lamp and
     // land ABOVE the dark-snap threshold of the post pass (legibility rule).
     const map = toTexture(drawFace(suit, rank))
-    m = new THREE.MeshStandardMaterial({ map, roughness: 0.8, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: 0.18 })
+    m = new THREE.MeshStandardMaterial({ map, roughness: 0.8, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: 0.3 })
     faceCache.set(key, m)
   }
   return m
