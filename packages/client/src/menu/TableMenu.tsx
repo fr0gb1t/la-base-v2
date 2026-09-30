@@ -37,7 +37,8 @@ export function TableMenu({ items, input, note }: { items: FloatItem[]; input?: 
     scene.onInputClick = () => {
       const cur = latestInput.current;
       if (cur?.readOnly) cur.onSubmit();
-      else inputRef.current?.focus();
+      // defer: the canvas mousedown that triggered this would otherwise steal the focus right back
+      else window.setTimeout(() => inputRef.current?.focus(), 0);
     };
     return () => {
       scene.setItems([]);
@@ -56,6 +57,33 @@ export function TableMenu({ items, input, note }: { items: FloatItem[]; input?: 
       input?.at,
     );
   }, [scene, input?.label, input?.value, input?.placeholder, input?.mono, input?.readOnly, input?.at?.[0], input?.at?.[1], focused, input]);
+
+  // safety net: while a writable card is on the table and nothing else has focus, typing writes on
+  // the card (you never lose the name/code field by clicking elsewhere)
+  useEffect(() => {
+    if (!input || input.readOnly) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = inputRef.current;
+      const active = document.activeElement;
+      if (!el || active === el || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (active && active !== document.body && active.tagName !== 'CANVAS') return; // another control
+      const cur = latestInput.current;
+      if (!cur) return;
+      el.focus();
+      if (e.key.length === 1) {
+        e.preventDefault();
+        const next = (cur.value + (cur.mono ? e.key.toUpperCase() : e.key)).slice(0, cur.maxLength ?? 64);
+        cur.onChange(next);
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        cur.onChange(cur.value.slice(0, -1));
+      } else if (e.key === 'Enter') {
+        cur.onSubmit();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [input?.label, input?.readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // writable card: focus it straight away so you can just type
   useEffect(() => {

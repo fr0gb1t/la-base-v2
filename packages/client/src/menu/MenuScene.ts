@@ -47,6 +47,7 @@ const ACE_HINTS: Record<keyof AcePowers, string> = {
   oros: 'As de Oros: si su equipo gana la base, elige quién abre · click para activar/apagar',
 }
 const FACE_UP = -Math.PI / 2
+const MENU_EXPOSURE = 0.95
 const OPTION_SCALE = 1.8 // cards are already 1.75x real size in the game
 const FACE_DOWN = Math.PI / 2
 const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -111,6 +112,9 @@ export class MenuScene {
 
   constructor(private container: HTMLElement) {
     this.renderer.setPixelRatio(1)
+    // the menu puts paper right under the lamp (cards, tags): expose lower than the game table so
+    // bone surfaces stay paper-coloured instead of burning to white
+    this.post.uniforms.uExposure.value = MENU_EXPOSURE
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;image-rendering:pixelated'

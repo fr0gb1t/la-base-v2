@@ -34,7 +34,7 @@ export class InputCard {
     this.tex.colorSpace = THREE.SRGBColorSpace
     this.tex.anisotropy = 8
     const geo = new THREE.PlaneGeometry(SIZE, (SIZE * H) / W)
-    this.mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: this.tex, emissive: 0xffffff, emissiveMap: this.tex, emissiveIntensity: 0.1, roughness: 0.9 }))
+    this.mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: this.tex, emissive: 0xffffff, emissiveMap: this.tex, emissiveIntensity: 0, roughness: 0.95 }))
     this.mesh.castShadow = true
     this.hit = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }))
     this.hit.visible = false
@@ -106,7 +106,7 @@ export class InputCard {
     const text = s.value || s.placeholder
     const size = s.mono ? 112 : text.length > 10 ? 76 : 100
     g.font = s.mono ? `${size}px "VT323", monospace` : `italic ${size}px "IM Fell English", Georgia, serif`
-    g.fillStyle = s.value ? PALETTE.ink : 'rgba(20,14,12,0.28)'
+    g.fillStyle = s.value ? PALETTE.ink : 'rgba(20,14,12,0.4)'
     const shown = s.mono ? text.split('').join(' ') : text
     g.fillText(shown, cx, 510)
     if (s.focused && this.caretOn) {
@@ -114,8 +114,8 @@ export class InputCard {
       g.fillStyle = PALETTE.oxblood
       g.fillRect(cx + w / 2 + 8, 470, 6, 76)
     }
-    g.font = '34px "IM Fell English", Georgia, serif'
-    g.fillStyle = 'rgba(20,14,12,0.55)'
+    g.font = '42px "IM Fell English", Georgia, serif'
+    g.fillStyle = 'rgba(20,14,12,0.8)'
     g.fillText(s.focused ? 'escribí · enter para confirmar' : 'tocá la carta para escribir', cx, 700)
     this.tex.needsUpdate = true
   }
@@ -137,6 +137,6 @@ export class InputCard {
     this.lift += ((hovered || this.state.focused ? 1 : 0) - this.lift) * 0.15
     this.mesh.position.set(x, restY + this.lift * 0.015, z)
     this.mesh.rotation.copy(this.hit.rotation)
-    ;(this.mesh.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.1 + this.lift * 0.08
+    ;(this.mesh.material as THREE.MeshStandardMaterial).emissiveIntensity = this.lift * 0.04
   }
 }
