@@ -112,13 +112,14 @@ host.room = created.roomCode
 log('room', host.room)
 
 await page.goto(CLIENT, { waitUntil: 'networkidle0' })
-await page.type('input[placeholder="Ingresá tu nombre"]', 'Vos')
-await clickText('jugar como invitado')
-await sleep(800)
+await sleep(1500)
+await page.keyboard.type('Vos') // the name card has focus
+await clickText('sentarse a la mesa')
+await sleep(1500)
+await clickText('sentarse') // the lobby's "Sentarse" card
+await sleep(1200)
+await page.keyboard.type(host.room) // the code card has focus
 await clickText('sentarse')
-await sleep(400)
-await page.type('input[placeholder="Ej: ABCD1234"]', host.room)
-await clickText('entrar')
 await sleep(1200)
 await shot('room')
 

@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useState } from 'react';
-import { GiRobotGolem, GiExitDoor, GiCancel, GiPapers, GiCardPlay, GiCheckMark } from 'react-icons/gi';
+import { GiRobotGolem, GiCancel } from 'react-icons/gi';
 import { useMenuScene } from '../menu/MenuBackdrop';
+import { TableMenu } from '../menu/TableMenu';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 
@@ -124,35 +125,31 @@ export function RoomWaiting() {
         ? 'Esperando al anfitrión'
         : 'Configurar y empezar';
 
+  const canStart = canGameStart && isHost;
   return (
     <main className="menu-screen sala">
-      <section className="code-tag" aria-label="Código de la sala">
-        <span className="code-label">mesa</span>
-        <button type="button" className="code-value" onClick={copyCode} title="Copiar código">
-          {roomCode}
-          <span className="code-copy">{copied ? <><GiCheckMark aria-hidden /> copiado</> : <><GiPapers aria-hidden /> copiar</>}</span>
-        </button>
-        <span className="code-note">pasale este código a los demás</span>
-      </section>
+      <TableMenu
+        input={{ label: copied ? 'Copiado' : 'Mesa', value: roomCode ?? '', placeholder: '', onChange: () => undefined, onSubmit: copyCode, mono: true, readOnly: true, at: [0, 0.22] }}
+        note="pasale el código de la carta a los demás (click para copiarlo)"
+        items={[
+          ...(['nosotros', 'random', 'ellos'] as const).map((t, i) => ({
+            id: `team-${t}`,
+            label: teamLabel[t],
+            at: [(i - 1) * 0.3, 0.54] as [number, number],
+            selected: myTeam === t,
+            hint: t === 'random' ? 'El equipo se sortea al empezar' : `Jugar para ${teamLabel[t]}`,
+            onPick: () => handleSelectTeam(t),
+          })),
+          ...(isHost && players.length < 8
+            ? [{ id: 'bot', label: '+ bot', at: [-0.42, 0.72] as [number, number], hint: 'Sumar un jugador controlado por la computadora', onPick: handleAddBot }]
+            : []),
+          { id: 'empezar', label: startLabel, kind: canStart ? ('stamp' as const) : ('tag' as const), at: [0.02, 0.74], disabled: !canStart, hint: canStart ? 'Elegir las reglas de la casa y empezar' : undefined, onPick: handleConfigGame },
+          { id: 'salir', label: 'Salir', at: [0.44, 0.72], onPick: handleLeaveRoom },
+        ]}
+      />
 
-      <aside className="room-panel" aria-label="Sala">
+      <aside className="room-panel compact" aria-label="Sala">
         <h2>Sala · {players.length} {players.length === 1 ? 'jugador' : 'jugadores'}</h2>
-
-        <div className="team-picker" role="radiogroup" aria-label="Tu equipo">
-          {(['nosotros', 'random', 'ellos'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="radio"
-              aria-checked={myTeam === t}
-              className={`team-opt ${t} ${myTeam === t ? 'on' : ''}`}
-              onClick={() => handleSelectTeam(t)}
-            >
-              {teamLabel[t]}
-            </button>
-          ))}
-        </div>
-
         <ul className="room-players">
           {players.map((p) => (
             <li key={p.id} className={`room-player ${p.team}`}>
@@ -173,20 +170,6 @@ export function RoomWaiting() {
           <p className="ledger-error">Los equipos tienen que quedar parejos.</p>
         )}
         {botError && <p className="ledger-error" role="alert">{botError}</p>}
-
-        <div className="room-actions">
-          {isHost && players.length < 8 && (
-            <button type="button" className="text-btn" onClick={handleAddBot} title="Agregar un jugador controlado por la computadora">
-              <GiRobotGolem aria-hidden /> + bot
-            </button>
-          )}
-          <button type="button" className="stamp-btn" disabled={!(canGameStart && isHost)} onClick={handleConfigGame}>
-            <GiCardPlay aria-hidden /> {startLabel}
-          </button>
-          <button type="button" className="text-btn danger" onClick={handleLeaveRoom}>
-            <GiExitDoor aria-hidden /> Salir
-          </button>
-        </div>
       </aside>
     </main>
   );

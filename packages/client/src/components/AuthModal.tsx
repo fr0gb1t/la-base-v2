@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { GiQuillInk, GiKey, GiScrollUnfurled } from 'react-icons/gi';
 import { useMenuScene } from '../menu/MenuBackdrop';
+import { TableMenu } from '../menu/TableMenu';
 import { useGameStore } from '../store/gameStore';
 import { getServerUrl } from '../lib/serverUrl';
 
@@ -128,7 +129,7 @@ export function AuthModal() {
     setCurrentPage('lobby');
   };
 
-  // the 3D table: circle slowly over the empty table; your name is chalked at your place as you type
+  // the 3D table: your name is written on a card on the felt and chalked at your place
   useEffect(() => {
     scene?.setStation('entrada');
   }, [scene]);
@@ -136,45 +137,43 @@ export function AuthModal() {
     scene?.setMyName(tab === 'register' ? registerUsername : guestName);
   }, [scene, guestName, registerUsername, tab]);
 
-  const tabBtn = (id: AuthTab, label: string) => (
-    <button type="button" className={`ledger-tab ${tab === id ? 'on' : ''}`} onClick={() => { setTab(id); setError(''); }}>
-      {label}
-    </button>
-  );
+  const submitGuest = () => handleGuest({ preventDefault: () => undefined } as React.FormEvent);
+
+  if (tab === 'guest') {
+    return (
+      <main className="menu-screen entrada">
+        <header className="menu-hero">
+          <h1 className="menu-title">La Base</h1>
+          <p className="menu-sub">un juego de cartas españolas · 4, 6 u 8 jugadores · en un sótano</p>
+        </header>
+        {error && <p className="menu-error" role="alert">{error}</p>}
+        <TableMenu
+          input={{ label: 'Tu nombre', value: guestName, placeholder: 'escribilo acá', onChange: (v) => { setGuestName(v); setError(''); }, onSubmit: submitGuest, maxLength: 14, at: [0, 0.34] }}
+          items={[
+            { id: 'sentarse', label: 'Sentarse a la mesa', kind: 'stamp', at: [0, 0.7], hint: 'Jugar como invitado (sin ranking)', disabled: !guestName.trim(), onPick: submitGuest },
+            { id: 'entrar', label: 'Tengo cuenta', at: [-0.42, 0.62], hint: 'Entrar con email y contraseña', onPick: () => { setTab('login'); setError(''); } },
+            { id: 'registro', label: 'Crear cuenta', at: [0.42, 0.62], hint: 'Registrarse para guardar ranking', onPick: () => { setTab('register'); setError(''); } },
+          ]}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="menu-screen entrada">
       <header className="menu-hero">
         <h1 className="menu-title">La Base</h1>
-        <p className="menu-sub">un juego de cartas españolas · 4, 6 u 8 jugadores · en un sótano</p>
       </header>
 
-      <section className="ledger" aria-label="Anotarse">
-        <h2><GiQuillInk aria-hidden /> Libreta de socios</h2>
-        <nav className="ledger-tabs">
-          {tabBtn('guest', 'invitado')}
-          {tabBtn('login', 'entrar')}
-          {tabBtn('register', 'registrarse')}
-        </nav>
-
+      <section className="ledger" aria-label={tab === 'login' ? 'Entrar' : 'Crear cuenta'}>
+        <h2><GiQuillInk aria-hidden /> {tab === 'login' ? 'Entrar' : 'Libreta de socios'}</h2>
         {error && <p className="ledger-error" role="alert">{error}</p>}
-
-        {tab === 'guest' && (
-          <form onSubmit={handleGuest}>
-            <label className="ledger-field">
-              <span>Tu nombre</span>
-              <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Ingresá tu nombre" maxLength={14} autoFocus />
-            </label>
-            <button type="submit" className="stamp-btn">Jugar como invitado</button>
-            <p className="ledger-note">Las partidas de invitado no guardan ranking.</p>
-          </form>
-        )}
 
         {tab === 'login' && (
           <form onSubmit={handleLogin}>
             <label className="ledger-field">
               <span>Email</span>
-              <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="your@email.com" required />
+              <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="your@email.com" required autoFocus />
             </label>
             <label className="ledger-field">
               <span>Contraseña</span>
@@ -188,7 +187,7 @@ export function AuthModal() {
           <form onSubmit={handleRegister}>
             <label className="ledger-field">
               <span>Usuario</span>
-              <input type="text" value={registerUsername} onChange={(e) => setRegisterUsername(e.target.value)} placeholder="tu usuario" maxLength={14} required />
+              <input type="text" value={registerUsername} onChange={(e) => setRegisterUsername(e.target.value)} placeholder="tu usuario" maxLength={14} required autoFocus />
             </label>
             <label className="ledger-field">
               <span>Email</span>
@@ -201,6 +200,7 @@ export function AuthModal() {
             <button type="submit" disabled={loading} className="stamp-btn"><GiScrollUnfurled aria-hidden /> {loading ? 'Anotando…' : 'Crear cuenta'}</button>
           </form>
         )}
+        <button type="button" className="text-btn" onClick={() => { setTab('guest'); setError(''); }}>volver a entrar como invitado</button>
       </section>
     </main>
   );

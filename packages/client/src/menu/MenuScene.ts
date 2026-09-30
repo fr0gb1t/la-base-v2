@@ -6,6 +6,8 @@ import { makeCard, type CardView } from '../table3d/cards'
 import { drawFace, toTexture, type Rank, type Suit } from '../table3d/cardFace'
 import { makePost } from '../table3d/post'
 import { PALETTE } from '../table3d/look'
+import { FloatingItems, type FloatItem } from './floating'
+import { InputCard, type InputCardState } from './inputCard'
 
 // ---------------------------------------------------------------------------------------------
 // The menu is the same basement as the game, before anyone sits down. The camera moves between
@@ -19,15 +21,17 @@ export interface MenuPlayer { name: string; team: 'nosotros' | 'ellos' | 'random
 export interface AcePowers { espadas: boolean; copas: boolean; oros: boolean }
 
 interface Shot { pos: THREE.Vector3; target: THREE.Vector3; fov: number }
+// every screen is a seated view over your side of the table: the choices are things on the felt
+const SEATED = { pos: new THREE.Vector3(0, 1.5, 1.34), target: new THREE.Vector3(0, 0.74, 0.3), fov: 50 }
 const SHOTS: Record<Station, Shot> = {
-  entrada: { pos: new THREE.Vector3(0, 2.35, 2.1), target: new THREE.Vector3(0, 0.8, 0), fov: 50 },
+  entrada: SEATED,
   lobby: { pos: new THREE.Vector3(0, 1.45, 1.32), target: new THREE.Vector3(0, 0.72, 0.28), fov: 50 },
-  crear: { pos: new THREE.Vector3(0, 2.0, 1.85), target: new THREE.Vector3(0, 0.76, 0), fov: 54 },
-  unirse: { pos: new THREE.Vector3(0, 2.0, 1.85), target: new THREE.Vector3(0, 0.76, 0), fov: 54 },
+  crear: SEATED,
+  unirse: SEATED,
   reglas: { pos: new THREE.Vector3(-0.4, 1.25, 1.2), target: new THREE.Vector3(0.3, 0.85, -0.6), fov: 52 },
-  // the room panel sits on the right: look a bit right of the table so it lands in the free left area
-  sala: { pos: new THREE.Vector3(0.45, 1.7, 1.9), target: new THREE.Vector3(0.45, 1.02, -0.3), fov: 60 },
-  config: { pos: new THREE.Vector3(0.3, 1.32, 1.02), target: new THREE.Vector3(0.3, 0.74, 0.1), fov: 50 },
+  // the room: see the whole table (who sat down) plus your controls at the near edge
+  sala: { pos: new THREE.Vector3(0, 1.62, 1.4), target: new THREE.Vector3(0, 0.78, 0.18), fov: 54 },
+  config: { pos: new THREE.Vector3(0, 1.55, 1.36), target: new THREE.Vector3(0, 0.74, 0.26), fov: 50 },
 }
 
 export const MENU_OPTIONS: Array<{ id: 'crear' | 'unirse' | 'reglas'; title: string; suit: Suit; rank: Rank }> = [
@@ -37,6 +41,11 @@ export const MENU_OPTIONS: Array<{ id: 'crear' | 'unirse' | 'reglas'; title: str
 ]
 
 const ACE_SUITS: Array<keyof AcePowers> = ['espadas', 'copas', 'oros']
+const ACE_HINTS: Record<keyof AcePowers, string> = {
+  espadas: 'As de Espadas: mata al ancho de bastos si sale después · click para activar/apagar',
+  copas: 'As de Copas: puede invertir el sentido de la ronda · click para activar/apagar',
+  oros: 'As de Oros: si su equipo gana la base, elige quién abre · click para activar/apagar',
+}
 const FACE_UP = -Math.PI / 2
 const OPTION_SCALE = 1.8 // cards are already 1.75x real size in the game
 const FACE_DOWN = Math.PI / 2
@@ -86,6 +95,16 @@ export class MenuScene {
   private avatars: Array<{ av: Avatar; rise: number; name: string }> = []
   private hovered = -1
   private focusIndex = -1
+  private floating = new FloatingItems()
+  private inputCard = new InputCard()
+  private inputAt: [number, number] = [0, 0.18]
+  private inputHovered = false
+  private aceHovered = -1
+  private aceHits: THREE.Mesh[] = []
+  private floatHovered: string | null = null
+  onInputClick: () => void = () => undefined
+  onAcePick: (suit: keyof AcePowers) => void = () => undefined
+  onCaption: (text: string | null) => void = () => undefined
   private disposed = false
   onHover: (i: number) => void = () => undefined
   onPick: (id: 'crear' | 'unirse' | 'reglas') => void = () => undefined
@@ -98,6 +117,7 @@ export class MenuScene {
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera, this.roomGroup)
     this.setSeatCount(8)
+    this.scene.add(this.floating.group, this.inputCard.mesh, this.inputCard.hit)
     this.buildOptions()
     this.buildAces()
     this.bindInput()
@@ -163,6 +183,17 @@ export class MenuScene {
     ACE_SUITS.forEach((suit, i) => (this.aces[i].on = p[suit]))
   }
 
+  /** Floating buttons on the felt for the current screen (replaces the previous set). */
+  setItems(items: FloatItem[]) {
+    this.floating.set(items)
+  }
+
+  /** The writable card (name, room code); null hides it. */
+  setInput(state: InputCardState | null, at: [number, number] = [0, 0.18]) {
+    this.inputCard.set(state)
+    this.inputAt = at
+  }
+
   /** Keyboard focus on a DOM option mirrors the 3D hover. */
   focusOption(i: number) {
     this.focusIndex = i
@@ -204,6 +235,11 @@ export class MenuScene {
       view.setIdentity(suit as Suit, 1)
       view.root.scale.setScalar(1.25)
       this.scene.add(view.root)
+      const hit = new THREE.Mesh((view.root.children[0] as THREE.Mesh).geometry, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }))
+      hit.visible = false
+      hit.scale.setScalar(1.25)
+      this.scene.add(hit)
+      this.aceHits.push(hit)
       this.aces.push({ view, flip: 1, on: true })
     })
   }
@@ -225,16 +261,34 @@ export class MenuScene {
     this.on(window, 'pointerdown', (e: PointerEvent) => {
       // only clicks that land on the canvas itself (not on the DOM panels above it)
       if (e.target !== this.renderer.domElement && !(e.target as HTMLElement)?.dataset?.menuPassthrough) return
+      if (this.floatHovered) return this.floating.pick(this.floatHovered)
+      if (this.inputHovered) return this.onInputClick()
+      if (this.station === 'config' && this.aceHovered >= 0) return this.onAcePick(ACE_SUITS[this.aceHovered])
       if (this.station === 'lobby' && this.hovered >= 0) this.onPick(MENU_OPTIONS[this.hovered].id)
     })
   }
 
-  private updateHover() {
+  private lastCaption: string | null = null
+  private updateHover(time: number) {
+    this.raycaster.setFromCamera(this.mouse, this.camera)
+    this.floatHovered = this.floating.update(time, this.camera, this.raycaster, reduced())
+    this.inputHovered = !!this.inputCard.mesh.visible && this.raycaster.intersectObject(this.inputCard.hit, false).length > 0
+    this.aceHovered = -1
+    if (this.station === 'config') {
+      const h = this.raycaster.intersectObjects(this.aceHits, false)[0]
+      this.aceHovered = h ? this.aceHits.indexOf(h.object as THREE.Mesh) : -1
+    }
+    const caption = this.floating.hint(this.floatHovered) ?? (this.aceHovered >= 0 ? ACE_HINTS[ACE_SUITS[this.aceHovered]] : null)
+    if (caption !== this.lastCaption) {
+      this.lastCaption = caption
+      this.onCaption(caption)
+    }
+    const pointer = !!this.floatHovered || this.inputHovered || this.aceHovered >= 0
     if (this.station !== 'lobby') {
       if (this.hovered !== -1) this.onHover((this.hovered = -1))
+      this.renderer.domElement.style.cursor = pointer ? 'pointer' : 'default'
       return
     }
-    this.raycaster.setFromCamera(this.mouse, this.camera)
     const targets: THREE.Object3D[] = this.options.map((o) => o.hit)
     if (this.hovered >= 0) targets.push(this.options[this.hovered].view.root) // keep it while over the raised card
     const hit = this.raycaster.intersectObjects(targets, true)[0]
@@ -248,7 +302,7 @@ export class MenuScene {
       this.hovered = idx
       this.onHover(idx)
     }
-    this.renderer.domElement.style.cursor = idx >= 0 ? 'pointer' : 'default'
+    this.renderer.domElement.style.cursor = idx >= 0 || pointer ? 'pointer' : 'default'
   }
 
   // ------------------------------------------------------------------ frame
@@ -271,11 +325,7 @@ export class MenuScene {
     // camera: ease toward the station; the entrance slowly circles the empty table
     const shot = SHOTS[this.station]
     const goal = shot.pos.clone()
-    if (this.station === 'entrada' && !calm) {
-      const a = time * 0.05
-      goal.set(Math.sin(a) * 2.1, 2.35 + Math.sin(time * 0.3) * 0.05, Math.cos(a) * 2.1)
-    }
-    if (!calm) goal.add(new THREE.Vector3(this.mouse.x * 0.08, this.mouse.y * 0.04, 0))
+    if (!calm) goal.add(new THREE.Vector3(this.mouse.x * 0.05, this.mouse.y * 0.025, 0))
     this.camPos.lerp(goal, k)
     this.camTarget.lerp(shot.target, k)
     this.camera.position.copy(this.camPos)
@@ -283,10 +333,11 @@ export class MenuScene {
     this.camera.fov += (shot.fov - this.camera.fov) * k
     this.camera.updateProjectionMatrix()
 
-    this.updateHover()
+    this.updateHover(time)
+    this.inputCard.update(time, this.inputAt[0], this.inputAt[1], this.inputHovered)
 
     // lobby cards: lying on the felt in front of your place; hovered one lifts and turns to you
-    const showOptions = this.station === 'lobby' || this.station === 'entrada'
+    const showOptions = this.station === 'lobby'
     this.options.forEach((o, i) => {
       const active = this.station === 'lobby' && (i === this.hovered || i === this.focusIndex)
       o.lift += ((active ? 1 : 0) - o.lift) * k * 2.5
@@ -309,8 +360,15 @@ export class MenuScene {
     this.aces.forEach((a, i) => {
       a.flip += ((a.on ? 1 : 0) - a.flip) * k * 2
       a.view.root.visible = showAces
-      a.view.root.position.set((i - 1) * 0.2, TABLE_Y + 0.004 + Math.sin(a.flip * Math.PI) * 0.06, 0.2)
+      // it flips around its centre: rise by half its (rotated) height so no edge dips into the felt
+      const halfH = (CARD_H * 1.25) / 2
+      const over = i === this.aceHovered ? 0.012 : 0
+      const x = (i - 1) * 0.22
+      a.view.root.position.set(x, TABLE_Y + 0.004 + Math.abs(Math.sin(a.flip * Math.PI)) * (halfH + 0.015) + over, 0.14)
       a.view.root.rotation.set(THREE.MathUtils.lerp(FACE_DOWN, FACE_UP + Math.PI * 2, a.flip), (1 - i) * 0.08, 0, 'YXZ')
+      this.aceHits[i].position.set(x, TABLE_Y + 0.004, 0.14)
+      this.aceHits[i].rotation.set(FACE_UP, (1 - i) * 0.08, 0, 'YXZ')
+      this.aceHits[i].updateMatrixWorld()
     })
 
     // waiting room: players rise out of the dark into their chairs, then idle

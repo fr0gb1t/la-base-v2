@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { GiCrossedSwords, GiChaliceDrops, GiTwoCoins, GiDynamite, GiCardPlay, GiReturnArrow } from 'react-icons/gi';
 import { useMenuScene } from '../menu/MenuBackdrop';
+import { TableMenu } from '../menu/TableMenu';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 
@@ -61,13 +61,20 @@ export function GameConfig() {
     setCurrentPage('game:waiting');
   };
 
-  // 3D: the three powered aces lie on the felt; switching a power off turns its ace face down
+  // 3D: the three powered aces lie on the felt; click an ace to switch its power (it flips over)
   useEffect(() => {
     scene?.setStation('config');
   }, [scene]);
   useEffect(() => {
     scene?.setAces(acePowers);
   }, [scene, acePowers]);
+  useEffect(() => {
+    if (!scene) return;
+    scene.onAcePick = (suit) => handleTogglePower(suit);
+    return () => {
+      scene.onAcePick = () => undefined;
+    };
+  }, [scene]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sequences = {
     clasica: [1, 3, 5, 5, 3, 1, 1, 3, 5, 5, 3, 1],
@@ -75,68 +82,35 @@ export function GameConfig() {
     postpandemia: [1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1],
   } as const;
   const names = { clasica: 'Clásica', alternativa: 'Alternativa', postpandemia: 'Postpandemia' } as const;
-  const powers = [
-    { key: 'espadas' as const, Icon: GiCrossedSwords, name: 'As de Espadas', desc: 'mata al ancho de bastos si sale después' },
-    { key: 'copas' as const, Icon: GiChaliceDrops, name: 'As de Copas', desc: 'puede invertir el sentido de la ronda' },
-    { key: 'oros' as const, Icon: GiTwoCoins, name: 'As de Oros', desc: 'si su equipo gana, elige quién abre' },
-  ];
+  const on = (k: 'espadas' | 'copas' | 'oros') => (acePowers[k] ? 'activo' : 'apagado');
 
   return (
     <main className="menu-screen config">
-      <section className="ledger side" aria-label="Reglas de la casa">
-        <h2>Reglas de la casa <small>· mesa {roomCode}</small></h2>
-
-        <fieldset className="ledger-group">
-          <legend>Estructura</legend>
-          <div className="choice-row" role="radiogroup">
-            {(['clasica', 'alternativa', 'postpandemia'] as const).map((mode) => (
-              <button key={mode} type="button" role="radio" aria-checked={structure === mode} className={`choice ${structure === mode ? 'on' : ''}`} onClick={() => setStructure(mode)}>
-                {names[mode]}
-                <small>{sequences[mode].length} rondas</small>
-              </button>
-            ))}
-          </div>
-          <p className="sequence" aria-label="Bases por ronda">
-            {sequences[structure].map((n, i) => (
-              <span key={i} className="seq-n">{n}</span>
-            ))}
-          </p>
-        </fieldset>
-
-        <fieldset className="ledger-group">
-          <legend>Ases con poder</legend>
-          <div className="power-list">
-            {powers.map(({ key, Icon, name, desc }) => (
-              <button key={key} type="button" role="switch" aria-checked={acePowers[key]} className={`power ${acePowers[key] ? 'on' : ''}`} onClick={() => handleTogglePower(key)}>
-                <Icon aria-hidden className="power-icon" />
-                <span className="power-text">
-                  <b>{name}</b>
-                  <small>{desc}</small>
-                </span>
-                <span className="power-state">{acePowers[key] ? 'activo' : 'apagado'}</span>
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset className="ledger-group">
-          <legend><GiDynamite aria-hidden /> Kamikazes por equipo</legend>
-          <div className="choice-row" role="radiogroup">
-            {[0, 1, 2, 3].map((count) => (
-              <button key={count} type="button" role="radio" aria-checked={kamikazesPerTeam === count} className={`choice small ${kamikazesPerTeam === count ? 'on' : ''}`} onClick={() => setKamikazesPerTeam(count)}>
-                {count}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <button type="button" className="stamp-btn" onClick={handleStartGame} disabled={loading}>
-          <GiCardPlay aria-hidden /> {loading ? 'Iniciando…' : 'Iniciar partida'}
-        </button>
-        <button type="button" className="text-btn" onClick={handleBack}>
-          <GiReturnArrow aria-hidden /> volver a la sala
-        </button>
-      </section>
+      <TableMenu
+        note={`ases boca arriba = poder activo (espadas ${on('espadas')} · copas ${on('copas')} · oros ${on('oros')}) · click en un as para cambiarlo`}
+        items={[
+          ...(['clasica', 'alternativa', 'postpandemia'] as const).map((mode, i) => ({
+            id: `est-${mode}`,
+            label: names[mode],
+            sub: `${sequences[mode].length} rondas`,
+            at: [(i - 1) * 0.3, 0.42] as [number, number],
+            selected: structure === mode,
+            hint: `${names[mode]}: bases por ronda ${sequences[mode].join(' · ')}`,
+            onPick: () => setStructure(mode),
+          })),
+          ...[0, 1, 2, 3].map((count, i) => ({
+            id: `kami-${count}`,
+            label: String(count),
+            kind: 'chip' as const,
+            at: [-0.36 + i * 0.12, 0.62] as [number, number],
+            selected: kamikazesPerTeam === count,
+            hint: `${count} kamikaze${count === 1 ? '' : 's'} por equipo (todo o nada: 0 o todas las bases)`,
+            onPick: () => setKamikazesPerTeam(count),
+          })),
+          { id: 'iniciar', label: loading ? 'Iniciando…' : 'Iniciar partida', kind: 'stamp', at: [0.3, 0.64], disabled: loading, hint: `Mesa ${roomCode}`, onPick: handleStartGame },
+          { id: 'volver', label: 'Volver', at: [-0.56, 0.64], onPick: handleBack },
+        ]}
+      />
     </main>
   );
 }

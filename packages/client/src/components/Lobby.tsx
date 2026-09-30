@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { GiCardPlay, GiDoorway, GiScrollUnfurled, GiExitDoor, GiWoodenChair, GiReturnArrow } from 'react-icons/gi';
+import { GiCardPlay, GiDoorway, GiScrollUnfurled, GiExitDoor, GiReturnArrow } from 'react-icons/gi';
 import { useMenuScene } from '../menu/MenuBackdrop';
 import { MENU_OPTIONS } from '../menu/MenuScene';
+import { TableMenu } from '../menu/TableMenu';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 
@@ -142,7 +143,7 @@ export function Lobby() {
       {mode === 'home' && (
         <nav className="menu-options" aria-label="Opciones">
           <p className="menu-hint">elegí una carta de la mesa</p>
-          <div className="menu-option-row">
+          <div className="menu-option-row sr-only">
             {MENU_OPTIONS.map((o, i) => {
               const Icon = icons[i];
               return (
@@ -165,54 +166,38 @@ export function Lobby() {
       )}
 
       {mode === 'create' && (
-        <section className="ledger" aria-label="Armar mesa">
-          <h2><GiCardPlay aria-hidden /> Armar mesa</h2>
-          <p className="ledger-note">¿Cuántos se sientan? Se juega en dos equipos alternados.</p>
-          <div className="seat-picker" role="radiogroup" aria-label="Cantidad de jugadores">
-            {[4, 6, 8].map((count) => (
-              <button
-                key={count}
-                type="button"
-                role="radio"
-                aria-checked={playerCount === count}
-                className={`seat-btn ${playerCount === count ? 'on' : ''}`}
-                onClick={() => setPlayerCount(count)}
-              >
-                <GiWoodenChair aria-hidden /> {count}
-                <small>{count / 2} contra {count / 2}</small>
-              </button>
-            ))}
-          </div>
-          {error && <p className="ledger-error" role="alert">{error}</p>}
-          <button type="button" className="stamp-btn" onClick={handleCreateRoom} disabled={loading || !isSocketConnected}>
-            {loading ? 'Abriendo…' : 'Crear sala'}
-          </button>
-          {back}
-        </section>
+        <>
+          {error && <p className="menu-error" role="alert">{error}</p>}
+          <TableMenu
+            note="¿cuántos se sientan? elegí y abrí la mesa"
+            items={[
+              ...[4, 6, 8].map((count, i) => ({
+                id: `n${count}`,
+                label: String(count),
+                kind: 'chip' as const,
+                at: [(i - 1) * 0.2, 0.34] as [number, number],
+                selected: playerCount === count,
+                hint: `${count} jugadores · ${count / 2} contra ${count / 2}`,
+                onPick: () => setPlayerCount(count),
+              })),
+              { id: 'abrir', label: loading ? 'Abriendo…' : 'Abrir la mesa', kind: 'stamp', at: [0.08, 0.62], disabled: loading || !isSocketConnected, hint: `Crear una sala para ${playerCount}`, onPick: handleCreateRoom },
+              { id: 'volver', label: 'Volver', at: [-0.36, 0.62], onPick: () => { setMode('home'); setError(''); } },
+            ]}
+          />
+        </>
       )}
 
       {mode === 'join' && (
-        <section className="ledger" aria-label="Sentarse a una mesa">
-          <h2><GiDoorway aria-hidden /> Sentarse</h2>
-          <label className="ledger-field">
-            <span>Código de sala</span>
-            <input
-              type="text"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
-              placeholder="Ej: ABCD1234"
-              maxLength={8}
-              className="code-input"
-              autoFocus
-            />
-          </label>
-          {error && <p className="ledger-error" role="alert">{error}</p>}
-          <button type="button" className="stamp-btn" onClick={handleJoinRoom} disabled={loading || !isSocketConnected}>
-            {loading ? 'Entrando…' : 'Entrar'}
-          </button>
-          {back}
-        </section>
+        <>
+          {error && <p className="menu-error" role="alert">{error}</p>}
+          <TableMenu
+            input={{ label: 'Código de mesa', value: joinCode, placeholder: '······', onChange: (v) => { setJoinCode(v.replace(/[^A-Z0-9]/g, '')); setError(''); }, onSubmit: handleJoinRoom, mono: true, maxLength: 8, at: [0, 0.34] }}
+            items={[
+              { id: 'entrar', label: loading ? 'Entrando…' : 'Sentarse', kind: 'stamp', at: [0.1, 0.7], disabled: loading || !isSocketConnected || !joinCode.trim(), hint: 'Entrar a la mesa con ese código', onPick: handleJoinRoom },
+              { id: 'volver', label: 'Volver', at: [-0.38, 0.66], onPick: () => { setMode('home'); setError(''); } },
+            ]}
+          />
+        </>
       )}
 
       {mode === 'rules' && (
