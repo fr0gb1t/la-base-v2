@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 .pnpm-debug.log*
+.pnpm-store/
+.npm/
 
 # Build outputs
 dist/
@@ -13,12 +15,12 @@ build/
 *.swp
 *.swo
 *~
-.DS_Store
 
-# Environment
+# Environment / secrets
 .env
 .env.local
 .env.*.local
+!.env.example
 
 # Logs
 logs/
@@ -32,19 +34,26 @@ pids/
 *.pid
 *.seed
 
-# Coverage
+# Coverage / tests
 coverage/
 .nyc_output/
+playwright-report/
+test-results/
 
 # Docker
 .dockerignore
 
 # OS
+.DS_Store
 Thumbs.db
 
 # AI
 .codex
 
-# directory
-v1
-Cosas para agregarcorregir
+# Local / temporary
+tmp/
+temp/
+*.tmp
+
+# Legacy
+v1/
