@@ -1,5 +1,5 @@
 import { PALETTE, SUIT_INK } from './look'
-import { v, shape, limb, fold, stroke, head, hand, type V } from './figure2d'
+import { v, shape, limb, fold, stroke, head, hand, patch, type V } from './figure2d'
 
 // Court cards after the Spanish pattern (Fournier / Augusto Rius, 1889), drawn with the
 // `drawing-2d-figures` method: skeleton in head units → volumes → clothing → engraved line.
@@ -59,8 +59,9 @@ export function sota(g: CanvasRenderingContext2D, suit: Suit, pip: PipFn) {
   ground(g, 84, 26)
 
   // pose: weight on the viewer-right leg (its hip higher, that shoulder lower)
-  const shL = v(67, 71)
-  const shR = v(100, 74)
+  // arm roots sit inside the torso (the deltoid grows out of it, no seam)
+  const shL = v(71, 76)
+  const shR = v(97, 79)
 
   // cape hanging from the left shoulder, behind the body: pipe folds from the support point
   shape(g, [v(82, 66), v(64, 69), v(55, 92), v(50, 128), v(45, 166), v(58, 174), v(70, 168), v(78, 140), v(80, 100)], BLOOD, { hatch: 1.6, hatchFrom: 0.35, hatchAngle: 1.45 })
@@ -93,7 +94,7 @@ export function sota(g: CanvasRenderingContext2D, suit: Suit, pip: PipFn) {
   fold(g, [v(92, 123), v(93, 130)], 1, 0.2)
 
   // right arm on the hip (akimbo), sleeve puffed at the shoulder
-  limb(g, [shR, v(113, 97), v(101, 114)], [12, 8.5, 6.5], c, { bulges: [{ at: 0.2, amount: 2.2, side: 1 }], hatch: 1.5, hatchFrom: 0.4 })
+  limb(g, [shR, v(113, 97), v(101, 114)], [11, 8.5, 6.5], c, { bulges: [{ at: 0.3, amount: 1.4, side: 1 }], hatch: 1.5, hatchFrom: 0.4 })
   fold(g, [v(108, 88), v(112, 96)], 0.9, 0.2)
   hand(g, v(101, 114), Math.PI * 0.85, 8, SKIN)
 
@@ -110,7 +111,7 @@ export function sota(g: CanvasRenderingContext2D, suit: Suit, pip: PipFn) {
     elbow = v(50, 90)
     wrist = v(46, 70)
   }
-  limb(g, [shL, elbow, wrist], [12, 8.5, 6.5], c, { bulges: [{ at: 0.2, amount: 2, side: -1 }], hatch: 1.5, hatchFrom: 0.5 })
+  limb(g, [shL, elbow, wrist], [11, 8.5, 6.5], c, { bulges: [{ at: 0.3, amount: 1.3, side: -1 }], hatch: 1.5, hatchFrom: 0.5 })
   const dir = Math.atan2(wrist.y - elbow.y, wrist.x - elbow.x)
   shape(g, [v(wrist.x - 4, wrist.y - 2), v(wrist.x + 4, wrist.y - 2), v(wrist.x + 4, wrist.y + 2), v(wrist.x - 4, wrist.y + 2)], WHITE, { line: 0.6, shadow: 0.9 })
   hand(g, wrist, dir, 8, SKIN, true)
@@ -246,6 +247,8 @@ export function caballo(g: CanvasRenderingContext2D, suit: Suit, pip: PipFn) {
 
   // neck (arched crest) and head as one wedge: forehead, long muzzle, bony cheek
   shape(g, [v(97, 147), v(86, 128), v(70, 112), v(54, 102), v(45, 104), v(33, 116), v(22, 128), v(19, 136), v(25, 141), v(36, 137), v(45, 128), v(54, 140), v(62, 157)], HORSE, { hatch: 1.4, hatchFrom: 0.6, hatchAngle: 1.2 })
+  // blend the neck into the chest and shoulder: hide the neck's closing edge (no seam)
+  patch(g, [v(57, 158), v(64, 151), v(84, 146), v(96, 150), v(90, 161), v(70, 164)], HORSE)
   stroke(g, [v(44, 116), v(46, 126), v(40, 133)], 0.6) // cheekbone
   shape(g, [v(50, 104), v(52, 90), v(57, 102)], HORSE, { line: 0.8, shadow: 1.2 }) // ear
   // mane along the crest

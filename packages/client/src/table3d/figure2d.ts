@@ -136,7 +136,7 @@ export function limb(
   joints: V[],
   widths: number[],
   fill: string,
-  o: InkOpts & { bulges?: Array<{ at: number; amount: number; side: 1 | -1 }> } = {},
+  o: InkOpts & { bulges?: Array<{ at: number; amount: number; side: 1 | -1 }>; closedRoot?: boolean; ramp?: number } = {},
 ) {
   const spine = spline(joints, 12)
   const n = spine.length
@@ -169,13 +169,62 @@ export function limb(
     left.push({ x: spine[i].x + nx * wl, y: spine[i].y + ny * wl })
     right.push({ x: spine[i].x - nx * wr, y: spine[i].y - ny * wr })
   }
-  const outline = [...left, ...right.reverse()]
+  const outline = [...left, ...[...right].reverse()]
   path(g, outline)
   g.fillStyle = fill
   g.fill()
   if (o.hatch) hatchInside(g, outline, o.hatch, o.hatchAngle ?? 1.1, o.hatchFrom ?? 0.55)
-  inkOutline(g, outline, o)
+  if (o.closedRoot) {
+    inkOutline(g, outline, o)
+    return outline
+  }
+  // Open root: the limb grows out of the body. No line closes its top, and the two side
+  // contours emerge gradually (tapered from zero), so the limb reads as part of the body instead
+  // of a cut-out laid on top. The heavier contour goes on the side that faces away from the light.
+  const ramp = o.ramp ?? 0.28
+  const rightHeavier = right.reduce((a, p) => a + p.x, 0) > left.reduce((a, p) => a + p.x, 0)
+  const lw = o.line ?? 1.1
+  const sw = o.shadow ?? 2.2
+  inkEdge(g, left, rightHeavier ? lw : sw, ramp)
+  inkEdge(g, right, rightHeavier ? sw : lw, ramp)
+  // distal end (hand/foot side) closes normally
+  g.beginPath()
+  g.moveTo(left[left.length - 1].x, left[left.length - 1].y)
+  g.lineTo(right[right.length - 1].x, right[right.length - 1].y)
+  g.lineWidth = lw
+  g.strokeStyle = INK
+  g.lineCap = 'round'
+  g.stroke()
   return outline
+}
+
+/** A contour line whose width grows from 0 over the first `ramp` fraction (emerging from a mass). */
+export function inkEdge(g: CanvasRenderingContext2D, pts: V[], w: number, ramp = 0.28) {
+  const n = pts.length
+  const l: V[] = []
+  const r: V[] = []
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1)
+    const k = ramp > 0 ? Math.min(1, t / ramp) : 1
+    const width = w * k * k * (3 - 2 * k) * 0.5
+    const a = pts[Math.max(0, i - 1)]
+    const b = pts[Math.min(n - 1, i + 1)]
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
+    const nx = -(b.y - a.y) / len
+    const ny = (b.x - a.x) / len
+    l.push({ x: pts[i].x + nx * width, y: pts[i].y + ny * width })
+    r.push({ x: pts[i].x - nx * width, y: pts[i].y - ny * width })
+  }
+  path(g, [...l, ...r.reverse()])
+  g.fillStyle = INK
+  g.fill()
+}
+
+/** Fill-only smooth patch (no outline): hides a seam where two masses meet (neck into chest). */
+export function patch(g: CanvasRenderingContext2D, pts: V[], fill: string) {
+  path(g, spline(pts, 8, true))
+  g.fillStyle = fill
+  g.fill()
 }
 
 /** Tapered stroke (drapery folds, muscle separations, hair strands): thick at the start. */
