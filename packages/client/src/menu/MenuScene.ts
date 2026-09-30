@@ -79,7 +79,9 @@ export class MenuScene {
   private camTarget = SHOTS.entrada.target.clone()
   private mouse = new THREE.Vector2()
   private raycaster = new THREE.Raycaster()
-  private options: Array<{ view: CardView; mesh: THREE.Mesh; lift: number }> = []
+  // `hit`: invisible twin at the card's REST pose (flat on the felt); hover tests it, not the moving
+  // card, so the lift animation can't flicker the hover
+  private options: Array<{ view: CardView; mesh: THREE.Mesh; hit: THREE.Mesh; lift: number }> = []
   private aces: Array<{ view: CardView; flip: number; on: boolean }> = []
   private avatars: Array<{ av: Avatar; rise: number; name: string }> = []
   private hovered = -1
@@ -187,7 +189,12 @@ export class MenuScene {
       view.root.scale.setScalar(OPTION_SCALE)
       view.root.userData.option = i
       this.scene.add(view.root)
-      this.options.push({ view, mesh: face, lift: 0 })
+      const hit = new THREE.Mesh(face.geometry, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }))
+      hit.visible = false
+      hit.scale.setScalar(OPTION_SCALE)
+      hit.userData.option = i
+      this.scene.add(hit)
+      this.options.push({ view, mesh: face, hit, lift: 0 })
     })
   }
 
@@ -228,7 +235,9 @@ export class MenuScene {
       return
     }
     this.raycaster.setFromCamera(this.mouse, this.camera)
-    const hit = this.raycaster.intersectObjects(this.options.map((o) => o.view.root), true)[0]
+    const targets: THREE.Object3D[] = this.options.map((o) => o.hit)
+    if (this.hovered >= 0) targets.push(this.options[this.hovered].view.root) // keep it while over the raised card
+    const hit = this.raycaster.intersectObjects(targets, true)[0]
     let idx = -1
     if (hit) {
       let o: THREE.Object3D | null = hit.object
@@ -289,6 +298,9 @@ export class MenuScene {
       const y = TABLE_Y + 0.004 + Math.sin(tilt) * halfH + o.lift * 0.04 + (showOptions ? 0 : -0.5)
       o.view.root.position.set(x, y, 0.42 - o.lift * 0.06)
       o.view.root.rotation.set(FACE_UP + tilt, (1 - i) * 0.12, 0, 'YXZ')
+      o.hit.position.set(x, TABLE_Y + 0.004, 0.42)
+      o.hit.rotation.set(FACE_UP, (1 - i) * 0.12, 0, 'YXZ')
+      o.hit.updateMatrixWorld()
       o.view.root.visible = showOptions
     })
 

@@ -25,6 +25,7 @@ export function MenuBackdrop() {
     if (!ref.current) return;
     const scene = new MenuScene(ref.current);
     current = scene;
+    if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __menu: scene });
     listeners.forEach((l) => l(scene));
     return () => {
       scene.dispose();

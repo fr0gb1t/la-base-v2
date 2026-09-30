@@ -96,7 +96,9 @@ export class TableScene {
 
   // local player
   private viewmodel = new THREE.Group()
-  private vm: Array<{ mesh: THREE.Mesh; mat: THREE.MeshStandardMaterial; lift: number; base: { x: number; y: number; z: number; rz: number } }> = []
+  // `hit` is an invisible twin of each card that stays at the REST pose: hover is tested against it,
+  // so the lift animation can't pull the card out from under the cursor (hover flicker)
+  private vm: Array<{ mesh: THREE.Mesh; hit: THREE.Mesh; mat: THREE.MeshStandardMaterial; lift: number; base: { x: number; y: number; z: number; rz: number } }> = []
   private hand: Card[] = []
   private canPlay = false
   private busy = false
@@ -159,8 +161,10 @@ export class TableScene {
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W, CARD_H), mat)
       mesh.geometry.translate(0, CARD_H * 0.45, 0) // pivot near the bottom: fan from the grip
       mesh.visible = false
-      this.viewmodel.add(mesh)
-      this.vm.push({ mesh, mat, lift: 0, base: { x: 0, y: -0.25, z: -0.36, rz: 0 } })
+      const hit = new THREE.Mesh(mesh.geometry, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }))
+      hit.visible = false // never drawn; raycasts still hit invisible meshes
+      this.viewmodel.add(mesh, hit)
+      this.vm.push({ mesh, hit, mat, lift: 0, base: { x: 0, y: -0.25, z: -0.36, rz: 0 } })
     }
 
     this.bindInput()
@@ -860,8 +864,12 @@ export class TableScene {
   private updateHover() {
     const locked = document.pointerLockElement === this.renderer.domElement
     this.raycaster.setFromCamera(locked ? new THREE.Vector2(0, 0) : this.mouse, this.camera)
-    const hit = this.drag || this.busy || this.peek ? undefined : this.raycaster.intersectObjects(this.vm.filter((v) => v.mesh.visible).map((v) => v.mesh))[0]
-    this.hovered = hit ? this.vm.findIndex((v) => v.mesh === hit.object) : -1
+    // targets: every card's rest-pose twin, plus the lifted card itself while it's hovered (so you
+    // can move along the raised card without losing it)
+    const targets = this.vm.filter((v) => v.mesh.visible).map((v) => v.hit)
+    if (this.hovered >= 0 && this.vm[this.hovered]?.mesh.visible) targets.push(this.vm[this.hovered].mesh)
+    const hit = this.drag || this.busy || this.peek ? undefined : this.raycaster.intersectObjects(targets, false)[0]
+    this.hovered = hit ? this.vm.findIndex((v) => v.hit === hit.object || v.mesh === hit.object) : -1
     if (this.hovered !== this.lastHoverSent) {
       this.lastHoverSent = this.hovered
       this.cb.hover(this.hovered)
@@ -1034,6 +1042,8 @@ export class TableScene {
       v.lift += ((k === this.hovered ? 1 : 0) - v.lift) * 0.25
       v.mesh.position.set(v.base.x, v.base.y + v.lift * 0.02, v.base.z + v.lift * 0.02)
       v.mesh.rotation.set(-0.35, 0, v.base.rz * (1 - v.lift * 0.6))
+      v.hit.position.set(v.base.x, v.base.y, v.base.z)
+      v.hit.rotation.set(-0.35, 0, v.base.rz)
     })
     this.lowered += ((this.drag || this.busy || this.stand > 0.1 ? 1 : 0) - this.lowered) * 0.12
     this.viewmodel.position.set(Math.sin(time * 1.3) * 0.003 - 0.04 * this.lowered, Math.sin(time * 2.1) * 0.002 - 0.12 * this.aim - 0.09 * this.lowered, 0)
