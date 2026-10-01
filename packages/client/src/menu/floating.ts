@@ -12,6 +12,7 @@ export interface FloatItem {
   sub?: string
   hint?: string // longer description shown in the caption while hovered
   kind?: 'tag' | 'stamp' | 'chip'
+  icon?: 'plane' // a small engraved glyph above the label (chips)
   at: [number, number] // table x, z
   selected?: boolean
   disabled?: boolean
@@ -20,6 +21,47 @@ export interface FloatItem {
 
 const PX_PER_M = 1400
 const FONT = '"IM Fell English SC", Georgia, serif'
+
+/** A small propeller plane seen from above (the kamikaze token). */
+export function plane(g: CanvasRenderingContext2D, cx: number, cy: number, s: number, color: string) {
+  // a WWII-style monoplane seen from above, nose up: swept wings, round cowling, tailplane, prop
+  g.save()
+  g.translate(cx, cy)
+  g.fillStyle = color
+  g.beginPath() // fuselage: round cowling tapering to the tail
+  g.moveTo(0, -s * 0.5)
+  g.bezierCurveTo(s * 0.13, -s * 0.5, s * 0.12, -s * 0.1, s * 0.05, s * 0.45)
+  g.lineTo(-s * 0.05, s * 0.45)
+  g.bezierCurveTo(-s * 0.12, -s * 0.1, -s * 0.13, -s * 0.5, 0, -s * 0.5)
+  g.fill()
+  g.beginPath() // wings, swept back with rounded tips
+  g.moveTo(-s * 0.08, -s * 0.2)
+  g.lineTo(-s * 0.62, -s * 0.02)
+  g.quadraticCurveTo(-s * 0.68, s * 0.08, -s * 0.56, s * 0.08)
+  g.lineTo(-s * 0.08, s * 0.02)
+  g.lineTo(s * 0.08, s * 0.02)
+  g.lineTo(s * 0.56, s * 0.08)
+  g.quadraticCurveTo(s * 0.68, s * 0.08, s * 0.62, -s * 0.02)
+  g.lineTo(s * 0.08, -s * 0.2)
+  g.closePath()
+  g.fill()
+  g.beginPath() // tailplane
+  g.moveTo(-s * 0.04, s * 0.3)
+  g.lineTo(-s * 0.26, s * 0.42)
+  g.lineTo(-s * 0.24, s * 0.49)
+  g.lineTo(s * 0.24, s * 0.49)
+  g.lineTo(s * 0.26, s * 0.42)
+  g.lineTo(s * 0.04, s * 0.3)
+  g.closePath()
+  g.fill()
+  g.lineWidth = Math.max(1.5, s * 0.05) // propeller blur
+  g.strokeStyle = color
+  g.beginPath()
+  g.moveTo(-s * 0.24, -s * 0.55)
+  g.lineTo(s * 0.24, -s * 0.55)
+  g.stroke()
+  g.restore()
+}
 
 function texture(item: FloatItem) {
   const kind = item.kind ?? 'tag'
@@ -70,7 +112,11 @@ function texture(item: FloatItem) {
   g.textAlign = 'center'
   g.textBaseline = 'middle'
   g.font = title
-  g.fillText(item.label, cv.width / 2, kind === 'chip' ? 68 : item.sub ? h * 0.4 : h / 2 + 2)
+  if (item.icon === 'plane' && kind === 'chip') {
+    plane(g, 64, 42, 48, g.fillStyle as string)
+    g.font = `42px ${FONT}`
+    g.fillText(item.label, 64, 94)
+  } else g.fillText(item.label, cv.width / 2, kind === 'chip' ? 68 : item.sub ? h * 0.4 : h / 2 + 2)
   if (item.sub && kind !== 'chip') {
     g.font = `26px ${FONT}`
     g.globalAlpha = 0.75

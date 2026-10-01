@@ -102,6 +102,7 @@ export function GameConfig() {
             id: `kami-${count}`,
             label: String(count),
             kind: 'chip' as const,
+            icon: 'plane' as const,
             at: [-0.36 + i * 0.12, 0.62] as [number, number],
             selected: kamikazesPerTeam === count,
             hint: `${count} kamikaze${count === 1 ? '' : 's'} por equipo (todo o nada: 0 o todas las bases)`,
