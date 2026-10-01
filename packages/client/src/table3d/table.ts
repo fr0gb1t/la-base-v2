@@ -7,7 +7,7 @@ const TEAM_CHALK = { nosotros: PALETTE.teal, ellos: PALETTE.rose, random: PALETT
 
 // Chalk markings on the felt (Buckshot's taped/chalked table): outer ring, one play box per
 // seat, a centre circle, and a tally square per team for the porotos (diegetic score).
-function drawChalk(cv: HTMLCanvasElement, n: PlayerCount, labels: SeatLabel[]) {
+function drawChalk(cv: HTMLCanvasElement, n: PlayerCount, labels: SeatLabel[], guides: boolean) {
   const S = cv.width
   const g = cv.getContext('2d')!
   g.globalAlpha = 1
@@ -35,9 +35,12 @@ function drawChalk(cv: HTMLCanvasElement, n: PlayerCount, labels: SeatLabel[]) {
     // Canvas is mapped onto the top with UV v flipped by CircleGeometry: canvas y = world z.
     g.translate(S / 2 + Math.cos(a) * PLAY_R * m, S / 2 + Math.sin(a) * PLAY_R * m)
     g.rotate(a + Math.PI / 2)
-    g.setLineDash([10, 8])
-    g.strokeRect((-CARD_W / 2 - 0.02) * m, (-CARD_H / 2 - 0.05) * m, (CARD_W + 0.04) * m, (CARD_H + 0.1) * m)
-    g.setLineDash([])
+    if (guides) {
+      // where your card goes (the 'guides' view setting can hide these)
+      g.setLineDash([10, 8])
+      g.strokeRect((-CARD_W / 2 - 0.02) * m, (-CARD_H / 2 - 0.05) * m, (CARD_W + 0.04) * m, (CARD_H + 0.1) * m)
+      g.setLineDash([])
+    }
     // name plate scratched in chalk between the zone and the table edge, in the team's colour;
     // upright for the players across the table (they are the ones who need to read it)
     const label = labels[i]
@@ -52,24 +55,24 @@ function drawChalk(cv: HTMLCanvasElement, n: PlayerCount, labels: SeatLabel[]) {
   }
 }
 
-function chalkTexture(n: PlayerCount, labels: SeatLabel[]) {
+function chalkTexture(n: PlayerCount, labels: SeatLabel[], guides: boolean) {
   const cv = document.createElement('canvas')
   cv.width = cv.height = 1024
-  drawChalk(cv, n, labels)
+  drawChalk(cv, n, labels, guides)
   const t = new THREE.CanvasTexture(cv)
   t.colorSpace = THREE.SRGBColorSpace
   t.anisotropy = 8
   return {
     texture: t,
-    redraw(labels: SeatLabel[]) {
-      drawChalk(cv, n, labels)
+    redraw(labels: SeatLabel[], guides: boolean) {
+      drawChalk(cv, n, labels, guides)
       t.needsUpdate = true
     },
   }
 }
 
-export function buildRoom(scene: THREE.Scene, n: PlayerCount, labels: SeatLabel[] = []) {
-  const chalk = chalkTexture(n, labels)
+export function buildRoom(scene: THREE.Scene, n: PlayerCount, labels: SeatLabel[] = [], guides = true) {
+  const chalk = chalkTexture(n, labels, guides)
   scene.background = new THREE.Color(hex(PALETTE.void))
   scene.fog = new THREE.FogExp2(hex(PALETTE.void), 0.22)
 
@@ -118,7 +121,11 @@ export function buildRoom(scene: THREE.Scene, n: PlayerCount, labels: SeatLabel[
     chair.traverse((o) => (o.castShadow = true))
     scene.add(chair)
   }
-  return { setLabels: (l: SeatLabel[]) => chalk.redraw(l) }
+  let cur = { labels, guides }
+  return {
+    setLabels: (l: SeatLabel[]) => chalk.redraw((cur = { ...cur, labels: l }).labels, cur.guides),
+    setGuides: (on: boolean) => chalk.redraw(cur.labels, (cur = { ...cur, guides: on }).guides),
+  }
 }
 
 // ONE key light: the hanging lamp. Everything else is near-black.

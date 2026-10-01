@@ -119,6 +119,11 @@ export class TableTokens {
     this.dealer.visible = this.bidder.visible = false
   }
 
+  /** Chalk circles are placement guides: the beans stay, the circles can be hidden. */
+  setGuides(on: boolean) {
+    ringMat.visible = on
+  }
+
   update(s: TokenState | null) {
     if (!s) {
       this.dealer.visible = this.bidder.visible = false

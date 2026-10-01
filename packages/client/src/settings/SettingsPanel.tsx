@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand } from 'react-icons/gi';
+import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare } from 'react-icons/gi';
 import { getViewSettings, onViewSettings, setViewSettings, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
 import { previewSound, audioReady } from '../table3d/audio';
@@ -160,6 +160,13 @@ export function SettingsHost() {
             title="Invertir cámara"
             hint={view.invertLook ? 'arrastrás la mesa: la vista va al revés del mouse' : 'arrastrás la mirada: la vista sigue al mouse'}
             onToggle={() => setViewSettings({ invertLook: !view.invertLook })}
+          />
+          <Switch
+            on={view.guides}
+            icon={<GiDividedSquare aria-hidden className="setting-icon" />}
+            title="Guías en la mesa"
+            hint={view.guides ? 'recuadros de tiza para las cartas y círculos para los porotos' : 'mesa limpia: sin recuadros ni círculos (los porotos quedan)'}
+            onToggle={() => setViewSettings({ guides: !view.guides })}
           />
           <Switch
             on={view.reticle}

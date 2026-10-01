@@ -4,10 +4,11 @@ export interface ViewSettings {
   reticle: boolean // a dot in the middle of the screen to aim (at faces, for señas)
   invertLook: boolean // dragging moves the view the other way
   handResetOnTurn: boolean // your turn brings the hand back to its default height
+  guides: boolean // chalk guides where things go: dotted card boxes, circles for the beans
 }
 
 const KEY = 'laBase.view'
-const DEFAULTS: ViewSettings = { cameraReturn: false, reticle: true, invertLook: false, handResetOnTurn: true }
+const DEFAULTS: ViewSettings = { cameraReturn: false, reticle: true, invertLook: false, handResetOnTurn: true, guides: true }
 
 function load(): ViewSettings {
   try {

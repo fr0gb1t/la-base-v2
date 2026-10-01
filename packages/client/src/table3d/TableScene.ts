@@ -10,7 +10,7 @@ import { makePost } from './post'
 import { schedule, tickJobs, wait } from './jobs'
 import { initAudio, sfx, lampBuzz, toggleMute } from './audio'
 import { PALETTE, hex, DUOTONES } from './look'
-import { getViewSettings } from '../settings/viewSettings'
+import { getViewSettings, onViewSettings } from '../settings/viewSettings'
 import { NameTag } from './nameTags'
 import { TableTokens } from './tableTokens'
 
@@ -168,6 +168,14 @@ export class TableScene {
   private duo: { name: Moment; t0: number } | null = null
 
   private zoneFx: THREE.Mesh[] = []
+  private felt: ReturnType<typeof buildRoom> | null = null
+  private guides = getViewSettings().guides
+  private offView = onViewSettings((v) => {
+    if (v.guides === this.guides) return
+    this.guides = v.guides
+    this.felt?.setGuides(v.guides)
+    this.tokens.setGuides(v.guides)
+  })
   private turnSeat = -1
   private winnerSeat = -1 // base resolved, waiting for everyone to confirm: the winning card glows
   private raycaster = new THREE.Raycaster()
@@ -181,6 +189,7 @@ export class TableScene {
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera)
     this.scene.add(this.tokens.group)
+    this.tokens.setGuides(this.guides)
     this.scene.add(this.roomGroup)
     this.camera.add(this.viewmodel)
 
@@ -373,6 +382,7 @@ export class TableScene {
   }
 
   dispose() {
+    this.offView()
     this.disposed = true
     this.renderer.setAnimationLoop(null)
     this.resizeObs.disconnect()
@@ -415,7 +425,7 @@ export class TableScene {
     // names are no longer chalked on the felt: they float at each player's belly (NameTag)
     const labels = this.seatPlayers().map(() => ({ name: '', team: 'random' as const }))
     const tmp = new THREE.Scene()
-    buildRoom(tmp, this.n, labels)
+    this.felt = buildRoom(tmp, this.n, labels, getViewSettings().guides)
     ;[...tmp.children].forEach((c) => this.roomGroup.add(c))
     this.scene.background = tmp.background
     this.scene.fog = tmp.fog
@@ -1182,7 +1192,8 @@ export class TableScene {
       if (card && card.root.position.y > CARD_Y_REST + 0.001) card.root.position.y = CARD_Y_REST
       mat.color.set(hex(PALETTE.chalk)).multiplyScalar(1.6)
       const mine = s === 0 && ready
-      z.visible = mine || (s === this.turnSeat && s !== 0)
+      // without guides only the live feedback stays: your zone while you carry a card there
+      z.visible = this.guides ? mine || (s === this.turnSeat && s !== 0) : mine && !!this.drag
       const over = mine && this.drag && this.inZone(this.drag.view.root.position)
       mat.opacity = over ? 1 : mine ? 0.25 + 0.15 * Math.sin(time * 4) : 0.18
     })
