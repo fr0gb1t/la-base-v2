@@ -9,7 +9,7 @@ import { RoundScoringPanel } from './RoundScoringPanel';
 import { LiveBidDisplay } from './LiveBidDisplay';
 import { ToastContainer } from './ToastContainer';
 import { TableScene, type TablePlayer } from '../table3d/TableScene';
-import { SettingsButton } from '../settings/SettingsPanel';
+import { SettingsButton, useViewSettings } from '../settings/SettingsPanel';
 import { SenaWheel, type WheelOpen } from './senas/SenaWheel';
 import { GiExitDoor, GiScrollUnfurled, GiBookCover } from 'react-icons/gi';
 
@@ -87,6 +87,7 @@ export function GamePage() {
   const [showLog, setShowLog] = useState(false);
   const [wheel, setWheel] = useState<WheelOpen | null>(null);
   const [aimFace, setAimFace] = useState(false);
+  const view = useViewSettings();
   const nameNow = (id: string) => latest.current.roomPlayers.find((p) => p.id === id)?.name ?? '—';
   const roundRef = useRef(1);
   const logRef = useRef<(text: string, kind?: string) => void>(() => undefined);
@@ -500,7 +501,7 @@ export function GamePage() {
 
   return (
     <div className="table-page" onPointerDown={onMiddleDown} onMouseDown={onMiddleDown}>
-      <div className={`reticle${aimFace ? ' on-face' : ''}`} aria-hidden />
+      {view.reticle && <div className={`reticle${aimFace ? ' on-face' : ''}`} aria-hidden />}
       {wheel && inGame && <SenaWheel open={wheel} onPick={makeSena} onClose={closeWheel} />}
       <div ref={mountRef} className="table-canvas" />
 
