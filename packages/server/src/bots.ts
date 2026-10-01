@@ -2,11 +2,12 @@
  * In-app bots (v2): each bot is a real Socket.IO client connected to this same server, so it goes
  * through exactly the same handlers and validation as a human (no special game-logic paths).
  * Bots declare, play (with arm feints and head movement for the 3D table), choose on As de Oros,
- * pick a direction on As de Copas and confirm every ready gate.
+ * pick a direction on As de Copas and confirm every ready gate. They also make señas to their
+ * partner (turning to face them, so a rival only catches it by luck) and read their partner's.
  */
 import { randomBytes } from 'node:crypto';
 import { io as connect, type Socket } from 'socket.io-client';
-import { cardRank, resolveBase, type AssignedTeam, type Card, type GameState, type PlayedCard } from '@la-base/shared';
+import { cardRank, resolveBase, senaForCard, senasForHand, type AssignedTeam, type Card, type GameState, type PlayedCard, type Sena } from '@la-base/shared';
 
 // ---------------------------------------------------------------- strategy
 // Not an expert, but it plays La Base on purpose: bids from hand strength, tries to win exactly
@@ -20,16 +21,44 @@ function winChance(card: Card, espadasPower: boolean, players: number): number {
   return Math.min(0.97, (base + espadas) * (4 / Math.max(4, players)) ** 0.7);
 }
 
-export function chooseBid(hand: Card[], st: GameState, teamSize: number, players: number): number {
+/** Expected bases a seña promises (rough, like winChance) — 'nada' means only 10/11/12: strong here. */
+const SENA_WORTH: Record<Sena, number> = {
+  'ancho-basto': 0.9,
+  'ancho-espada': 0.45,
+  'ancho-oro': 0.15,
+  'ancho-copa': 0.1,
+  porno: 0.08,
+  tres: 0.03,
+  dos: 0.02,
+  nada: 0.33, // per card
+};
+
+/** What a teammate's hand is worth, from their señas (null: they haven't signed anything). */
+export function partnerWorth(senas: Sena[] | undefined, handSize: number): number | null {
+  if (!senas?.length) return null;
+  if (senas.includes('nada')) return handSize * SENA_WORTH.nada;
+  const signed = senas.reduce((sum, s) => sum + SENA_WORTH[s], 0);
+  return signed + Math.max(0, handSize - senas.length) * 0.15; // the cards they didn't sign
+}
+
+export function chooseBid(hand: Card[], st: GameState, teamSize: number, players: number, partnerSenas: Sena[][] = []): number {
   const max = st.structureSequence[st.roundIndex];
   const own = hand.reduce((sum, c) => sum + winChance(c, st.acePowers.espadas, players), 0);
-  // teammates hold cards too: expect them to add roughly what an average hand adds
-  const estimate = own + (teamSize - 1) * max * 0.18;
+  // teammates hold cards too: what their señas say, or roughly what an average hand adds
+  const mates = Array.from({ length: teamSize - 1 }, (_, i) => partnerWorth(partnerSenas[i], hand.length) ?? max * 0.18);
+  const estimate = own + mates.reduce((a, b) => a + b, 0);
   const options = Array.from({ length: max + 1 }, (_, v) => v).filter((v) => st.bids.length === 0 || st.bids[0].value + v !== max);
   return options.reduce((best, v) => (Math.abs(v - estimate) < Math.abs(best - estimate) ? v : best), options[0]);
 }
 
-export function chooseCard(hand: Card[], st: GameState, me: string, team: AssignedTeam, teamOf: (id: string) => string | undefined): number {
+export function chooseCard(
+  hand: Card[],
+  st: GameState,
+  me: string,
+  team: AssignedTeam,
+  teamOf: (id: string) => string | undefined,
+  partnerHolds: (sena: Sena) => string | null = () => null, // a teammate who signed it and still has it
+): number {
   const byRank = hand.map((c, i) => ({ c, i })).sort((a, b) => cardRank(a.c) - cardRank(b.c));
   const lowest = byRank[0].i;
   const bid = st.bids.find((b) => b.team === team)?.value ?? 0;
@@ -45,8 +74,11 @@ export function chooseCard(hand: Card[], st: GameState, me: string, team: Assign
   }
   const current = resolveBase(played, st.acePowers, st.playDirection);
   const teammateWinning = teamOf(current.playerId) === team;
+  // a partner who signed the ancho de bastos and hasn't played yet will take this base
+  const ace = partnerHolds('ancho-basto');
+  const partnerWillWin = ace !== null && !played.some((p) => p.playerId === ace);
   if (need > 0) {
-    if (teammateWinning) return lowest; // don't overtake your partner
+    if (teammateWinning || partnerWillWin) return lowest; // don't overtake your partner
     const winner = byRank.find(({ c }) => winsWith(c));
     return winner ? winner.i : lowest; // cheapest card that takes the base
   }
@@ -57,6 +89,16 @@ export function chooseCard(hand: Card[], st: GameState, me: string, team: Assign
 
 /** Secret proving a connection is one of our bots (only bots may flag themselves as bots). */
 export const BOT_TOKEN = randomBytes(24).toString('hex');
+
+/**
+ * Head yaw (client convention: 0 = toward the table centre, + = to the left) that faces the player
+ * `k` seats after you in seating order, around a table of `n`.
+ */
+export function yawToward(k: number, n: number): number {
+  const phi = (((k % n) + n) % n) * ((Math.PI * 2) / n); // central angle, counted to the left
+  if (phi === 0) return 0;
+  return phi <= Math.PI ? (Math.PI - phi) / 2 : -(Math.PI - (Math.PI * 2 - phi)) / 2;
+}
 
 const NAMES = ['Ana', 'Beto', 'Caro', 'Dani', 'Eli', 'Fede', 'Gabi', 'Hugo'];
 const bots = new Map<string, Socket[]>(); // roomCode → bot clients
@@ -80,6 +122,8 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
   let busy = false;
   let yaw = 0;
   let leaving = false;
+  let signing = false; // facing a partner to make a seña: the idle look waits
+  const partnerSenas = new Map<string, Set<Sena>>(); // teammate → señas they made this round
   const emit = <T = { success: boolean; error?: string }>(ev: string, payload: unknown) =>
     new Promise<T>((resolve) => s.emit(ev, payload, (res: T) => resolve(res)));
 
@@ -90,11 +134,59 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
   };
 
   const lookTimer = setInterval(() => {
+    if (signing) return;
     yaw = Math.max(-0.9, Math.min(0.9, yaw + (Math.random() - 0.5) * 0.4));
     s.emit('presence:look', { roomCode, yaw, pitch: -0.2 + Math.random() * 0.2 });
   }, 300);
 
-  s.on('player:hand', (d: { hand: Card[] }) => (hand = d.hand));
+  const teammates = () => {
+    const mine = roster.find((p) => p.id === s.id)?.team;
+    return roster.filter((p) => p.id !== s.id && p.team === mine);
+  };
+  s.on('player:hand', (d: { hand: Card[] }) => {
+    const dealt = d.hand.length > hand.length;
+    hand = d.hand;
+    if (dealt) {
+      partnerSenas.clear();
+      void signHand();
+    }
+  });
+  s.on('sena:made', (d: { playerId: string; sena: Sena }) => {
+    if (!teammates().some((p) => p.id === d.playerId)) return; // rivals keep a poker face
+    partnerSenas.set(d.playerId, (partnerSenas.get(d.playerId) ?? new Set()).add(d.sena));
+  });
+  s.on('game:cardPlayed', (d: { playerId: string; card: Card }) => {
+    const sena = senaForCard(d.card);
+    if (sena) partnerSenas.get(d.playerId)?.delete(sena); // that card is gone
+  });
+
+  /** Tell the partner(s) what we hold: turn to face them, make the seña, look away. */
+  async function signHand() {
+    const mates = teammates();
+    if (!mates.length) return;
+    const list = senasForHand(hand).slice(0, 2);
+    for (const sena of list) {
+      await sleep(1500 + Math.random() * 3500);
+      if (!state || (state.phase !== 'bidding' && state.phase !== 'playing') || leaving) return;
+      const mate = mates[Math.floor(Math.random() * mates.length)];
+      const order = roster.map((p) => p.id);
+      const k = order.indexOf(mate.id) - order.indexOf(s.id ?? '');
+      signing = true;
+      yaw = yawToward(k, order.length);
+      for (let i = 0; i < 4; i++) {
+        s.emit('presence:look', { roomCode, yaw, pitch: -0.05 });
+        await sleep(110);
+      }
+      s.emit('sena:make', { roomCode, sena });
+      for (let i = 0; i < 6; i++) {
+        s.emit('presence:look', { roomCode, yaw, pitch: -0.05 });
+        await sleep(250);
+      }
+      signing = false;
+    }
+  }
+  const signedBy = () => teammates().map((p) => [...(partnerSenas.get(p.id) ?? [])]);
+  const partnerHolds = (sena: Sena) => teammates().find((p) => partnerSenas.get(p.id)?.has(sena))?.id ?? null;
   s.on('room:kicked', stop);
   s.on('game:gameOver', () => setTimeout(stop, 60_000));
   s.on('room:updated', (d: { players: Array<{ id: string; team: string; isBot?: boolean; isConnected: boolean }> }) => {
@@ -129,14 +221,14 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
         await sleep(1200);
         const myTeam = roster.find((p) => p.id === me)?.team;
         const teamSize = Math.max(1, roster.filter((p) => p.team === myTeam).length);
-        const value = chooseBid(hand, st, teamSize, Math.max(4, roster.length));
+        const value = chooseBid(hand, st, teamSize, Math.max(4, roster.length), signedBy());
         s.emit('bid:bidValueChanged', { roomCode, bidValue: value, playerId: me });
         await sleep(800);
         await emit('bid:declare', { roomCode, bidValue: value, isKamikaze: false });
       } else if (st.phase === 'playing' && st.currentTurnPlayerId === me && hand.length) {
         await sleep(900);
         const myTeam = (roster.find((p) => p.id === me)?.team ?? 'nosotros') as AssignedTeam;
-        const k = chooseCard(hand, st, me, myTeam, (id) => roster.find((p) => p.id === id)?.team);
+        const k = chooseCard(hand, st, me, myTeam, (id) => roster.find((p) => p.id === id)?.team, partnerHolds);
         const card = hand[k];
         const feint = Math.random() < 0.35;
         for (let i = 0; i <= 14; i++) {
