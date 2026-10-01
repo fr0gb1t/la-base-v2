@@ -37,6 +37,10 @@ export interface TableCallbacks {
   status(text: string): void
   /** short click on the deck in the middle of the table (initial draw) */
   deckClick?(): void
+  /** the centre of your view moved onto (playerId) or off (null) someone's face */
+  faceAim?(playerId: string | null): void
+  /** you caught a rival's seña by looking at their face */
+  senaSeen?(playerId: string, sena: Sena): void
 }
 
 type Moment = keyof typeof DUOTONES
@@ -65,6 +69,8 @@ const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 
 const seg = (t: number, a: number, b: number) => THREE.MathUtils.clamp((t - a) / (b - a), 0, 1)
 const quatOf = (rx: number, yaw: number, roll = 0) => new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, yaw, roll, 'YXZ'))
 const now = () => performance.now() / 1000
+const FACE_MIN_DOT = 0.6 // the face must be turned within ~53° of you (a ¾ profile hides the señas)
+const FACE_AIM_R = 0.14 // m: how close to a head the centre of the view must pass to read its face
 const SENA_HOLD = 1.6 // s a seña stays on the face
 /** How far into a seña the face is (0 rest … 1 full) at `t` seconds since it started. */
 function senaAmount(s: Sena, t: number) {
@@ -151,7 +157,9 @@ export class TableScene {
 
   // avatars
   private poses: AvatarPose[] = []
-  private senas = new Map<number, { s: Sena; t0: number; frozen?: boolean }>() // seat → seña on their face
+  private senas = new Map<number, { s: Sena; t0: number; frozen?: boolean; open?: boolean; seen?: boolean }>()
+  private aimedFace = -1
+  private faceShown: Array<Sena | null> = [] // per seat, for tests // seat → seña on their face
   private focus: THREE.Vector3 | null = null
   private stareAtYou = 0
   private remoteLook = new Map<number, { yaw: number; pitch: number; t: number }>()
@@ -292,10 +300,41 @@ export class TableScene {
     })
   }
 
-  /** A player makes a seña: it plays on their mask for a moment. */
+  /**
+   * A player makes a seña: it plays on their mask for a moment. Teammates' señas always show;
+   * a rival keeps a poker face unless the centre of your view is on their face while they do it.
+   */
   sena(playerId: string, s: Sena) {
     const seat = this.seatOf(playerId)
-    if (seat > 0) this.senas.set(seat, { s, t0: now() })
+    if (seat <= 0) return
+    const myTeam = this.players.find((p) => p.id === this.myId)?.team
+    const open = this.players.find((p) => p.id === playerId)?.team === myTeam
+    this.senas.set(seat, { s, t0: now(), open })
+  }
+
+  /** The seat whose face is under the centre of the view and turned toward you (-1: none). */
+  private faceUnderCentre() {
+    const origin = this.camera.getWorldPosition(new THREE.Vector3())
+    const dir = this.camera.getWorldDirection(new THREE.Vector3())
+    const head = new THREE.Vector3()
+    const facing = new THREE.Vector3()
+    let best = -1
+    let bestD = Infinity
+    for (const av of this.avatars) {
+      if (av.seat === 0) continue
+      av.head.getWorldPosition(head)
+      // a mask seen in profile or from behind shows nothing: its face (-z) must point at you
+      av.head.getWorldDirection(facing).negate()
+      if (facing.dot(origin.clone().sub(head).normalize()) < FACE_MIN_DOT) continue
+      const along = head.sub(origin).dot(dir)
+      if (along <= 0) continue
+      const off = head.addScaledVector(dir, -along).length() // distance from the ray
+      if (off < FACE_AIM_R && along < bestD) {
+        best = av.seat
+        bestD = along
+      }
+    }
+    return best
   }
 
   presence(kind: 'look' | 'arm' | 'hover', playerId: string, data: Record<string, unknown>) {
@@ -352,6 +391,11 @@ export class TableScene {
   private seatPlayers() {
     const me = Math.max(0, this.players.findIndex((p) => p.id === this.myId))
     return this.players.map((_, i) => this.players[(me + i) % this.players.length])
+  }
+
+  private playerAt(seat: number) {
+    const me = this.players.findIndex((p) => p.id === this.myId)
+    return this.players[(me + seat) % this.n]?.id ?? ''
   }
 
   private seatOf(playerId: string) {
@@ -1145,6 +1189,11 @@ export class TableScene {
     const tmp = new THREE.Vector3()
     this.stareAtYou = Math.max(0, this.stareAtYou - dt)
     const t = now()
+    const aimed = this.faceUnderCentre()
+    if (aimed !== this.aimedFace) {
+      this.aimedFace = aimed
+      this.cb.faceAim?.(aimed > 0 ? this.playerAt(aimed) : null)
+    }
     for (const av of this.avatars) {
       const p = this.poses[av.seat]
       if (av.seat === 0) {
@@ -1169,7 +1218,13 @@ export class TableScene {
       const sg = this.senas.get(av.seat)
       const amount = sg?.frozen ? 1 : sg ? senaAmount(sg.s, Math.floor((t - sg.t0) * 15) / 15) : 0 // stop-motion like the rest of the body
       if (sg && amount <= 0 && t - sg.t0 > 0.5) this.senas.delete(av.seat)
-      av.sena(sg?.s ?? null, amount)
+      const shows = Boolean(sg && (sg.open || sg.frozen || aimed === av.seat))
+      if (sg && shows && !sg.open && !sg.seen && amount > 0.5) {
+        sg.seen = true
+        this.cb.senaSeen?.(this.playerAt(av.seat), sg.s)
+      }
+      av.sena(shows ? sg!.s : null, shows ? amount : 0)
+      this.faceShown[av.seat] = shows && amount > 0 ? sg!.s : null
       // fingering a card in their hand
       const hv = this.remoteHover.get(av.seat)
       av.hand.forEach((c, i) => {
@@ -1235,6 +1290,8 @@ export class TableScene {
       wonStacks: this.wonStacks.length,
       handShown: this.vm.filter((v) => v.mesh.visible).length,
       hovered: this.hovered,
+      aimedFace: this.aimedFace,
+      faces: this.faceShown.map((f, seat) => (f ? { seat, id: this.playerAt(seat), sena: f } : null)).filter(Boolean),
     }
   }
 

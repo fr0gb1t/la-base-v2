@@ -60,6 +60,8 @@ function BidPips({ bid, won }: { bid?: Bid; won: number }) {
   );
 }
 
+const gestureOf = (sena: Sena) => SENAS.find((x) => x.id === sena)?.gesture ?? sena;
+
 export function GamePage() {
   const socket = useSocket();
   useGameEvents();
@@ -84,6 +86,8 @@ export function GamePage() {
   const [log, setLog] = useState<Array<{ id: number; round: number; text: string; kind: string }>>([]);
   const [showLog, setShowLog] = useState(false);
   const [wheel, setWheel] = useState<WheelOpen | null>(null);
+  const [aimFace, setAimFace] = useState(false);
+  const nameNow = (id: string) => latest.current.roomPlayers.find((p) => p.id === id)?.name ?? '—';
   const roundRef = useRef(1);
   const logRef = useRef<(text: string, kind?: string) => void>(() => undefined);
   logRef.current = (text: string, kind = 'play') =>
@@ -157,6 +161,8 @@ export function GamePage() {
       },
       status: (text) => setStatus(text),
       deckClick: () => drawRef.current(),
+      faceAim: (id) => setAimFace(Boolean(id)),
+      senaSeen: (id, sena) => logRef.current(`Viste a ${nameNow(id)}: ${gestureOf(sena)}`, 'sena'),
     });
     sceneRef.current = scene;
     if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __table: scene });
@@ -285,6 +291,14 @@ export function GamePage() {
     socket.on('game:baseResolved', onBaseResolved);
     socket.on('game:gateReleased', onGateReleased);
     socket.on('game:bidDeclared', onBid);
+    const onSena = (d: { playerId: string; sena: Sena }) => {
+      sceneRef.current?.sena(d.playerId, d.sena);
+      const { roomPlayers: players, myId: me } = latest.current;
+      const team = (id: string) => players.find((p) => p.id === id)?.team;
+      // a partner's seña is meant for you; a rival's only goes in the log if you caught it (senaSeen)
+      if (team(d.playerId) === team(me)) logRef.current(`${nameNow(d.playerId)} te hace la seña: ${gestureOf(d.sena)}`, 'sena');
+    };
+    socket.on('sena:made', onSena);
     const onRoundScored = (d: { nosotrosScore: number; ellosScore: number; totalScores: { nosotros: number; ellos: number } }) => {
       const mine = latest.current.roomPlayers.find((p) => p.id === latest.current.myId)?.team === 'ellos' ? 'ellos' : 'nosotros';
       const other = mine === 'nosotros' ? 'ellos' : 'nosotros';
@@ -302,6 +316,7 @@ export function GamePage() {
       socket.off('game:baseResolved', onBaseResolved);
       socket.off('game:gateReleased', onGateReleased);
       socket.off('game:bidDeclared', onBid);
+      socket.off('sena:made', onSena);
       socket.off('game:roundScored', onRoundScored);
       socket.off('presence:look', onLook);
       socket.off('presence:arm', onArm);
@@ -338,7 +353,7 @@ export function GamePage() {
       if (!socket || !roomCode) return;
       socket.emit('sena:make', { roomCode, sena }, (res: { success: boolean; error?: string }) => {
         if (!res?.success) return setStatus(res?.error === 'Too fast' ? 'más despacio con las señas' : res?.error || 'No se pudo hacer la seña');
-        const label = SENAS.find((x) => x.id === sena)?.gesture ?? sena;
+        const label = gestureOf(sena);
         setStatus(`hacés la seña: ${label}`);
         logRef.current(`Hacés la seña: ${label}`, 'sena');
       });
@@ -485,6 +500,7 @@ export function GamePage() {
 
   return (
     <div className="table-page" onPointerDown={onMiddleDown} onMouseDown={onMiddleDown}>
+      <div className={`reticle${aimFace ? ' on-face' : ''}`} aria-hidden />
       {wheel && inGame && <SenaWheel open={wheel} onPick={makeSena} onClose={closeWheel} />}
       <div ref={mountRef} className="table-canvas" />
 

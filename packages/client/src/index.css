@@ -2274,3 +2274,26 @@ button {
   color: #5a3d62;
   font-style: italic;
 }
+
+/* centre of the view: put it on a rival's face to catch their señas */
+.reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: rgba(233, 220, 194, 0.45);
+  pointer-events: none;
+  z-index: 5;
+  transition: all 0.15s;
+}
+
+.reticle.on-face {
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  background: transparent;
+  border: 1.5px solid rgba(233, 220, 194, 0.7);
+}
