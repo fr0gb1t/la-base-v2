@@ -119,6 +119,8 @@ export type GameState = {
   kamikazeTeam: AssignedTeam | null;
   initialDraw: InitialDrawState | null;
   readyGate?: ReadyGate | null;
+  /** who dealt this round (rotates antihorario every round); the next player is the round's Mano */
+  dealerPlayerId?: string | null;
 };
 
 export type GameConfig = {

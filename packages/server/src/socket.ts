@@ -45,7 +45,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
       room.players.forEach((player: any) => {
         const playerSocket = io.sockets.sockets.get(player.socketId);
         if (playerSocket) {
-          playerSocket.emit('player:hand', { hand: player.hand });
+          playerSocket.emit('player:hand', { hand: player.hand, dealerPlayerId: room.gameState?.dealerPlayerId ?? null });
         }
       });
     };
@@ -229,6 +229,14 @@ export function setupSocketHandlers(io: SocketIOServer) {
 
       if (gate.kind === 'round') {
         resetRoundState(room.gameState);
+        // the deal rotates (antihorario) and the first player to receive cards is the new Mano —
+        // never the last base's winner (an As de Oros on the last base has no effect)
+        const prevDealer = room.gameState.dealerPlayerId ?? room.players[0].id;
+        const dealer = getNextPlayerInTurn(room.players, prevDealer, 'antihorario', prevDealer) ?? room.players[0];
+        const mano = getNextPlayerInTurn(room.players, dealer.id, 'antihorario', dealer.id) ?? dealer;
+        room.gameState.dealerPlayerId = dealer.id;
+        room.gameState.currentManoPlayerId = mano.id;
+        room.players.forEach((p) => (p.isMano = p.id === mano.id));
         room.gameState.phase = 'bidding';
         room.gameState.currentTurnPlayerId = room.gameState.currentManoPlayerId;
         room.gameState.currentBidPlayerId = room.gameState.currentManoPlayerId;
@@ -715,6 +723,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
           initialDraw.completed = true;
           initialDraw.currentDrawerPlayerId = null;
           initialDraw.dealerPlayerId = dealerPlayer.id;
+          room.gameState.dealerPlayerId = dealerPlayer.id;
           initialDraw.manoPlayerId = manoPlayer.id;
 
           room.gameState.currentManoPlayerId = manoPlayer.id;

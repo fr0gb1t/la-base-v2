@@ -35,6 +35,7 @@ export function cardName(card: Pick<Card, 'suit' | 'value'>) {
 /** Who deals this round: the initial draw winner in round 1, otherwise the seat before the Mano. */
 function dealerOf(gs: GameState | null, players: { id: string }[]) {
   if (!gs) return null;
+  if (gs.dealerPlayerId) return gs.dealerPlayerId;
   if (gs.roundIndex === 0 && gs.initialDraw?.dealerPlayerId) return gs.initialDraw.dealerPlayerId;
   const i = players.findIndex((p) => p.id === gs.currentManoPlayerId);
   if (i < 0) return null;
@@ -200,13 +201,13 @@ export function GamePage() {
       const mine = latest.current.roomPlayers.find((p) => p.id === latest.current.myId)?.team;
       return team && team === mine ? 'tu equipo' : 'rivales';
     };
-    const onHand = (data: { hand: Card[] }) => {
+    const onHand = (data: { hand: Card[]; dealerPlayerId?: string | null }) => {
       const scene = sceneRef.current;
       if (!scene) return;
       const { gameState: gs, roomPlayers: players } = latest.current;
       if (data.hand.length > prevHandLen) {
         // a new round: clear the table, then the dealer deals
-        const dealer = dealerOf(gs, players);
+        const dealer = data.dealerPlayerId ?? dealerOf(gs, players);
         scene.clearInitialDraw();
         scene.clearRound(dealer);
         scene.deal(dealer, data.hand.length, data.hand);
