@@ -10,7 +10,7 @@ import { LiveBidDisplay } from './LiveBidDisplay';
 import { ToastContainer } from './ToastContainer';
 import { TableScene, type TablePlayer } from '../table3d/TableScene';
 import { SettingsButton } from '../settings/SettingsPanel';
-import { GiExitDoor, GiScrollUnfurled } from 'react-icons/gi';
+import { GiExitDoor, GiScrollUnfurled, GiBookCover } from 'react-icons/gi';
 
 // First-person 3D table (La Base v2). The table shows every card movement; the non-card phases
 // (initial draw, bidding, ace choices, ready gates, scoring) are dark minimal overlays over it.
@@ -79,6 +79,13 @@ export function GamePage() {
 
   const mountRef = useRef<HTMLDivElement>(null);
   const drawRef = useRef<() => void>(() => undefined);
+  // ---- game log (history panel, hidden by default)
+  const [log, setLog] = useState<Array<{ id: number; round: number; text: string; kind: string }>>([]);
+  const [showLog, setShowLog] = useState(false);
+  const roundRef = useRef(1);
+  const logRef = useRef<(text: string, kind?: string) => void>(() => undefined);
+  logRef.current = (text: string, kind = 'play') =>
+    setLog((l) => [...l.slice(-299), { id: (l[l.length - 1]?.id ?? 0) + 1, round: roundRef.current, text, kind }]);
   const sceneRef = useRef<TableScene | null>(null);
   const [status, setStatus] = useState('');
   const [stamp, setStamp] = useState<{ text: string; key: number } | null>(null);
@@ -205,6 +212,7 @@ export function GamePage() {
       );
     }
     if (prevDirection.current && prevDirection.current !== gameState.playDirection && gameState.phase === 'playing') {
+      logRef.current(`As de Copas: el sentido pasa a ${gameState.playDirection}`, 'event');
       scene.moment('envido');
       flash(gameState.playDirection === 'horario' ? 'SENTIDO HORARIO' : 'SENTIDO ANTIHORARIO');
     }
@@ -219,32 +227,39 @@ export function GamePage() {
       const mine = latest.current.roomPlayers.find((p) => p.id === latest.current.myId)?.team;
       return team && team === mine ? 'tu equipo' : 'rivales';
     };
-    const onHand = (data: { hand: Card[]; dealerPlayerId?: string | null }) => {
+    const onHand = (data: { hand: Card[]; dealerPlayerId?: string | null; roundIndex?: number }) => {
       const scene = sceneRef.current;
       if (!scene) return;
       const { gameState: gs, roomPlayers: players } = latest.current;
       if (data.hand.length > prevHandLen) {
         // a new round: clear the table, then the dealer deals
         const dealer = data.dealerPlayerId ?? dealerOf(gs, players);
+        roundRef.current = (data.roundIndex ?? gs?.roundIndex ?? 0) + 1;
+        logRef.current(`Ronda ${roundRef.current}: reparte ${players.find((p) => p.id === dealer)?.name ?? '—'}, ${data.hand.length} ${data.hand.length === 1 ? 'carta' : 'cartas'}`, 'round');
         scene.clearInitialDraw();
         scene.clearRound(dealer);
         scene.deal(dealer, data.hand.length, data.hand);
       } else scene.setHand(data.hand);
       prevHandLen = data.hand.length;
     };
-    const onCardPlayed = (data: { playerId: string; card: Card }) => sceneRef.current?.cardPlayed(data.playerId, data.card);
+    const who = (id?: string | null) => latest.current.roomPlayers.find((p) => p.id === id)?.name ?? '—';
+    const onCardPlayed = (data: { playerId: string; card: Card }) => {
+      sceneRef.current?.cardPlayed(data.playerId, data.card);
+      logRef.current(`${who(data.playerId)} juega ${cardName(data.card)}`);
+    };
     const onBaseResolved = (data: { winner: string; winnerTeam: string; winnerPlayerId?: string }) => {
       const id = data.winnerPlayerId ?? latest.current.roomPlayers.find((p) => p.name === data.winner)?.id;
       // the cards stay on the table (winner glowing) until everybody confirms
       if (id) sceneRef.current?.markWinner(id);
+      logRef.current(`${data.winner} gana la base (${relative(data.winnerTeam)})`, 'base');
     };
     const onGateReleased = (data: { kind: 'base' | 'round'; winnerPlayerId: string }) => {
       sceneRef.current?.markWinner(null);
       sceneRef.current?.baseResolved(data.winnerPlayerId);
     };
-    const onBid = (data: { team: string; bidValue: number; isKamikaze: boolean }) => {
+    const onBid = (data: { team: string; bidValue: number; isKamikaze: boolean; playerId?: string }) => {
       // game:bidDeclared arrives before the state update: the declarer is still the current bidder
-      const who = latest.current.roomPlayers.find((p) => p.id === latest.current.gameState?.currentBidPlayerId);
+      const who = latest.current.roomPlayers.find((p) => p.id === (data.playerId ?? latest.current.gameState?.currentBidPlayerId));
       const rel = relative(data.team);
       setAnnounce({
         title: who?.id === latest.current.myId ? `Pedís ${data.bidValue}` : `${who?.name ?? teamName(data.team)} pide ${data.bidValue}`,
@@ -252,6 +267,7 @@ export function GamePage() {
         mine: rel === 'tu equipo',
         key: Date.now(),
       });
+      logRef.current(`${who?.name ?? teamName(data.team)} pide ${data.bidValue}${data.isKamikaze ? ' · KAMIKAZE' : ''} (${rel})`, data.isKamikaze ? 'kami' : 'bid');
       if (data.isKamikaze) {
         sceneRef.current?.moment('truco');
         flash('¡KAMIKAZE!');
@@ -267,6 +283,14 @@ export function GamePage() {
     socket.on('game:baseResolved', onBaseResolved);
     socket.on('game:gateReleased', onGateReleased);
     socket.on('game:bidDeclared', onBid);
+    const onRoundScored = (d: { nosotrosScore: number; ellosScore: number; totalScores: { nosotros: number; ellos: number } }) => {
+      const mine = latest.current.roomPlayers.find((p) => p.id === latest.current.myId)?.team === 'ellos' ? 'ellos' : 'nosotros';
+      const other = mine === 'nosotros' ? 'ellos' : 'nosotros';
+      const pts = (n: number) => (n > 0 ? `+${n}` : String(n));
+      const sc = { nosotros: d.nosotrosScore, ellos: d.ellosScore };
+      logRef.current(`Fin de ronda · tu equipo ${pts(sc[mine])} (total ${d.totalScores[mine]}) · rivales ${pts(sc[other])} (total ${d.totalScores[other]})`, 'round');
+    };
+    socket.on('game:roundScored', onRoundScored);
     socket.on('presence:look', onLook);
     socket.on('presence:arm', onArm);
     socket.on('presence:hover', onHover);
@@ -276,6 +300,7 @@ export function GamePage() {
       socket.off('game:baseResolved', onBaseResolved);
       socket.off('game:gateReleased', onGateReleased);
       socket.off('game:bidDeclared', onBid);
+      socket.off('game:roundScored', onRoundScored);
       socket.off('presence:look', onLook);
       socket.off('presence:arm', onArm);
       socket.off('presence:hover', onHover);
@@ -309,6 +334,7 @@ export function GamePage() {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
       if (e.key === 'h' || e.key === 'H') cycleHud();
+      if (e.key === 'j' || e.key === 'J') setShowLog((v) => !v);
       if (e.key === 'Enter' && gate && !iAmReady) handleReady();
     };
     window.addEventListener('keydown', onKey);
@@ -480,10 +506,29 @@ export function GamePage() {
         )}
         <nav className="hud-tabs">
           <button className="hud-tab" onClick={cycleHud} title="Tecla H"><GiScrollUnfurled aria-hidden /> anotador: {hud === 'basico' ? 'básico' : hud === 'completo' ? 'completo' : 'oculto'}</button>
+          <button className="hud-tab" onClick={() => setShowLog((v) => !v)} title="Tecla J"><GiBookCover aria-hidden /> historial</button>
           <SettingsButton />
           <button className="hud-tab danger" onClick={handleLeaveGame}><GiExitDoor aria-hidden /> salir</button>
         </nav>
       </header>
+
+      {showLog && (
+        <aside className="pad log-pad" aria-label="Historial de la partida">
+          <div className="pad-head">
+            <span>Historial</span>
+            <button className="log-close" onClick={() => setShowLog(false)} aria-label="Cerrar historial">×</button>
+          </div>
+          <ol className="log-list" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
+            {log.length === 0 && <li className="dim">todavía no pasó nada</li>}
+            {log.map((e) => (
+              <li key={e.id} className={`log-${e.kind}`}>
+                <span className="log-n">{e.round}</span>
+                {e.text}
+              </li>
+            ))}
+          </ol>
+        </aside>
+      )}
 
       <div className="phase-line">{status || phaseLine}</div>
 
@@ -586,7 +631,7 @@ export function GamePage() {
       )}
 
       <div className="help-line">
-        H: anotador · O: ajustes · arrastrá sobre la mesa: mirar · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom
+        H: anotador · J: historial · O: ajustes · arrastrá sobre la mesa: mirar · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom
       </div>
 
       {gameState?.phase === 'bidding' && <BiddingPanel />}

@@ -45,7 +45,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
       room.players.forEach((player: any) => {
         const playerSocket = io.sockets.sockets.get(player.socketId);
         if (playerSocket) {
-          playerSocket.emit('player:hand', { hand: player.hand, dealerPlayerId: room.gameState?.dealerPlayerId ?? null });
+          playerSocket.emit('player:hand', { hand: player.hand, dealerPlayerId: room.gameState?.dealerPlayerId ?? null, roundIndex: room.gameState?.roundIndex ?? 0 });
         }
       });
     };
@@ -904,6 +904,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
             bidValue: payload.bidValue,
             isKamikaze: payload.isKamikaze || false,
             totalBids: room.gameState.bids.length,
+            playerId: player.id,
           });
 
           io.to(payload.roomCode).emit('game:state', room.gameState);

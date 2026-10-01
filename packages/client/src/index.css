@@ -2139,3 +2139,66 @@ button {
 .phase-line {
   font-size: 21px;
 }
+
+/* ---- history (log) pad ---- */
+.log-pad {
+  position: absolute;
+  right: 18px;
+  top: 64px;
+  bottom: 70px;
+  width: min(360px, 40vw);
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  transform: rotate(0.8deg);
+  transform-origin: top right;
+  z-index: 25;
+}
+
+.log-close {
+  margin-left: auto;
+  background: none;
+  border: 0;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.log-list {
+  list-style: none;
+  margin-top: 6px;
+  overflow-y: auto;
+  flex: 1;
+  font-size: 16px;
+  line-height: 28px; /* sits on the ruled lines */
+}
+
+.log-list li {
+  display: flex;
+  gap: 8px;
+}
+
+.log-n {
+  flex: none;
+  width: 1.6em;
+  text-align: right;
+  opacity: 0.45;
+}
+
+.log-list .log-base {
+  font-style: italic;
+}
+
+.log-list .log-kami {
+  color: #8e2a22;
+}
+
+.log-list .log-round {
+  font-variant: small-caps;
+  border-top: 1px solid rgba(20, 14, 12, 0.4);
+}
+
+.log-list .log-event {
+  color: #2c4a53;
+}
