@@ -569,7 +569,7 @@ export function GamePage() {
       )}
 
       <div className="help-line">
-        H: anotador · O: ajustes · click en la mesa: mirar / soltar la vista · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom
+        H: anotador · O: ajustes · arrastrá sobre la mesa: mirar · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom
       </div>
 
       {gameState?.phase === 'bidding' && <BiddingPanel />}

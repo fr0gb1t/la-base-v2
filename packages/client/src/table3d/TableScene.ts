@@ -10,6 +10,7 @@ import { makePost } from './post'
 import { schedule, tickJobs, wait } from './jobs'
 import { initAudio, sfx, lampBuzz, toggleMute } from './audio'
 import { PALETTE, hex, DUOTONES } from './look'
+import { getViewSettings } from '../settings/viewSettings'
 
 // ---------------------------------------------------------------------------------------------
 // The 3D table, driven by real game events. Seats follow the server's turn order with the local
@@ -32,6 +33,8 @@ export interface TableCallbacks {
   arm(slot: number, fwd: number, lat: number, holding: boolean): void
   hover(slot: number): void
   status(text: string): void
+  /** short click on the deck in the middle of the table (initial draw) */
+  deckClick?(): void
 }
 
 type Moment = keyof typeof DUOTONES
@@ -63,6 +66,7 @@ const now = () => performance.now() / 1000
 // A bit tighter than a shooter's 58°: the table fills more of the screen (cards read without
 // zoom) while the masks of the players across still fit at the top.
 const BASE_FOV = 50
+const DEFAULT_PITCH = -0.34
 const HAND_Y = -0.205 // your fan's grip height in camera space
 const CARD_Y_REST = TABLE_Y + 0.004
 const CARD_Y_WIN = TABLE_Y + 0.014
@@ -108,14 +112,16 @@ export class TableScene {
   private busy = false
   private drag: Drag | null = null
   private pending: { k: number; t0: number; moved: number } | null = null
+  // press-and-drag on the table looks around; a press without movement is a click on the table
+  private lookDrag: { moved: number } | null = null
   private hovered = -1
   private lastHoverSent = -2
 
   // camera
   private yaw = 0
-  private pitch = -0.34
+  private pitch = DEFAULT_PITCH
   private yawT = 0
-  private pitchT = -0.34
+  private pitchT = DEFAULT_PITCH
   private aim = 0
   private aimT = 0
   private lowered = 0
@@ -678,7 +684,7 @@ export class TableScene {
     const view = this.take()
     view.root.position.copy(from.pos)
     view.root.quaternion.copy(from.quat)
-    const locked = document.pointerLockElement === this.renderer.domElement
+    const locked = false // the arm always follows the free cursor now (no pointer lock)
     this.drag = { k, fwd: HOLD_FWD, lat: 0, from, t0: now(), lastSound: null, view, refCam: locked ? null : this.camera.clone() }
     if (!locked) this.cursorToDrag()
     sfx('pick', from.pos)
@@ -829,7 +835,6 @@ export class TableScene {
   private unbindInput() {
     this.handlers.forEach(([t, type, h]) => t.removeEventListener(type, h))
     this.handlers = []
-    if (document.pointerLockElement === this.renderer.domElement) document.exitPointerLock()
   }
 
   private bindInput() {
@@ -849,7 +854,8 @@ export class TableScene {
         }
         this.cb.arm(this.drag.k, this.drag.fwd, this.drag.lat, true)
       } else if (this.peek) this.panPeek(e.movementX, e.movementY)
-      else if (document.pointerLockElement === el) {
+      else if (this.lookDrag) {
+        this.lookDrag.moved += Math.abs(e.movementX) + Math.abs(e.movementY)
         this.yawT = this.clampYaw(this.yawT - e.movementX * LOOK_SENS)
         this.pitchT = this.clampPitch(this.pitchT - e.movementY * LOOK_SENS)
       }
@@ -862,14 +868,22 @@ export class TableScene {
         return
       }
       if (e.button !== 0) return
-      if (this.hovered >= 0) {
-        el.setPointerCapture(e.pointerId)
-        this.pending = { k: this.hovered, t0: now(), moved: 0 }
-      } else if (document.pointerLockElement === el) document.exitPointerLock() // same click releases the view
-      else el.requestPointerLock?.()
+      el.setPointerCapture(e.pointerId)
+      if (this.hovered >= 0) this.pending = { k: this.hovered, t0: now(), moved: 0 }
+      else {
+        this.lookDrag = { moved: 0 }
+        el.style.cursor = 'grabbing'
+      }
     })
     const endLeft = () => {
       el.style.cursor = 'crosshair'
+      if (this.lookDrag) {
+        const clicked = this.lookDrag.moved < HOLD_PX
+        this.lookDrag = null
+        if (clicked) this.tableClick()
+        else if (getViewSettings().cameraReturn) this.recenter()
+        return
+      }
       this.updatePending() // a long hold is a drag even if no frame ran in between
       if (this.pending) {
         const k = this.pending.k
@@ -889,6 +903,19 @@ export class TableScene {
     this.on(el, 'pointercancel', endLeft)
   }
 
+  /** Ease the head back to the seated default (camera-return setting). */
+  private recenter() {
+    this.yawT = 0
+    this.pitchT = DEFAULT_PITCH
+  }
+
+  /** A click (no drag) on the table: the deck in the middle draws during the initial draw. */
+  private tableClick() {
+    if (!this.centerDeck.visible || !this.cb.deckClick) return
+    this.raycaster.setFromCamera(this.mouse, this.camera)
+    if (this.raycaster.intersectObject(this.centerDeck, false).length) this.cb.deckClick()
+  }
+
   private updatePending() {
     if (this.pending && (now() - this.pending.t0 > HOLD_SEC || this.pending.moved > HOLD_PX)) {
       const k = this.pending.k
@@ -899,8 +926,7 @@ export class TableScene {
   }
 
   private updateHover() {
-    const locked = document.pointerLockElement === this.renderer.domElement
-    this.raycaster.setFromCamera(locked ? new THREE.Vector2(0, 0) : this.mouse, this.camera)
+    this.raycaster.setFromCamera(this.mouse, this.camera)
     // targets: every card's rest-pose twin, plus the lifted card itself while it's hovered (so you
     // can move along the raised card without losing it)
     const targets = this.vm.filter((v) => v.mesh.visible).map((v) => v.hit)
@@ -917,7 +943,7 @@ export class TableScene {
 
   private beginPeek() {
     const ray = new THREE.Raycaster()
-    ray.setFromCamera(document.pointerLockElement ? new THREE.Vector2(0, 0) : this.mouse, this.baseCam)
+    ray.setFromCamera(this.mouse, this.baseCam)
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -TABLE_Y)
     const hit = ray.ray.intersectPlane(plane, new THREE.Vector3())
     const target = hit && hit.clone().setY(0).length() < TABLE_R ? hit.setY(TABLE_Y) : ray.ray.at(2.5, new THREE.Vector3())
@@ -940,7 +966,8 @@ export class TableScene {
 
   private endPeek() {
     this.aimT = 0
-    if (this.peek && document.pointerLockElement) {
+    // keep looking where you aimed, unless the view returns to its seat (setting)
+    if (this.peek && !getViewSettings().cameraReturn) {
       const d = this.peek.target.clone().sub(this.eye)
       this.yaw = this.yawT = this.clampYaw(Math.atan2(-d.x, -d.z) - this.baseYaw)
       this.pitch = this.pitchT = this.clampPitch(Math.atan2(d.y, Math.hypot(d.x, d.z)))
