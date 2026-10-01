@@ -12,6 +12,7 @@ import { initAudio, sfx, lampBuzz, toggleMute } from './audio'
 import { PALETTE, hex, DUOTONES } from './look'
 import { getViewSettings } from '../settings/viewSettings'
 import { NameTag } from './nameTags'
+import { TableTokens } from './tableTokens'
 
 // ---------------------------------------------------------------------------------------------
 // The 3D table, driven by real game events. Seats follow the server's turn order with the local
@@ -93,6 +94,7 @@ export class TableScene {
   private myId = ''
   private avatars: Avatar[] = []
   private nameTags: NameTag[] = []
+  private tokens = new TableTokens()
   private roomGroup = new THREE.Group()
   private handCounts: number[] = []
   private dealing = false
@@ -161,6 +163,7 @@ export class TableScene {
     this.renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;image-rendering:pixelated;cursor:crosshair'
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera)
+    this.scene.add(this.tokens.group)
     this.scene.add(this.roomGroup)
     this.camera.add(this.viewmodel)
 
@@ -940,6 +943,18 @@ export class TableScene {
       if (e.button === 2) this.endPeek()
     })
     this.on(el, 'pointercancel', endLeft)
+  }
+
+  /** Physical tokens on the felt (dealer, who asks, asked bases + beans, kamikaze planes). */
+  setTokens(t: { dealerId: string | null; bidderId: string | null; bids: Array<{ playerId: string; value: number; won: number }>; kamikazeIds: string[] } | null) {
+    if (!t || !this.n) return this.tokens.update(null)
+    this.tokens.update({
+      n: this.n,
+      dealerSeat: t.dealerId ? this.seatOf(t.dealerId) : -1,
+      bidderSeat: t.bidderId ? this.seatOf(t.bidderId) : -1,
+      bids: t.bids.map((b) => ({ seat: this.seatOf(b.playerId), value: b.value, won: b.won })).filter((b) => b.seat >= 0),
+      kamikazeSeats: t.kamikazeIds.map((id) => this.seatOf(id)).filter((s) => s >= 0),
+    })
   }
 
   /** Your turn to draw: the deck in the middle glows and pulses (click it). */

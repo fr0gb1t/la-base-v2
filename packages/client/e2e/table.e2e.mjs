@@ -157,10 +157,14 @@ while (Date.now() < until) {
   if (await page.$('button') && ui.phase.toLowerCase().includes('te toca declarar')) {
     if (!shots.bid++) await shot('bidding-panel')
     // first enabled number button, then confirm
-    await page.evaluate(() => {
+    const kami = await page.evaluate(() => {
+      const k = document.querySelector('.tally-kami:not([disabled])')
+      if (k && !window.__kamiDone) { k.click(); window.__kamiDone = true; return true }
       const nums = [...document.querySelectorAll('.tally-num')].filter((b) => !b.disabled)
       nums[0]?.click()
+      return false
     })
+    if (kami) log('browser declares KAMIKAZE')
     await sleep(300)
     await page.evaluate(() => document.querySelector('.tally .stamp-btn')?.click())
     await sleep(600)

@@ -175,6 +175,22 @@ export function GamePage() {
     sceneRef.current?.setHand(playerHand);
   }, [playerHand]);
 
+  // ---- tokens on the felt: dealer, who asks, asked bases with beans, kamikaze planes
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    if (!gameState || gameState.phase === 'initial_draw' || gameState.phase === 'lobby') return scene.setTokens(null);
+    const firstBidder = gameState.bids[0]?.playerId ?? (gameState.phase === 'bidding' ? gameState.currentBidPlayerId : null);
+    scene.setTokens({
+      dealerId: gameState.dealerPlayerId ?? null,
+      bidderId: firstBidder ?? null,
+      bids: gameState.bids
+        .filter((b) => b.playerId)
+        .map((b) => ({ playerId: b.playerId as string, value: b.value, won: gameState.basesWon[b.team] })),
+      kamikazeIds: (gameState.kamikazeCalls ?? []).map((k) => k.playerId),
+    });
+  }, [gameState, roomPlayers]);
+
   // ---- turn, initial draw, dramatic moments
   const prevDirection = useRef<string | undefined>(undefined);
   useEffect(() => {
