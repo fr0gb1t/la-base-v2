@@ -574,7 +574,7 @@ export function GamePage() {
       <div className="phase-line">{status || phaseLine}</div>
 
       {announce && (
-        <div key={announce.key} className={`announce ${announce.mine ? 'mine' : 'rival'}`}>
+        <div key={`announce-${announce.key}`} className={`announce ${announce.mine ? 'mine' : 'rival'}`}>
           <div className="announce-title">{announce.title}</div>
           <div className="announce-sub">{announce.sub}</div>
         </div>
@@ -668,7 +668,7 @@ export function GamePage() {
       )}
 
       {stamp && (
-        <div key={stamp.key} className="stamp on">{stamp.text}</div>
+        <div key={`stamp-${stamp.key}`} className="stamp on">{stamp.text}</div>
       )}
 
       <div className="help-line">
