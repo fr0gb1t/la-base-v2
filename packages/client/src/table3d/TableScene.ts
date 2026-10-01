@@ -71,6 +71,7 @@ const quatOf = (rx: number, yaw: number, roll = 0) => new THREE.Quaternion().set
 const now = () => performance.now() / 1000
 const FACE_MIN_DOT = 0.6 // the face must be turned within ~53° of you (a ¾ profile hides the señas)
 const FACE_AIM_R = 0.14 // m: how close to a head the centre of the view must pass to read its face
+const ASK_DUR = 0.9 // s: two knocks on the table to ask for señas
 const SENA_HOLD = 1.6 // s a seña stays on the face
 /** How far into a seña the face is (0 rest … 1 full) at `t` seconds since it started. */
 function senaAmount(s: Sena, t: number) {
@@ -159,6 +160,7 @@ export class TableScene {
   private poses: AvatarPose[] = []
   private senas = new Map<number, { s: Sena; t0: number; frozen?: boolean; open?: boolean; seen?: boolean; gaze?: { yaw: number; pitch: number } }>()
   private aimedFace = -1
+  private asks = new Map<number, { t0: number; knocks: number }>() // seat → knocking for señas
   private faceShown: Array<Sena | null> = [] // per seat, for tests // seat → seña on their face
   private focus: THREE.Vector3 | null = null
   private stareAtYou = 0
@@ -332,6 +334,34 @@ export class TableScene {
     let yaw = Math.atan2(-d.x, -d.z) - this.baseYaw
     yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw))
     return { yaw, pitch: Math.asin(THREE.MathUtils.clamp(d.y, -1, 1)) }
+  }
+
+  /** A player asks their partners for señas: two knocks on the table with the right hand. */
+  askSenas(playerId: string) {
+    const seat = this.seatOf(playerId)
+    if (seat >= 0) this.asks.set(seat, { t0: now(), knocks: 0 })
+  }
+
+  /** Asking for señas: the resting right hand lifts and knocks twice (only while it is free). */
+  private knock(seat: number, p: AvatarPose, t: number) {
+    const ask = this.asks.get(seat)
+    if (!ask) return
+    const u = (t - ask.t0) / ASK_DUR
+    if (u >= 1) return void this.asks.delete(seat)
+    const free = seat === 0 ? !this.drag && !this.pending && !this.busy : !p.rightWrist
+    if (!free) return
+    const lift = Math.abs(Math.sin(u * Math.PI * 2)) * 0.06 // two arcs, each ending on the felt
+    p.rightWrist = this.restWrist(seat).add(new THREE.Vector3(0, lift, 0))
+    const hits = Math.floor(u * 2 + 0.02)
+    if (hits > ask.knocks && hits <= 2) {
+      ask.knocks = hits
+      sfx('knock', this.restWrist(seat), 0.8)
+    }
+  }
+
+  /** Where a seat's right hand rests on the table (world). */
+  private restWrist(seat: number) {
+    return polar(TABLE_R - 0.04, seatAngle(seat, this.n), TABLE_Y + 0.03).addScaledVector(this.rightOf(seat), 0.2)
   }
 
   /** The seat whose face is under the centre of the view and turned toward you (-1: none). */
@@ -1173,7 +1203,7 @@ export class TableScene {
     if (this.disposed || !this.n) return
     this.poses = this.avatars.map(() => ({ lean: 0, headYaw: 0, headPitch: -0.15 }))
     this.poses[0].leftWrist = this.viewmodel.localToWorld(new THREE.Vector3(-0.16, HAND_Y - 0.04, -0.33))
-    this.poses[0].rightWrist = polar(TABLE_R - 0.04, seatAngle(0, this.n), TABLE_Y + 0.03).addScaledVector(this.rightOf(0), 0.2)
+    this.poses[0].rightWrist = this.restWrist(0)
     this.focus = null
     tickJobs(time)
     this.updatePending()
@@ -1222,6 +1252,7 @@ export class TableScene {
     for (const av of this.avatars) {
       const p = this.poses[av.seat]
       if (av.seat === 0) {
+        this.knock(0, p, t)
         av.pose(p)
         continue
       }
@@ -1239,6 +1270,7 @@ export class TableScene {
           p.headPitch = Math.atan2(d.y, Math.hypot(d.x, d.z))
         } else p.headYaw = Math.sin(ts * 0.3 + av.seat) * 0.35
       }
+      this.knock(av.seat, p, t)
       const sg = this.senas.get(av.seat)
       if (sg?.gaze && t - sg.t0 < SENA_HOLD + 0.3) {
         // the seña is made toward where they were looking when they made it

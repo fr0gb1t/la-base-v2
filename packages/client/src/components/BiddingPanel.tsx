@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
-import { GiDynamite } from 'react-icons/gi';
+import { GiDynamite, GiKnockout } from 'react-icons/gi';
 
-export function BiddingPanel() {
+export function BiddingPanel({ onAskSenas }: { onAskSenas?: () => void }) {
   const socket = useSocket();
   const { gameState, roomCode, currentPlayer, roomPlayers } = useGameStore();
   const [error, setError] = useState('');
@@ -175,6 +175,12 @@ export function BiddingPanel() {
         >
           <GiDynamite aria-hidden /> kamikaze {isKamikaze ? 'sí' : 'no'}
           <span className="dim"> · quedan {kamikazesLeft}</span>
+        </button>
+      )}
+
+      {onAskSenas && (
+        <button type="button" className="tally-kami" onClick={onAskSenas} title="Golpecitos en la mesa: tus compañeros te hacen las señas (P)">
+          <GiKnockout aria-hidden /> pedir señas <span className="dim">· P</span>
         </button>
       )}
 

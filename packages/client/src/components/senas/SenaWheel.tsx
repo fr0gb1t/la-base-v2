@@ -3,7 +3,8 @@ import { SENAS, type Sena } from '@la-base/shared';
 import { SenaFace } from './SenaFace';
 
 // Radial menu of señas. Opened with the middle mouse button (hold, aim, release) or the G key.
-// Releasing in the centre keeps it open: then click a face, press 1–8, or Esc to close.
+// Releasing in the centre keeps it open: then click a face, press 1–8, or Esc to close. The centre
+// itself asks your partners for señas (two knocks on the table).
 
 const RADIUS = 118;
 const DEAD_ZONE = 34; // px from the centre where nothing is selected
@@ -17,6 +18,7 @@ export interface WheelOpen {
 interface Props {
   open: WheelOpen;
   onPick: (sena: Sena) => void;
+  onAsk: () => void;
   onClose: () => void;
 }
 
@@ -27,7 +29,7 @@ function sectorAt(dx: number, dy: number) {
   return Math.round(a / ((Math.PI * 2) / SENAS.length)) % SENAS.length;
 }
 
-export function SenaWheel({ open, onPick, onClose }: Props) {
+export function SenaWheel({ open, onPick, onAsk, onClose }: Props) {
   const [hover, setHover] = useState(-1);
   const hoverRef = useRef(-1);
   hoverRef.current = hover;
@@ -46,8 +48,11 @@ export function SenaWheel({ open, onPick, onClose }: Props) {
     };
     const onDown = (e: PointerEvent) => {
       if (held) return;
-      const k = sectorAt(e.clientX - x, e.clientY - y);
-      if (e.button === 0 && k >= 0 && Math.hypot(e.clientX - x, e.clientY - y) < RADIUS + 50) onPick(SENAS[k].id);
+      const dx = e.clientX - x;
+      const dy = e.clientY - y;
+      const k = sectorAt(dx, dy);
+      if (e.button === 0 && k >= 0 && Math.hypot(dx, dy) < RADIUS + 50) onPick(SENAS[k].id);
+      else if (e.button === 0 && Math.hypot(dx, dy) < DEAD_ZONE) onAsk();
       else onClose();
       e.preventDefault();
       e.stopPropagation();
@@ -67,7 +72,7 @@ export function SenaWheel({ open, onPick, onClose }: Props) {
       window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('keydown', onKey);
     };
-  }, [open, x, y, onPick, onClose]);
+  }, [open, x, y, onPick, onAsk, onClose]);
 
   const current = hover >= 0 ? SENAS[hover] : null;
   return (
@@ -79,7 +84,10 @@ export function SenaWheel({ open, onPick, onClose }: Props) {
             <span>{current.gesture}</span>
           </>
         ) : (
-          <span>seña</span>
+          <>
+            <strong>pedir señas</strong>
+            <span>tocá el centro · P</span>
+          </>
         )}
       </div>
       {SENAS.map((s, i) => {

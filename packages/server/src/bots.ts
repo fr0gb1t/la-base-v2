@@ -148,7 +148,8 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
     hand = d.hand;
     if (dealt) {
       partnerSenas.clear();
-      void signHand();
+      askedThisRound = false;
+      sign();
     }
   });
   s.on('sena:made', (d: { playerId: string; sena: Sena }) => {
@@ -161,14 +162,18 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
   });
 
   /** Tell the partner(s) what we hold: turn to face them, make the seña, look away. */
-  async function signHand() {
+  /**
+   * Tell partners what we hold. `toward`: answer that partner (they knocked for señas), quickly;
+   * otherwise a random partner, unhurried. Holding nothing that wins → 'nada' (eyes closed).
+   */
+  async function signHand(toward?: string) {
     const mates = teammates();
     if (!mates.length) return;
     const list = senasForHand(hand, state?.acePowers).slice(0, 2);
     for (const sena of list) {
-      await sleep(1500 + Math.random() * 3500);
+      await sleep(toward ? 500 + Math.random() * 700 : 1500 + Math.random() * 3500);
       if (!state || (state.phase !== 'bidding' && state.phase !== 'playing') || leaving) return;
-      const mate = mates[Math.floor(Math.random() * mates.length)];
+      const mate = mates.find((p) => p.id === toward) ?? mates[Math.floor(Math.random() * mates.length)];
       const order = roster.map((p) => p.id);
       const k = order.indexOf(mate.id) - order.indexOf(s.id ?? '');
       signing = true;
@@ -185,6 +190,14 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
       signing = false;
     }
   }
+  let signing$ = Promise.resolve(); // one seña at a time
+  const sign = (toward?: string) => {
+    signing$ = signing$.then(() => signHand(toward)).catch(() => undefined);
+  };
+  let askedThisRound = false;
+  s.on('sena:asked', (d: { playerId: string }) => {
+    if (teammates().some((p) => p.id === d.playerId)) sign(d.playerId);
+  });
   const signedBy = () => teammates().map((p) => [...(partnerSenas.get(p.id) ?? [])]);
   const partnerHolds = (sena: Sena) => teammates().find((p) => partnerSenas.get(p.id)?.has(sena))?.id ?? null;
   s.on('room:kicked', stop);
@@ -219,6 +232,12 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
         await emit('draw:initialCard', { roomCode });
       } else if (st.phase === 'bidding' && st.currentBidPlayerId === me) {
         await sleep(1200);
+        // no señas from the partners yet: knock on the table and give them a moment to answer
+        if (!askedThisRound && teammates().length && signedBy().every((l) => l.length === 0)) {
+          askedThisRound = true;
+          s.emit('sena:ask', { roomCode });
+          await sleep(2800);
+        }
         const myTeam = roster.find((p) => p.id === me)?.team;
         const teamSize = Math.max(1, roster.filter((p) => p.team === myTeam).length);
         const value = chooseBid(hand, st, teamSize, Math.max(4, roster.length), signedBy());

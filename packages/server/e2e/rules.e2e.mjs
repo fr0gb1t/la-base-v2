@@ -151,5 +151,44 @@ const C = (value, suit) => ({ value, suit })
   t.close()
 }
 
+// ---------------------------------------------------------------- F. asking for señas: bots answer, and ask before bidding
+{
+  const s = io(SERVER, { transports: ['websocket'], forceNew: true })
+  await new Promise((r) => s.on('connect', r))
+  const emit = (ev, pl) => new Promise((r) => s.emit(ev, pl, r))
+  let roster = []
+  let state = null
+  const made = []
+  const asked = []
+  s.on('room:updated', (d) => (roster = d.players))
+  s.on('game:state', (st) => (state = st))
+  s.on('sena:made', (d) => made.push({ ...d, t: Date.now() }))
+  s.on('sena:asked', (d) => asked.push(d.playerId))
+  const room = (await emit('room:create', { playerName: 'Host', playerCount: 4 })).roomCode
+  for (let i = 0; i < 3; i++) await emit('room:addBot', { roomCode: room })
+  await sleep(800)
+  await emit('game:start', { roomCode: room })
+  for (let i = 0; i < 200 && state?.phase !== 'bidding'; i++) {
+    if (state?.phase === 'initial_draw' && state.initialDraw?.currentDrawerPlayerId === s.id) await emit('draw:initialCard', { roomCode: room })
+    await sleep(60)
+  }
+  const myTeam = roster.find((p) => p.id === s.id)?.team
+  const mate = roster.find((p) => p.id !== s.id && p.team === myTeam)
+  await sleep(6000) // let the deal-time señas pass
+  const t0 = Date.now()
+  const r = await emit('sena:ask', { roomCode: room })
+  await sleep(3000)
+  const answer = made.find((m) => m.playerId === mate.id && m.t >= t0)
+  check('asking for señas is relayed', r.success)
+  check('the bot partner answers the knock with a seña', Boolean(answer), JSON.stringify(made.map((m) => m.sena)))
+  // a bot whose turn comes to declare, without señas from its partner, knocks first
+  for (let i = 0; i < 300 && !asked.length; i++) {
+    if (state?.phase === 'bidding' && state.currentBidPlayerId === s.id) await emit('bid:declare', { roomCode: room, bidValue: 0 })
+    await sleep(100)
+  }
+  check('bots knock for señas before declaring when their partner signed nothing', asked.length > 0, `asked=${asked.length}`)
+  s.disconnect()
+}
+
 console.log(failures ? `\n${failures} failing` : '\nall rules checks pass')
 process.exit(failures ? 1 : 0)

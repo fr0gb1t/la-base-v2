@@ -1213,6 +1213,23 @@ export function setupSocketHandlers(io: SocketIOServer) {
     });
 
     /**
+     * Asking for señas: knocking on the table (seen and heard by everyone). Partners answer with
+     * their señas; bots do it on their own.
+     */
+    let lastAsk = 0;
+    const ASK_MIN_MS = 2000;
+    socket.on('sena:ask', (payload: any, callback?: (res: { success: boolean; error?: string }) => void) => {
+      const room = typeof payload?.roomCode === 'string' ? roomManager.getRoom(payload.roomCode) : undefined;
+      const player = room?.players.find((p) => p.socketId === socket.id);
+      if (!room || !player || !room.gameState) return callback?.({ success: false, error: 'Not in a game' });
+      const t = Date.now();
+      if (t - lastAsk < ASK_MIN_MS) return callback?.({ success: false, error: 'Too fast' });
+      lastAsk = t;
+      socket.to(room.roomCode).emit('sena:asked', { playerId: player.id });
+      callback?.({ success: true });
+    });
+
+    /**
      * Handle disconnection
      */
     socket.on('disconnect', () => {

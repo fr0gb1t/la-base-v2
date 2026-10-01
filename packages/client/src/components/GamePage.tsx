@@ -301,6 +301,12 @@ export function GamePage() {
       if (team(d.playerId) === team(me)) logRef.current(`${nameNow(d.playerId)} te hace la seña: ${gestureOf(d.sena)}`, 'sena');
     };
     socket.on('sena:made', onSena);
+    // knocking on the table is a hand gesture: everybody sees and hears it
+    const onAsked = (d: { playerId: string }) => {
+      sceneRef.current?.askSenas(d.playerId);
+      logRef.current(`${nameNow(d.playerId)} golpea la mesa: pide señas`, 'sena');
+    };
+    socket.on('sena:asked', onAsked);
     const onRoundScored = (d: { nosotrosScore: number; ellosScore: number; totalScores: { nosotros: number; ellos: number } }) => {
       const mine = latest.current.roomPlayers.find((p) => p.id === latest.current.myId)?.team === 'ellos' ? 'ellos' : 'nosotros';
       const other = mine === 'nosotros' ? 'ellos' : 'nosotros';
@@ -319,6 +325,7 @@ export function GamePage() {
       socket.off('game:gateReleased', onGateReleased);
       socket.off('game:bidDeclared', onBid);
       socket.off('sena:made', onSena);
+      socket.off('sena:asked', onAsked);
       socket.off('game:roundScored', onRoundScored);
       socket.off('presence:look', onLook);
       socket.off('presence:arm', onArm);
@@ -362,6 +369,16 @@ export function GamePage() {
     },
     [socket, roomCode],
   );
+  const askSenas = useCallback(() => {
+    setWheel(null);
+    if (!socket || !roomCode) return;
+    socket.emit('sena:ask', { roomCode }, (res: { success: boolean; error?: string }) => {
+      if (!res?.success) return setStatus(res?.error === 'Too fast' ? 'ya pediste, esperá un momento' : res?.error || 'No se pudo pedir señas');
+      sceneRef.current?.askSenas(latest.current.myId);
+      setStatus('golpeás la mesa: pedís señas');
+      logRef.current('Pedís señas a tu equipo', 'sena');
+    });
+  }, [socket, roomCode]);
   const onMiddleDown = (e: React.PointerEvent | React.MouseEvent) => {
     if (e.button !== 1) return;
     e.preventDefault(); // no autoscroll
@@ -375,12 +392,13 @@ export function GamePage() {
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
       if (e.key === 'h' || e.key === 'H') cycleHud();
       if (e.key === 'j' || e.key === 'J') setShowLog((v) => !v);
+      if ((e.key === 'p' || e.key === 'P') && inGame) askSenas();
       if ((e.key === 'g' || e.key === 'G') && inGame) setWheel((w) => (w ? null : { x: window.innerWidth / 2, y: window.innerHeight / 2, held: false }));
       if (e.key === 'Enter' && gate && !iAmReady) handleReady();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cycleHud, gate, iAmReady, handleReady, inGame]);
+  }, [cycleHud, gate, iAmReady, handleReady, inGame, askSenas]);
 
   const handleLeaveGame = () => {
     if (socket && roomCode) socket.emit('room:leave', { roomCode });
@@ -503,7 +521,7 @@ export function GamePage() {
   return (
     <div className="table-page" onPointerDown={onMiddleDown} onMouseDown={onMiddleDown}>
       {view.reticle && <div className={`reticle${aimFace ? ' on-face' : ''}`} aria-hidden />}
-      {wheel && inGame && <SenaWheel open={wheel} onPick={makeSena} onClose={closeWheel} />}
+      {wheel && inGame && <SenaWheel open={wheel} onPick={makeSena} onAsk={askSenas} onClose={closeWheel} />}
       <div ref={mountRef} className="table-canvas" />
 
       <header className={`hud hud-${hud}`}>
@@ -674,10 +692,10 @@ export function GamePage() {
       )}
 
       <div className="help-line">
-        H: anotador · J: historial · O: ajustes · clic del medio o G: señas · arrastrá sobre la mesa: mirar · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom
+        H: anotador · J: historial · O: ajustes · clic del medio o G: señas · P: pedir señas · arrastrá sobre la mesa: mirar · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom
       </div>
 
-      {gameState?.phase === 'bidding' && <BiddingPanel />}
+      {gameState?.phase === 'bidding' && <BiddingPanel onAskSenas={askSenas} />}
       <LiveBidDisplay />
       <RoundScoringPanel myTeam={myTeam} />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
