@@ -3,10 +3,11 @@ export interface ViewSettings {
   cameraReturn: boolean // after dragging the view, ease back to the seated default
   reticle: boolean // a dot in the middle of the screen to aim (at faces, for señas)
   invertLook: boolean // dragging moves the view the other way
+  handResetOnTurn: boolean // your turn brings the hand back to its default height
 }
 
 const KEY = 'laBase.view'
-const DEFAULTS: ViewSettings = { cameraReturn: false, reticle: true, invertLook: false }
+const DEFAULTS: ViewSettings = { cameraReturn: false, reticle: true, invertLook: false, handResetOnTurn: true }
 
 function load(): ViewSettings {
   try {

@@ -236,6 +236,8 @@ export class TableScene {
 
   setTurn(playerId: string | null, myTurn: boolean) {
     this.turnSeat = playerId ? this.seatOf(playerId) : -1
+    // your turn starts: the hand you lowered (or raised) with the wheel comes back into view
+    if (myTurn && !this.canPlay && getViewSettings().handResetOnTurn) this.handOffsetT = 0
     this.canPlay = myTurn
   }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor } from 'react-icons/gi';
+import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand } from 'react-icons/gi';
 import { getViewSettings, onViewSettings, setViewSettings, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
 import { previewSound, audioReady } from '../table3d/audio';
@@ -146,6 +146,13 @@ export function SettingsHost() {
             title="Volver a tu lugar"
             hint={view.cameraReturn ? 'al soltar, la vista vuelve a mirar la mesa' : 'al soltar, la vista queda donde la dejaste'}
             onToggle={() => setViewSettings({ cameraReturn: !view.cameraReturn })}
+          />
+          <Switch
+            on={view.handResetOnTurn}
+            icon={<GiHand aria-hidden className="setting-icon" />}
+            title="Mano a la vista en tu turno"
+            hint={view.handResetOnTurn ? 'si bajaste las cartas con la ruedita, vuelven a su lugar cuando te toca' : 'las cartas quedan a la altura que las dejaste con la ruedita'}
+            onToggle={() => setViewSettings({ handResetOnTurn: !view.handResetOnTurn })}
           />
           <Switch
             on={view.invertLook}
