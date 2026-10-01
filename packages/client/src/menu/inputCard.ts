@@ -12,6 +12,7 @@ export interface InputCardState {
   placeholder: string
   focused: boolean
   mono?: boolean // room codes: spaced capitals
+  hint?: string // replaces the default 'tocá la carta para escribir' line
 }
 
 const W = 600
@@ -116,7 +117,7 @@ export class InputCard {
     }
     g.font = '42px "IM Fell English", Georgia, serif'
     g.fillStyle = 'rgba(20,14,12,0.8)'
-    g.fillText(s.focused ? 'escribí · enter para confirmar' : 'tocá la carta para escribir', cx, 700)
+    g.fillText(s.hint ?? (s.focused ? 'escribí · enter para confirmar' : 'tocá la carta para escribir'), cx, 700)
     this.tex.needsUpdate = true
   }
 

@@ -52,7 +52,7 @@ export function TableMenu({ items, input, note }: { items: FloatItem[]; input?: 
     if (!scene) return;
     scene.setInput(
       input
-        ? { label: input.label, value: input.value, placeholder: input.placeholder, focused: focused && !input.readOnly, mono: input.mono }
+        ? { label: input.label, value: input.value, placeholder: input.placeholder, focused: focused && !input.readOnly, mono: input.mono, hint: input.readOnly ? 'tocá la carta para copiar' : undefined }
         : null,
       input?.at,
     );
