@@ -1,4 +1,4 @@
-import type { Card } from './types.js';
+import type { AcePowers, Card } from './types.js';
 
 /**
  * Señas: facial signals a player makes to tell their partner what they hold. Teammates always see
@@ -13,7 +13,7 @@ export type Sena =
   | 'tres' // bite the lower lip
   | 'dos' // kiss
   | 'porno' // mouth slightly open, like a fish (any 4–7)
-  | 'nada'; // close the eyes and open them again (nothing / blind)
+  | 'nada'; // close the eyes and open them again: nothing that wins (no 10/11/12, ancho de bastos or powered ace)
 
 export const SENAS: ReadonlyArray<{ id: Sena; label: string; gesture: string }> = [
   { id: 'ancho-espada', label: 'As de espadas', gesture: 'levantar las cejas' },
@@ -23,7 +23,7 @@ export const SENAS: ReadonlyArray<{ id: Sena; label: string; gesture: string }> 
   { id: 'tres', label: 'Un tres', gesture: 'morder el labio inferior' },
   { id: 'dos', label: 'Un dos', gesture: 'dar un beso' },
   { id: 'porno', label: 'Carta porno (4 a 7)', gesture: 'boca de pescado' },
-  { id: 'nada', label: 'Nada / ciego', gesture: 'cerrar los ojos' },
+  { id: 'nada', label: 'Nada: ni figuras ni ases', gesture: 'cerrar los ojos' },
 ];
 
 export const isSena = (v: unknown): v is Sena => typeof v === 'string' && SENAS.some((s) => s.id === v);
@@ -37,9 +37,24 @@ export function senaForCard(card: Card): Sena | null {
   return null;
 }
 
-/** Every seña worth making for a hand, most important first; ['nada'] when nothing applies. */
-export function senasForHand(hand: Card[]): Sena[] {
-  const found = new Set(hand.map(senaForCard).filter((s): s is Sena => s !== null));
-  const list = SENAS.map((s) => s.id).filter((id) => found.has(id));
-  return list.length ? list : ['nada'];
+const ALL_POWERS: AcePowers = { espadas: true, copas: true, oros: true };
+
+/** A card that matters: a figure (10, 11, 12), the ancho de bastos or an ace whose power is on. */
+export function isStrongCard(card: Card, powers: AcePowers = ALL_POWERS): boolean {
+  if (card.value >= 10) return true;
+  if (card.value !== 1) return false;
+  return card.suit === 'bastos' || powers[card.suit as keyof AcePowers] === true;
+}
+
+/**
+ * The señas that describe a hand, most important first. 'nada' (eyes closed) when it holds no
+ * strong card at all; otherwise the aces it has, then its low cards (3, 2, 4–7). An ace whose
+ * power is off is just a low card: it gets no seña.
+ */
+export function senasForHand(hand: Card[], powers: AcePowers = ALL_POWERS): Sena[] {
+  if (!hand.some((c) => isStrongCard(c, powers))) return ['nada'];
+  const found = new Set(
+    hand.map((c) => (c.value === 1 && !isStrongCard(c, powers) ? null : senaForCard(c))).filter((s): s is Sena => s !== null),
+  );
+  return SENAS.map((s) => s.id).filter((id) => found.has(id));
 }

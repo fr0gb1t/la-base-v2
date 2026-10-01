@@ -14,10 +14,20 @@ test('senaForCard maps aces by suit and low cards by value', () => {
   assert.equal(senaForCard({ suit: 'bastos', value: 12 }), null);
 });
 
-test('senasForHand orders by importance and falls back to nada', () => {
+test('senasForHand orders by importance: aces first, then low cards', () => {
   assert.deepEqual(senasForHand([{ suit: 'oros', value: 5 }, { suit: 'espadas', value: 1 }, { suit: 'copas', value: 3 }]), ['ancho-espada', 'tres', 'porno']);
-  assert.deepEqual(senasForHand([{ suit: 'oros', value: 12 }, { suit: 'copas', value: 10 }]), ['nada']);
+});
+
+test('nada means no strong card: no figure, no ancho de bastos, no powered ace', () => {
+  assert.deepEqual(senasForHand([{ suit: 'oros', value: 4 }, { suit: 'copas', value: 3 }, { suit: 'espadas', value: 7 }]), ['nada']);
   assert.deepEqual(senasForHand([]), ['nada']);
+  // figures are strong: no 'nada' (and no seña of their own)
+  assert.deepEqual(senasForHand([{ suit: 'oros', value: 12 }, { suit: 'copas', value: 10 }]), []);
+  assert.deepEqual(senasForHand([{ suit: 'oros', value: 12 }, { suit: 'copas', value: 2 }]), ['dos']);
+  // an ace whose power is off is a low card
+  const noCopas = { espadas: true, copas: false, oros: true };
+  assert.deepEqual(senasForHand([{ suit: 'copas', value: 1 }, { suit: 'oros', value: 5 }], noCopas), ['nada']);
+  assert.deepEqual(senasForHand([{ suit: 'copas', value: 1 }, { suit: 'bastos', value: 1 }], noCopas), ['ancho-basto']);
 });
 
 test('isSena rejects unknown values', () => {

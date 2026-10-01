@@ -21,7 +21,7 @@ function winChance(card: Card, espadasPower: boolean, players: number): number {
   return Math.min(0.97, (base + espadas) * (4 / Math.max(4, players)) ** 0.7);
 }
 
-/** Expected bases a seña promises (rough, like winChance) — 'nada' means only 10/11/12: strong here. */
+/** Expected bases a seña promises (rough, like winChance). 'nada': no figure, ancho or powered ace. */
 const SENA_WORTH: Record<Sena, number> = {
   'ancho-basto': 0.9,
   'ancho-espada': 0.45,
@@ -30,7 +30,7 @@ const SENA_WORTH: Record<Sena, number> = {
   porno: 0.08,
   tres: 0.03,
   dos: 0.02,
-  nada: 0.33, // per card
+  nada: 0.03, // per card: nothing that wins
 };
 
 /** What a teammate's hand is worth, from their señas (null: they haven't signed anything). */
@@ -38,7 +38,7 @@ export function partnerWorth(senas: Sena[] | undefined, handSize: number): numbe
   if (!senas?.length) return null;
   if (senas.includes('nada')) return handSize * SENA_WORTH.nada;
   const signed = senas.reduce((sum, s) => sum + SENA_WORTH[s], 0);
-  return signed + Math.max(0, handSize - senas.length) * 0.15; // the cards they didn't sign
+  return signed + Math.max(0, handSize - senas.length) * 0.3; // unsigned cards: figures (no seña of their own)
 }
 
 export function chooseBid(hand: Card[], st: GameState, teamSize: number, players: number, partnerSenas: Sena[][] = []): number {
@@ -164,7 +164,7 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
   async function signHand() {
     const mates = teammates();
     if (!mates.length) return;
-    const list = senasForHand(hand).slice(0, 2);
+    const list = senasForHand(hand, state?.acePowers).slice(0, 2);
     for (const sena of list) {
       await sleep(1500 + Math.random() * 3500);
       if (!state || (state.phase !== 'bidding' && state.phase !== 'playing') || leaving) return;

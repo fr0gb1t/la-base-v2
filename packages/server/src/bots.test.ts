@@ -23,10 +23,11 @@ test('yawToward faces the opposite seat straight and neighbours at 45° on a tab
   assert.ok(Math.abs(yawToward(3, 4) + Math.PI / 4) < 1e-9);
 });
 
-test('partnerWorth reads señas: nothing signed → unknown, ancho de bastos → strong, nada → all figures', () => {
+test('partnerWorth reads señas: nothing signed → unknown, ancho de bastos → strong, nada → weak', () => {
   assert.equal(partnerWorth(undefined, 5), null);
   assert.ok(partnerWorth(['ancho-basto'], 1)! > 0.8);
-  assert.ok(partnerWorth(['nada'], 5)! > partnerWorth(['dos', 'tres'], 5)!);
+  assert.ok(partnerWorth(['nada'], 5)! < 0.2);
+  assert.ok(partnerWorth(['nada'], 5)! < partnerWorth(['dos', 'tres'], 5)!); // 3 unsigned cards: figures
 });
 
 test('a partner who signed strength makes the bot ask for more', () => {
