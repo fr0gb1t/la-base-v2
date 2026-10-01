@@ -1008,13 +1008,14 @@ export function setupSocketHandlers(io: SocketIOServer) {
             }
           }, 900);
         } else {
-          const nextPlayer = getNextPlayerInTurn(
-            room.players,
-            player.id,
-            room.gameState.playDirection,
-            room.gameState.currentManoPlayerId
-          );
-          if (nextPlayer) {
+          // next in the (possibly just inverted) direction who hasn't played in this base yet:
+          // after an As de Copas flips the direction, the neighbour may already have played
+          const played = new Set(room.gameState.currentBaseCards.map((c) => c.playerId));
+          let nextPlayer = getNextPlayerInTurn(room.players, player.id, room.gameState.playDirection, room.gameState.currentManoPlayerId);
+          for (let i = 0; nextPlayer && played.has(nextPlayer.id) && i < room.players.length; i++) {
+            nextPlayer = getNextPlayerInTurn(room.players, nextPlayer.id, room.gameState.playDirection, room.gameState.currentManoPlayerId);
+          }
+          if (nextPlayer && !played.has(nextPlayer.id)) {
             room.gameState.currentTurnPlayerId = nextPlayer.id;
             console.log(`[card:play] Next player: ${nextPlayer.name}`);
           }
