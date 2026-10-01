@@ -1119,6 +1119,23 @@ export function setupSocketHandlers(io: SocketIOServer) {
     });
 
     /**
+     * test:rig - TEST ONLY (LABASE_TEST=1): set every player's hand to reproduce exact situations.
+     */
+    if (process.env.LABASE_TEST === '1') {
+      socket.on('test:rig', (payload: { roomCode: string; hands: Record<string, Card[]> }, callback?: (r: unknown) => void) => {
+        const room = roomManager.getRoom(payload.roomCode);
+        if (!room) return callback?.({ success: false });
+        room.players.forEach((p) => {
+          if (payload.hands[p.id]) {
+            p.hand = payload.hands[p.id];
+            io.sockets.sockets.get(p.socketId)?.emit('player:hand', { hand: p.hand });
+          }
+        });
+        callback?.({ success: true, order: room.players.map((p) => ({ id: p.id, team: p.team })) });
+      });
+    }
+
+    /**
      * Presence relay (v2 3D table): where each player looks, their card hand/arm and hovered card.
      * Purely cosmetic: never game state, never card identities. Validated, clamped and rate-limited.
      */
