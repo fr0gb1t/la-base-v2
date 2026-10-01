@@ -2202,3 +2202,75 @@ button {
 .log-list .log-event {
   color: #2c4a53;
 }
+
+/* ---- señas: radial menu ---- */
+.sena-wheel {
+  position: fixed;
+  width: 0;
+  height: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.sena-wheel::before {
+  content: '';
+  position: absolute;
+  left: -168px;
+  top: -168px;
+  width: 336px;
+  height: 336px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(10, 7, 6, 0.78) 0 55%, rgba(10, 7, 6, 0) 72%);
+}
+
+.sena-hub {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 132px;
+  text-align: center;
+  color: var(--bone);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 15px;
+  line-height: 1.15;
+}
+
+.sena-hub span {
+  opacity: 0.7;
+  font-size: 13px;
+}
+
+.sena-item {
+  position: absolute;
+  pointer-events: auto;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  border: 2px solid rgba(233, 220, 194, 0.35);
+  background: #2a221c;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, scale 0.12s;
+}
+
+.sena-item small {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  font-size: 11px;
+  color: rgba(233, 220, 194, 0.6);
+}
+
+.sena-item.on,
+.sena-item:focus-visible {
+  border-color: #c9a227;
+  background: #3a2e25;
+  scale: 1.12;
+}
+
+.log-list .log-sena {
+  color: #5a3d62;
+  font-style: italic;
+}

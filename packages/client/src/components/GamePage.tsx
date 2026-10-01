@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Card, GameState, AssignedTeam, Bid } from '@la-base/shared';
+import { SENAS, type Card, type GameState, type AssignedTeam, type Bid, type Sena } from '@la-base/shared';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 import { useGameEvents } from '../hooks/useGameEvents';
@@ -10,6 +10,7 @@ import { LiveBidDisplay } from './LiveBidDisplay';
 import { ToastContainer } from './ToastContainer';
 import { TableScene, type TablePlayer } from '../table3d/TableScene';
 import { SettingsButton } from '../settings/SettingsPanel';
+import { SenaWheel, type WheelOpen } from './senas/SenaWheel';
 import { GiExitDoor, GiScrollUnfurled, GiBookCover } from 'react-icons/gi';
 
 // First-person 3D table (La Base v2). The table shows every card movement; the non-card phases
@@ -82,6 +83,7 @@ export function GamePage() {
   // ---- game log (history panel, hidden by default)
   const [log, setLog] = useState<Array<{ id: number; round: number; text: string; kind: string }>>([]);
   const [showLog, setShowLog] = useState(false);
+  const [wheel, setWheel] = useState<WheelOpen | null>(null);
   const roundRef = useRef(1);
   const logRef = useRef<(text: string, kind?: string) => void>(() => undefined);
   logRef.current = (text: string, kind = 'play') =>
@@ -328,18 +330,40 @@ export function GamePage() {
     });
   }, [socket, roomCode]);
 
-  // keyboard: H cycles the HUD, Enter confirms a pending gate
+  const inGame = Boolean(gameState && (gameState.phase === 'bidding' || gameState.phase === 'playing'));
+  const closeWheel = useCallback(() => setWheel(null), []);
+  const makeSena = useCallback(
+    (sena: Sena) => {
+      setWheel(null);
+      if (!socket || !roomCode) return;
+      socket.emit('sena:make', { roomCode, sena }, (res: { success: boolean; error?: string }) => {
+        if (!res?.success) return setStatus(res?.error === 'Too fast' ? 'más despacio con las señas' : res?.error || 'No se pudo hacer la seña');
+        const label = SENAS.find((x) => x.id === sena)?.gesture ?? sena;
+        setStatus(`hacés la seña: ${label}`);
+        logRef.current(`Hacés la seña: ${label}`, 'sena');
+      });
+    },
+    [socket, roomCode],
+  );
+  const onMiddleDown = (e: React.PointerEvent | React.MouseEvent) => {
+    if (e.button !== 1) return;
+    e.preventDefault(); // no autoscroll
+    if (e.type === 'pointerdown' && inGame) setWheel({ x: e.clientX, y: e.clientY, held: true });
+  };
+
+  // keyboard: H cycles the HUD, Enter confirms a pending gate, G opens the señas
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
       if (e.key === 'h' || e.key === 'H') cycleHud();
       if (e.key === 'j' || e.key === 'J') setShowLog((v) => !v);
+      if ((e.key === 'g' || e.key === 'G') && inGame) setWheel((w) => (w ? null : { x: window.innerWidth / 2, y: window.innerHeight / 2, held: false }));
       if (e.key === 'Enter' && gate && !iAmReady) handleReady();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cycleHud, gate, iAmReady, handleReady]);
+  }, [cycleHud, gate, iAmReady, handleReady, inGame]);
 
   const handleLeaveGame = () => {
     if (socket && roomCode) socket.emit('room:leave', { roomCode });
@@ -460,7 +484,8 @@ export function GamePage() {
   };
 
   return (
-    <div className="table-page">
+    <div className="table-page" onPointerDown={onMiddleDown} onMouseDown={onMiddleDown}>
+      {wheel && inGame && <SenaWheel open={wheel} onPick={makeSena} onClose={closeWheel} />}
       <div ref={mountRef} className="table-canvas" />
 
       <header className={`hud hud-${hud}`}>
@@ -631,7 +656,7 @@ export function GamePage() {
       )}
 
       <div className="help-line">
-        H: anotador · J: historial · O: ajustes · arrastrá sobre la mesa: mirar · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom
+        H: anotador · J: historial · O: ajustes · clic del medio o G: señas · arrastrá sobre la mesa: mirar · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom
       </div>
 
       {gameState?.phase === 'bidding' && <BiddingPanel />}
