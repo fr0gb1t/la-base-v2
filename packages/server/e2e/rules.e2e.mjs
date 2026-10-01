@@ -137,5 +137,19 @@ const C = (value, suit) => ({ value, suit })
   t.close()
 }
 
+// ---------------------------------------------------------------- E. señas are relayed, validated and rate-limited
+{
+  const t = await table()
+  const got = []
+  t.ps[1].s.on('sena:made', (d) => got.push(d))
+  const ok = await t.ps[0].emit('sena:make', { roomCode: t.room, sena: 'tres' })
+  const bad = await t.ps[0].emit('sena:make', { roomCode: t.room, sena: 'falso' })
+  const fast = await t.ps[0].emit('sena:make', { roomCode: t.room, sena: 'dos' })
+  await sleep(200)
+  check('a seña reaches the other players with who made it', ok.success && got.length === 1 && got[0].playerId === t.ps[0].id && got[0].sena === 'tres', JSON.stringify(got))
+  check('unknown señas and floods are rejected', !bad.success && !fast.success)
+  t.close()
+}
+
 console.log(failures ? `\n${failures} failing` : '\nall rules checks pass')
 process.exit(failures ? 1 : 0)

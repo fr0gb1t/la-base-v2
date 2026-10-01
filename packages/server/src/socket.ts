@@ -6,7 +6,7 @@ import type { Server as SocketIOServer, Socket } from 'socket.io';
 import { roomManager } from './rooms.js';
 import { BOT_TOKEN, botNameFor, spawnBot } from './bots.js';
 import type { RoomPlayer } from './rooms.js';
-import { cardRank, type GameState, type Card } from '@la-base/shared';
+import { cardRank, isSena, type GameState, type Card } from '@la-base/shared';
 import {
   createShuffledDeck,
   dealCards,
@@ -1187,6 +1187,25 @@ export function setupSocketHandlers(io: SocketIOServer) {
     socket.on('presence:hover', (payload: any) => {
       const slot = finite(payload?.slot, -1, 5);
       relayPresence('hover', payload, slot === null ? null : { slot: Math.round(slot) });
+    });
+
+    /**
+     * Señas: a facial signal relayed to everyone else at the table. Who actually SEES it is the
+     * client's call (teammates always; rivals only when looking straight at the signer's face).
+     * Nothing checks that it matches the hand: bluffing is part of the game.
+     */
+    let lastSena = 0;
+    const SENA_MIN_MS = 700;
+    socket.on('sena:make', (payload: any, callback?: (res: { success: boolean; error?: string }) => void) => {
+      const room = typeof payload?.roomCode === 'string' ? roomManager.getRoom(payload.roomCode) : undefined;
+      const player = room?.players.find((p) => p.socketId === socket.id);
+      if (!room || !player || !room.gameState) return callback?.({ success: false, error: 'Not in a game' });
+      if (!isSena(payload?.sena)) return callback?.({ success: false, error: 'Unknown seña' });
+      const t = Date.now();
+      if (t - lastSena < SENA_MIN_MS) return callback?.({ success: false, error: 'Too fast' });
+      lastSena = t;
+      socket.to(room.roomCode).emit('sena:made', { playerId: player.id, sena: payload.sena });
+      callback?.({ success: true });
     });
 
     /**
