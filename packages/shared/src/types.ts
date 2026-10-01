@@ -36,6 +36,8 @@ export type Bid = {
   team: AssignedTeam;
   value: number;
   isKamikaze: boolean;
+  /** who declared it (v2) */
+  playerId?: string;
 };
 
 export type PlayedCard = {
@@ -121,6 +123,8 @@ export type GameState = {
   readyGate?: ReadyGate | null;
   /** who dealt this round (rotates antihorario every round); the next player is the round's Mano */
   dealerPlayerId?: string | null;
+  /** every kamikaze called this game, in order (one metal plane token on the table each) */
+  kamikazeCalls?: Array<{ playerId: string; team: AssignedTeam; round: number }>;
 };
 
 export type GameConfig = {

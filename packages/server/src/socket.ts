@@ -869,7 +869,11 @@ export function setupSocketHandlers(io: SocketIOServer) {
             team: assignedTeam,
             value: payload.bidValue,
             isKamikaze: payload.isKamikaze || false,
+            playerId: player.id,
           };
+          if (bid.isKamikaze) {
+            room.gameState.kamikazeCalls = [...(room.gameState.kamikazeCalls ?? []), { playerId: player.id, team: assignedTeam, round: room.gameState.roundIndex }];
+          }
 
           room.gameState.bids.push(bid);
 
