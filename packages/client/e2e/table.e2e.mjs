@@ -147,7 +147,9 @@ while (Date.now() < until) {
   const t = ui.table
   if (!t) continue
   const round = Number((ui.hud.match(/Ronda (\d+)/) || [])[1] || 0)
-  if (ui.phase.toLowerCase().includes('sacá una carta') && (await clickText('sacar carta del mazo'))) {
+  if (ui.phase.toLowerCase().includes('mazo del centro')) {
+    const d = await page.evaluate(() => window.__table.deckScreen())
+    await page.mouse.click(d.x, d.y)
     await sleep(900)
     if (!shots.draw++) await shot('initial-draw')
     continue

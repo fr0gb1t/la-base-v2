@@ -114,6 +114,7 @@ export class TableScene {
   private pending: { k: number; t0: number; moved: number } | null = null
   // press-and-drag on the table looks around; a press without movement is a click on the table
   private lookDrag: { moved: number } | null = null
+  private deckHint = false
   private hovered = -1
   private lastHoverSent = -2
 
@@ -903,6 +904,18 @@ export class TableScene {
     this.on(el, 'pointercancel', endLeft)
   }
 
+  /** Your turn to draw: the deck in the middle glows and pulses (click it). */
+  setDeckHint(on: boolean) {
+    this.deckHint = on
+  }
+
+  /** Screen position of the centre deck (tests). */
+  deckScreen() {
+    const p = this.centerDeck.getWorldPosition(new THREE.Vector3()).project(this.camera)
+    const r = this.renderer.domElement.getBoundingClientRect()
+    return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height, visible: this.centerDeck.visible }
+  }
+
   /** Ease the head back to the seated default (camera-return setting). */
   private recenter() {
     this.yawT = 0
@@ -1031,6 +1044,12 @@ export class TableScene {
     this.updateDrag()
     this.updateRemoteArms()
     if (this.lamp.update(time)) lampBuzz(new THREE.Vector3(0, 1.67, 0))
+    // the deck glows and breathes when it's your turn to draw from it
+    for (const m of this.centerDeck.material as THREE.MeshStandardMaterial[]) {
+      m.emissive.set(this.deckHint ? 0xffc58a : 0x000000)
+      m.emissiveIntensity = this.deckHint ? 0.25 + 0.2 * Math.sin(time * 4) : 0
+    }
+    this.centerDeck.scale.setScalar(this.deckHint ? 1 + 0.04 * Math.sin(time * 4) : 1)
 
     // turn: the dotted zone of whoever must play glows; yours pulses and brightens under your card.
     // After a base, the winner's zone burns amber and their card lifts until everyone confirms.

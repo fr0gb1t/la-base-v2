@@ -30,7 +30,7 @@ let result = 'FAIL: never got a turn'
 for (let i = 0; i < 300; i++) {
   await sleep(400)
   const ui = await p.evaluate(() => ({ phase: document.querySelector('.phase-line')?.textContent?.toLowerCase() ?? '', t: window.__table?.debugState?.() }))
-  if (ui.phase.includes('sacá una carta')) await click('sacar carta')
+  if (ui.phase.includes('mazo del centro')) { const d = await p.evaluate(() => window.__table.deckScreen()); await p.mouse.click(d.x, d.y) }
   if (ui.phase.includes('te toca declarar')) await p.evaluate(() => document.querySelector('.tally .stamp-btn')?.click())
   if (await p.$('.gate-panel button:not([disabled])')) await p.evaluate(() => document.querySelector('.gate-panel button:not([disabled])')?.click())
   if (ui.t?.canPlay && ui.t.queued === 0 && ui.phase.includes('tu turno')) {

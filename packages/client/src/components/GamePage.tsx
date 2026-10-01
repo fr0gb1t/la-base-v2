@@ -78,6 +78,7 @@ export function GamePage() {
   } = useGameStore();
 
   const mountRef = useRef<HTMLDivElement>(null);
+  const drawRef = useRef<() => void>(() => undefined);
   const sceneRef = useRef<TableScene | null>(null);
   const [status, setStatus] = useState('');
   const [stamp, setStamp] = useState<{ text: string; key: number } | null>(null);
@@ -146,6 +147,7 @@ export function GamePage() {
         if (socket && code) socket.emit('presence:hover', { roomCode: code, slot });
       },
       status: (text) => setStatus(text),
+      deckClick: () => drawRef.current(),
     });
     sceneRef.current = scene;
     if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __table: scene });
@@ -333,6 +335,12 @@ export function GamePage() {
   const bidOf = (team: AssignedTeam) => gameState?.bids.find((b) => b.team === team);
   const initialDraw = gameState?.initialDraw;
   const isMyDraw = gameState?.phase === 'initial_draw' && !initialDraw?.completed && initialDraw?.currentDrawerPlayerId === myId;
+  drawRef.current = () => {
+    if (isMyDraw) handleInitialDraw();
+  };
+  useEffect(() => {
+    sceneRef.current?.setDeckHint(Boolean(isMyDraw));
+  }, [isMyDraw]);
   const canChooseOros = Boolean(gameState?.pendingOrosChoice && gameState.pendingOrosChoice.chooserPlayerId === myId);
 
   let phaseLine = '';
@@ -340,7 +348,7 @@ export function GamePage() {
     phaseLine = initialDraw?.completed
       ? `${nameOf(initialDraw.dealerPlayerId)} reparte · Mano: ${nameOf(initialDraw.manoPlayerId)}`
       : isMyDraw
-        ? 'Sorteo: sacá una carta del mazo'
+        ? 'Sorteo: hacé click en el mazo del centro de la mesa para sacar una carta'
         : `Sorteo: saca ${nameOf(initialDraw?.currentDrawerPlayerId)}`;
   } else if (gameState?.phase === 'bidding') {
     const bidder = gameState.currentBidPlayerId;
@@ -480,13 +488,6 @@ export function GamePage() {
         </div>
       )}
 
-      {gameState?.phase === 'initial_draw' && !initialDraw?.completed && (
-        <div className="overlay-bottom">
-          <button className="ritual-btn" disabled={!isMyDraw} onClick={handleInitialDraw}>
-            {isMyDraw ? 'sacar carta del mazo' : `esperando a ${nameOf(initialDraw?.currentDrawerPlayerId)}`}
-          </button>
-        </div>
-      )}
 
       {gate && (
         <div className="overlay-bottom">
