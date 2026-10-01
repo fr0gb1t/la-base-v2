@@ -67,6 +67,9 @@ const now = () => performance.now() / 1000
 // zoom) while the masks of the players across still fit at the top.
 const BASE_FOV = 50
 const DEFAULT_PITCH = -0.34
+const HAND_MIN = -0.2 // fully lowered: out of the frame
+const HAND_MAX = 0.04
+const HAND_WHEEL = 0.0003 // metres per wheel delta unit (~7 notches from resting to hidden)
 const HAND_Y = -0.205 // your fan's grip height in camera space
 const CARD_Y_REST = TABLE_Y + 0.004
 const CARD_Y_WIN = TABLE_Y + 0.014
@@ -115,6 +118,9 @@ export class TableScene {
   // press-and-drag on the table looks around; a press without movement is a click on the table
   private lookDrag: { moved: number } | null = null
   private deckHint = false
+  // your hand's height, set with the mouse wheel: 0 = resting, negative = lowered out of the view
+  private handOffset = 0
+  private handOffsetT = 0
   private hovered = -1
   private lastHoverSent = -2
 
@@ -862,6 +868,16 @@ export class TableScene {
       }
     })
     this.on(el, 'contextmenu', (e: Event) => e.preventDefault())
+    el.addEventListener(
+      'wheel',
+      (e: WheelEvent) => {
+        e.preventDefault()
+        // wheel down lowers the hand, wheel up raises it (continuous, clamped)
+        const step = Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 120) * HAND_WHEEL
+        this.handOffsetT = THREE.MathUtils.clamp(this.handOffsetT - step, HAND_MIN, HAND_MAX)
+      },
+      { passive: false },
+    )
     this.on(el, 'pointerdown', (e: PointerEvent) => {
       void initAudio(this.camera)
       if (e.button === 2) {
@@ -1131,7 +1147,8 @@ export class TableScene {
       v.hit.rotation.set(-0.35, 0, v.base.rz)
     })
     this.lowered += ((this.drag || this.busy || this.stand > 0.1 ? 1 : 0) - this.lowered) * 0.12
-    this.viewmodel.position.set(Math.sin(time * 1.3) * 0.003 - 0.04 * this.lowered, Math.sin(time * 2.1) * 0.002 - 0.12 * this.aim - 0.09 * this.lowered, 0)
+    this.handOffset += (this.handOffsetT - this.handOffset) * 0.2
+    this.viewmodel.position.set(Math.sin(time * 1.3) * 0.003 - 0.04 * this.lowered, Math.sin(time * 2.1) * 0.002 - 0.12 * this.aim - 0.09 * this.lowered + this.handOffset, 0)
 
     if (this.duo) {
       const u = (now() - this.duo.t0) / 1.6

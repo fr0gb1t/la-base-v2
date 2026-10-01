@@ -43,6 +43,16 @@ for (let i = 0; i < 300; i++) {
       c = n
       if (still) break
     }
+    // mouse wheel: lower the hand, then bring it back
+    await p.mouse.move(640, 300)
+    for (let w = 0; w < 4; w++) { await p.mouse.wheel({ deltaY: 120 }); await sleep(60) }
+    await sleep(600)
+    const low = await p.evaluate(() => window.__table.vmScreen(0))
+    for (let w = 0; w < 4; w++) { await p.mouse.wheel({ deltaY: -120 }); await sleep(60) }
+    await sleep(600)
+    const back = await p.evaluate(() => window.__table.vmScreen(0))
+    console.log(`wheel: hand y ${Math.round(c.y)} → lowered ${Math.round(low.y)} → back ${Math.round(back.y)}`)
+    if (!(low.y > c.y + 40 && Math.abs(back.y - c.y) < 12)) result = 'FAIL-wheel'
     const z = await p.evaluate(() => window.__table.zoneScreen(0))
     await p.mouse.move(c.x, c.y); await sleep(250)
     await p.mouse.down(); await sleep(260) // hold → your arm takes the card
@@ -65,7 +75,7 @@ for (let i = 0; i < 300; i++) {
     const played = await p.evaluate(() => window.__table.debugState().onTable)
     const follows = errs.slice(1).every((e) => e >= 0 && e < 45) // first sample may still be leaving the hand
     console.log('cursor→card distance (px) along the drag:', errs.join(', '), '| cards on table after release:', played)
-    result = follows && played >= 1 ? 'PASS' : 'FAIL'
+    result = result === 'FAIL-wheel' ? 'FAIL (wheel)' : follows && played >= 1 ? 'PASS' : 'FAIL'
     break
   }
 }
