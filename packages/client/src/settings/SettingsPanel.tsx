@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair } from 'react-icons/gi';
+import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor } from 'react-icons/gi';
 import { getViewSettings, onViewSettings, setViewSettings, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
 import { previewSound, audioReady } from '../table3d/audio';
@@ -146,6 +146,13 @@ export function SettingsHost() {
             title="Volver a tu lugar"
             hint={view.cameraReturn ? 'al soltar, la vista vuelve a mirar la mesa' : 'al soltar, la vista queda donde la dejaste'}
             onToggle={() => setViewSettings({ cameraReturn: !view.cameraReturn })}
+          />
+          <Switch
+            on={view.invertLook}
+            icon={<GiMovementSensor aria-hidden className="setting-icon" />}
+            title="Invertir cámara"
+            hint={view.invertLook ? 'arrastrás la mesa: la vista va al revés del mouse' : 'arrastrás la mirada: la vista sigue al mouse'}
+            onToggle={() => setViewSettings({ invertLook: !view.invertLook })}
           />
           <Switch
             on={view.reticle}

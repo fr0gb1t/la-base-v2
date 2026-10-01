@@ -947,8 +947,9 @@ export class TableScene {
       } else if (this.peek) this.panPeek(e.movementX, e.movementY)
       else if (this.lookDrag) {
         this.lookDrag.moved += Math.abs(e.movementX) + Math.abs(e.movementY)
-        this.yawT = this.clampYaw(this.yawT - e.movementX * LOOK_SENS)
-        this.pitchT = this.clampPitch(this.pitchT - e.movementY * LOOK_SENS)
+        const dir = getViewSettings().invertLook ? -1 : 1 // inverted: you drag the table, not your head
+        this.yawT = this.clampYaw(this.yawT - dir * e.movementX * LOOK_SENS)
+        this.pitchT = this.clampPitch(this.pitchT - dir * e.movementY * LOOK_SENS)
       }
     })
     this.on(el, 'contextmenu', (e: Event) => e.preventDefault())
