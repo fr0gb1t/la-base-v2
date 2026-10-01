@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { Card } from '@la-base/shared'
-import { buildLamp, buildRoom, type SeatLabel } from './table'
+import { buildLamp, buildRoom } from './table'
 import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, seatAngle, polar, playSlot } from './seats'
 import { makeAvatar, MAX_HAND, type Avatar, type AvatarPose } from './avatar'
 import { makeCard, type CardView } from './cards'
@@ -11,6 +11,7 @@ import { schedule, tickJobs, wait } from './jobs'
 import { initAudio, sfx, lampBuzz, toggleMute } from './audio'
 import { PALETTE, hex, DUOTONES } from './look'
 import { getViewSettings } from '../settings/viewSettings'
+import { NameTag } from './nameTags'
 
 // ---------------------------------------------------------------------------------------------
 // The 3D table, driven by real game events. Seats follow the server's turn order with the local
@@ -67,6 +68,7 @@ const now = () => performance.now() / 1000
 // zoom) while the masks of the players across still fit at the top.
 const BASE_FOV = 50
 const DEFAULT_PITCH = -0.34
+const CHAIR_R_TAG = TABLE_R + 0.15 // in front of the coat, over the table edge (never inside the body)
 const HAND_MIN = -0.2 // fully lowered: out of the frame
 const HAND_MAX = 0.04
 const HAND_WHEEL = 0.0003 // metres per wheel delta unit (~7 notches from resting to hidden)
@@ -90,7 +92,7 @@ export class TableScene {
   private players: TablePlayer[] = []
   private myId = ''
   private avatars: Avatar[] = []
-  private room: { setLabels(l: SeatLabel[]): void } | null = null
+  private nameTags: NameTag[] = []
   private roomGroup = new THREE.Group()
   private handCounts: number[] = []
   private dealing = false
@@ -202,7 +204,7 @@ export class TableScene {
     this.players = players
     this.myId = myId
     if (order !== prevOrder || this.n !== players.length) this.rebuildSeats()
-    this.room?.setLabels(this.seatPlayers().map((p) => ({ name: p.name + (p.isConnected ? '' : ' (off)'), team: p.team })))
+    this.seatPlayers().forEach((p, s) => this.nameTags[s]?.set(p.name, this.relTeam(p.team), p.isConnected))
     if (!this.dealing) this.seatPlayers().forEach((p, s) => (this.handCounts[s] = p.handCount))
   }
 
@@ -322,6 +324,13 @@ export class TableScene {
 
   // ------------------------------------------------------------------ seats
 
+  /** In game, colours are relative to you (same as the anotador): teal = your team, rose = rivals. */
+  private relTeam(team: TablePlayer['team']): 'nosotros' | 'ellos' | 'random' {
+    const mine = this.players.find((p) => p.id === this.myId)?.team
+    if (team === 'random' || !mine || mine === 'random') return 'random'
+    return team === mine ? 'nosotros' : 'ellos' // NameTag maps nosotros→teal, ellos→rose
+  }
+
   private seatPlayers() {
     const me = Math.max(0, this.players.findIndex((p) => p.id === this.myId))
     return this.players.map((_, i) => this.players[(me + i) % this.players.length])
@@ -339,12 +348,25 @@ export class TableScene {
     this.avatars.forEach((a) => this.scene.remove(a.root))
     this.roomGroup.clear()
     this.zoneFx.forEach((z) => this.scene.remove(z))
-    const labels = this.seatPlayers().map((p) => ({ name: p.name, team: p.team }))
+    // names are no longer chalked on the felt: they float at each player's belly (NameTag)
+    const labels = this.seatPlayers().map(() => ({ name: '', team: 'random' as const }))
     const tmp = new THREE.Scene()
-    this.room = buildRoom(tmp, this.n, labels)
+    buildRoom(tmp, this.n, labels)
     ;[...tmp.children].forEach((c) => this.roomGroup.add(c))
     this.scene.background = tmp.background
     this.scene.fog = tmp.fog
+    this.nameTags.forEach((t) => {
+      this.scene.remove(t.mesh)
+      t.dispose()
+    })
+    this.nameTags = Array.from({ length: this.n }, (_, s) => {
+      const t = new NameTag()
+      const p = this.seatPlayers()[s]
+      if (p) t.set(p.name, this.relTeam(p.team), p.isConnected)
+      t.mesh.visible = s !== 0 // you don't need your own name
+      this.scene.add(t.mesh)
+      return t
+    })
     this.avatars = Array.from({ length: this.n }, (_, s) => {
       const av = makeAvatar(s, this.n, s === 0)
       this.scene.add(av.root)
@@ -1121,6 +1143,13 @@ export class TableScene {
         c.root.position.y += (1.0 - Math.abs(i - (this.handCounts[av.seat] - 1) / 2) * 0.004 + up - c.root.position.y) * 0.3
       })
     }
+
+    // names at belly height (in front of the coat, below the held cards), turned to your camera
+    this.nameTags.forEach((t, s) => {
+      if (s === 0) return
+      const a = seatAngle(s, this.n)
+      t.place(polar(CHAIR_R_TAG, a, 0.9), Math.PI / 2 - a, this.camera)
+    })
 
     // camera
     this.yaw += (this.yawT - this.yaw) * 0.15
