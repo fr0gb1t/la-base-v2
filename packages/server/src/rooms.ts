@@ -33,7 +33,8 @@ export class RoomManager {
   private rooms: Map<string, GameRoom> = new Map();
   private reconnectTokens: Map<string, { roomCode: string; playerId: string }> = new Map();
   private readonly ROOM_CODE_LENGTH = 6;
-  private readonly RECONNECT_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+  // A room is abandoned only when NOBODY is connected and nothing happened for this long.
+  private readonly RECONNECT_TIMEOUT_MS = Number(process.env.LABASE_ROOM_TTL_MS) || 10 * 60 * 1000;
 
   /**
    * Generate a unique room code
@@ -90,6 +91,12 @@ export class RoomManager {
     this.reconnectTokens.set(host.reconnectToken, { roomCode, playerId: hostId });
 
     return room;
+  }
+
+  /** Mark a room as active (every game action calls this). */
+  touch(roomCode: string): void {
+    const room = this.rooms.get(roomCode);
+    if (room) room.lastActivity = new Date();
   }
 
   /**
@@ -253,6 +260,8 @@ export class RoomManager {
     const abandoned: string[] = [];
 
     for (const [roomCode, room] of this.rooms.entries()) {
+      // never delete a room while someone is sitting at it (games last longer than the TTL)
+      if (room.players.some((p) => p.isConnected && !p.isBot)) continue;
       const timeSinceLastActivity = now.getTime() - room.lastActivity.getTime();
       if (timeSinceLastActivity > this.RECONNECT_TIMEOUT_MS) {
         abandoned.push(roomCode);
@@ -289,7 +298,7 @@ export class RoomManager {
 // Singleton instance
 export const roomManager = new RoomManager();
 
-// Cleanup interval (every 5 minutes)
+// Cleanup interval (every 5 minutes; configurable for tests)
 setInterval(() => {
   roomManager.cleanupAbandonedRooms();
-}, 5 * 60 * 1000);
+}, Number(process.env.LABASE_CLEANUP_MS) || 5 * 60 * 1000);

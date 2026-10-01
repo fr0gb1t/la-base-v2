@@ -26,6 +26,10 @@ import {
 
 export function setupSocketHandlers(io: SocketIOServer) {
   io.on('connection', (socket: Socket) => {
+    socket.onAny((_event: string, payload: unknown) => {
+      const code = (payload as { roomCode?: unknown } | null)?.roomCode;
+      if (typeof code === 'string') roomManager.touch(code);
+    });
     console.log(`Player connected: ${socket.id}`);
 
     const publicRoomPlayers = (players: any[]) => players.map((p) => ({
