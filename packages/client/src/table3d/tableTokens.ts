@@ -1,10 +1,10 @@
 import * as THREE from 'three'
 import { PALETTE, SUIT_INK } from './look'
-import { TABLE_Y, seatAngle, polar } from './seats'
+import { TABLE_Y, PLAY_R, CARD_H, seatAngle, polar } from './seats'
 
 // Physical tokens on the felt that carry the game's state, so it reads on the table itself:
 //  - dealer chip (rotates every round) and "pide" chip (who declares first this round)
-//  - chalk circles beside each bidder's place, one per base asked, filled with beans as their
+//  - chalk circles beside each bidder's card (from its top edge inward), one per base asked, filled with beans as their
 //    team wins bases (extra beans spill past the circles)
 //  - a metal plane (Monopoly-token style) in front of whoever called each kamikaze
 //  - a small pile of beans near the centre (decoration for now; later, grabbable)
@@ -148,7 +148,8 @@ export class TableTokens {
     // bases asked: chalk circles in a row from the place toward the centre, beans as they're won
     for (const b of s.bids) {
       const a = seatAngle(b.seat, s.n)
-      const start = polar(0.72, a, TABLE_Y + 0.0025).addScaledVector(right(a), 0.16)
+      // first circle level with the top (centre-side) edge of the card, then on toward the centre
+      const start = polar(PLAY_R - CARD_H / 2 + 0.02, a, TABLE_Y + 0.0025).addScaledVector(right(a), 0.16)
       const step = out(a).multiplyScalar(-0.048)
       const total = Math.max(b.value, b.won)
       for (let i = 0; i < total; i++) {
