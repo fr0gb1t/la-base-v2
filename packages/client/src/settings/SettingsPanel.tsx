@@ -139,7 +139,7 @@ export function SettingsHost() {
         </fieldset>
 
         <fieldset className="ledger-group">
-          <legend>Cámara</legend>
+          <legend>Mesa y cámara</legend>
           <Switch
             on={view.cameraReturn}
             icon={<GiReturnArrow aria-hidden className="setting-icon" />}

@@ -2328,3 +2328,26 @@ button {
   border-color: rgba(20, 14, 12, 0.6);
   box-shadow: none;
 }
+
+/* settings grew a second section: two columns (sound | view) and never taller than the screen */
+.ledger.settings {
+  width: min(820px, 94vw);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 26px;
+  align-items: start;
+}
+
+.ledger.settings > h2,
+.ledger.settings > .stamp-btn,
+.ledger.settings > .ledger-note {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 720px) {
+  .ledger.settings {
+    grid-template-columns: 1fr;
+  }
+}
