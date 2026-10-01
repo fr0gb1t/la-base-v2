@@ -157,7 +157,7 @@ export class TableScene {
 
   // avatars
   private poses: AvatarPose[] = []
-  private senas = new Map<number, { s: Sena; t0: number; frozen?: boolean; open?: boolean; seen?: boolean }>()
+  private senas = new Map<number, { s: Sena; t0: number; frozen?: boolean; open?: boolean; seen?: boolean; gaze?: { yaw: number; pitch: number } }>()
   private aimedFace = -1
   private faceShown: Array<Sena | null> = [] // per seat, for tests // seat → seña on their face
   private focus: THREE.Vector3 | null = null
@@ -315,12 +315,23 @@ export class TableScene {
    * A player makes a seña: it plays on their mask for a moment. Teammates' señas always show;
    * a rival keeps a poker face unless the centre of your view is on their face while they do it.
    */
-  sena(playerId: string, s: Sena) {
+  sena(playerId: string, s: Sena, gaze?: { yaw: number; pitch: number }) {
     const seat = this.seatOf(playerId)
     if (seat <= 0) return
     const myTeam = this.players.find((p) => p.id === this.myId)?.team
     const open = this.players.find((p) => p.id === playerId)?.team === myTeam
-    this.senas.set(seat, { s, t0: now(), open })
+    this.senas.set(seat, { s, t0: now(), open, gaze })
+  }
+
+  /**
+   * Where you are looking right now, as a head turn from your seat (yaw + = left): the real camera
+   * direction, so a right-click zoom counts too. A seña is made facing this way.
+   */
+  gaze() {
+    const d = this.camera.getWorldDirection(new THREE.Vector3())
+    let yaw = Math.atan2(-d.x, -d.z) - this.baseYaw
+    yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw))
+    return { yaw, pitch: Math.asin(THREE.MathUtils.clamp(d.y, -1, 1)) }
   }
 
   /** The seat whose face is under the centre of the view and turned toward you (-1: none). */
@@ -1228,8 +1239,13 @@ export class TableScene {
           p.headPitch = Math.atan2(d.y, Math.hypot(d.x, d.z))
         } else p.headYaw = Math.sin(ts * 0.3 + av.seat) * 0.35
       }
-      av.pose(p)
       const sg = this.senas.get(av.seat)
+      if (sg?.gaze && t - sg.t0 < SENA_HOLD + 0.3) {
+        // the seña is made toward where they were looking when they made it
+        p.headYaw = THREE.MathUtils.clamp(sg.gaze.yaw, -1.3, 1.3)
+        p.headPitch = sg.gaze.pitch
+      }
+      av.pose(p)
       const amount = sg?.frozen ? 1 : sg ? senaAmount(sg.s, Math.floor((t - sg.t0) * 15) / 15) : 0 // stop-motion like the rest of the body
       if (sg && amount <= 0 && t - sg.t0 > 0.5) this.senas.delete(av.seat)
       const shows = Boolean(sg && (sg.open || sg.frozen || aimed === av.seat))

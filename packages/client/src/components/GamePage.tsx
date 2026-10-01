@@ -292,8 +292,9 @@ export function GamePage() {
     socket.on('game:baseResolved', onBaseResolved);
     socket.on('game:gateReleased', onGateReleased);
     socket.on('game:bidDeclared', onBid);
-    const onSena = (d: { playerId: string; sena: Sena }) => {
-      sceneRef.current?.sena(d.playerId, d.sena);
+    const onSena = (d: { playerId: string; sena: Sena; yaw?: number; pitch?: number }) => {
+      const gaze = typeof d.yaw === 'number' && typeof d.pitch === 'number' ? { yaw: d.yaw, pitch: d.pitch } : undefined;
+      sceneRef.current?.sena(d.playerId, d.sena, gaze);
       const { roomPlayers: players, myId: me } = latest.current;
       const team = (id: string) => players.find((p) => p.id === id)?.team;
       // a partner's seña is meant for you; a rival's only goes in the log if you caught it (senaSeen)
@@ -352,7 +353,7 @@ export function GamePage() {
     (sena: Sena) => {
       setWheel(null);
       if (!socket || !roomCode) return;
-      socket.emit('sena:make', { roomCode, sena }, (res: { success: boolean; error?: string }) => {
+      socket.emit('sena:make', { roomCode, sena, ...sceneRef.current?.gaze() }, (res: { success: boolean; error?: string }) => {
         if (!res?.success) return setStatus(res?.error === 'Too fast' ? 'más despacio con las señas' : res?.error || 'No se pudo hacer la seña');
         const label = gestureOf(sena);
         setStatus(`hacés la seña: ${label}`);

@@ -177,7 +177,7 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
         s.emit('presence:look', { roomCode, yaw, pitch: -0.05 });
         await sleep(110);
       }
-      s.emit('sena:make', { roomCode, sena });
+      s.emit('sena:make', { roomCode, sena, yaw, pitch: -0.05 });
       for (let i = 0; i < 6; i++) {
         s.emit('presence:look', { roomCode, yaw, pitch: -0.05 });
         await sleep(250);

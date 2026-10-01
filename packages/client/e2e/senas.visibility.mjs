@@ -74,6 +74,14 @@ await sleep(300)
 results.log = await p.evaluate(() => [...document.querySelectorAll('.log-list .log-sena')].map((l) => l.textContent))
 console.log(JSON.stringify(results, null, 1))
 clearInterval(keepLooking)
-const ok = results.profileIgnored && (partner ? results.partnerShown : true) && results.rivalHiddenWhenNotLooking && results.aimed && results.rivalShownWhenLooking && results.reticleOnFace
+// the seña carries the signer's gaze: without any look stream, a seña made toward you shows,
+// one made toward someone else doesn't
+await sleep(2200) // > PRESENCE_TTL: their head is back on the table
+await rival.emit('sena:make', { roomCode: room, sena: 'tres', yaw: rival.yaw, pitch: -0.05 }); await sleep(450)
+results.gazeTowardYouShows = (await faces()).some((f) => f.id === rival.s.id && f.sena === 'tres')
+await sleep(2200)
+await rival.emit('sena:make', { roomCode: room, sena: 'dos', yaw: -rival.yaw, pitch: -0.05 }); await sleep(450)
+results.gazeAwayHidden = !(await faces()).some((f) => f.id === rival.s.id)
+const ok = results.gazeTowardYouShows && results.gazeAwayHidden && results.profileIgnored && (partner ? results.partnerShown : true) && results.rivalHiddenWhenNotLooking && results.aimed && results.rivalShownWhenLooking && results.reticleOnFace
 console.log(ok ? 'PASS' : 'FAIL')
 await b.close(); host.s.disconnect(); p2.s.disconnect(); process.exit(ok ? 0 : 1)

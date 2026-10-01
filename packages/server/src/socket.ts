@@ -1204,7 +1204,11 @@ export function setupSocketHandlers(io: SocketIOServer) {
       const t = Date.now();
       if (t - lastSena < SENA_MIN_MS) return callback?.({ success: false, error: 'Too fast' });
       lastSena = t;
-      socket.to(room.roomCode).emit('sena:made', { playerId: player.id, sena: payload.sena });
+      // made facing where the signer looks (head turn from their seat), when they say so
+      const yaw = finite(payload?.yaw, -Math.PI, Math.PI);
+      const pitch = finite(payload?.pitch, -1.6, 1.6);
+      const gaze = yaw !== null && pitch !== null ? { yaw, pitch } : {};
+      socket.to(room.roomCode).emit('sena:made', { playerId: player.id, sena: payload.sena, ...gaze });
       callback?.({ success: true });
     });
 
