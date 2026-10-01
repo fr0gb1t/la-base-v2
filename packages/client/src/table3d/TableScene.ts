@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { Card, Sena } from '@la-base/shared'
 import { buildLamp, buildRoom } from './table'
 import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, seatAngle, polar, playSlot } from './seats'
-import { makeAvatar, MAX_HAND, type Avatar, type AvatarPose } from './avatar'
+import { makeAvatar, MAX_HAND, FAN_Y, type Avatar, type AvatarPose } from './avatar'
 import { makeCard, type CardView } from './cards'
 import { drawBack, drawFace, toTexture } from './cardFace'
 import { playPose, PLAY_DURATION } from './play'
@@ -1243,7 +1243,7 @@ export class TableScene {
       const hv = this.remoteHover.get(av.seat)
       av.hand.forEach((c, i) => {
         const up = hv && t - hv.t < PRESENCE_TTL && hv.slot === i ? 0.018 : 0
-        c.root.position.y += (1.0 - Math.abs(i - (this.handCounts[av.seat] - 1) / 2) * 0.004 + up - c.root.position.y) * 0.3
+        c.root.position.y += (FAN_Y - Math.abs(i - (this.handCounts[av.seat] - 1) / 2) * 0.004 + up - c.root.position.y) * 0.3
       })
     }
 
@@ -1316,8 +1316,8 @@ export class TableScene {
   }
 
   /** Zoom onto a seat's face, like a right-click on it. */
-  debugPeekHead(seat: number) {
-    this.peek = { target: this.avatars[seat].head.getWorldPosition(new THREE.Vector3()), standing: false }
+  debugPeekHead(seat: number, dy = 0) {
+    this.peek = { target: this.avatars[seat].head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, dy, 0)), standing: false }
     this.aimT = 1
   }
 

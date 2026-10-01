@@ -1,12 +1,13 @@
 import * as THREE from 'three'
 import { PALETTE, hex } from './look'
-import { CHAIR_R, SHOULDER_R, SHOULDER_Y, seatAngle, teamOf, polar, type PlayerCount } from './seats'
+import { CHAIR_R, SHOULDER_R, SHOULDER_Y, TABLE_R, TABLE_Y, seatAngle, teamOf, polar, type PlayerCount } from './seats'
 import { makeCard, type CardView } from './cards'
 import type { Sena } from '@la-base/shared'
 
 // Placeholder anatomy for the demo (boxes/cylinders read fine at 360p under heavy post).
 // Production avatars: use the `modeling-3d-human-characters` skill for real arms and hands.
 export const MAX_HAND = 6
+export const FAN_Y = 1.06 // height of the held fan: above the name tag at the belly
 const UPPER = 0.32
 const FORE = 0.3
 const Y_AXIS = new THREE.Vector3(0, 1, 0)
@@ -195,7 +196,11 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false): A
     root.add(r.upper, r.fore, r.glove)
   })
 
-  // Held fan (up to 6 cards): backs toward the table, tight against the chest.
+  // Everyone sits the same way, and that is what the others see of you too: the fan (backs out,
+  // faces toward its owner) held in the LEFT hand, off to the side; the RIGHT hand resting on the
+  // table edge until it plays. FAN_X is the avatar's left (-x; it faces -z).
+  const FAN_X = -0.21
+  // Held fan (up to 6 cards): backs toward the table.
   const hand = Array.from({ length: MAX_HAND }, () => {
     const c = makeCard()
     root.add(c.root)
@@ -206,13 +211,14 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false): A
     hand.forEach((c, k) => {
       c.root.visible = !firstPerson && k < n
       const off = k - (n - 1) / 2
-      c.root.position.set(off * 0.016, 1.0 - Math.abs(off) * 0.004, -0.33 + k * 0.0015)
-      c.root.rotation.set(0.35, 0, off * -0.1, 'YXZ') // face toward the owner, back toward the table
+      c.root.position.set(FAN_X + off * 0.016, FAN_Y - Math.abs(off) * 0.004, -0.33 + k * 0.0015)
+      c.root.rotation.set(0.35, 0.25, off * -0.1, 'YXZ') // face toward the owner (turned a bit inward), back toward the table
     })
   }
   setHandCount(0)
 
-  const chestHold = new THREE.Vector3(0, 0.95, -0.34)
+  const fanHold = new THREE.Vector3(FAN_X + 0.01, FAN_Y - 0.08, -0.32) // left wrist, under the fan
+  const tableRest = new THREE.Vector3(0.2, TABLE_Y + 0.03, -(CHAIR_R - (TABLE_R - 0.04))) // right wrist on the table
   const shoulderLocal = (sx: number, lean: number) => new THREE.Vector3(sx * 0.19, SHOULDER_Y - lean * 0.05, -(CHAIR_R - SHOULDER_R) - lean * 0.1)
 
   // First person: only the arms exist (the camera lives where the head would be).
@@ -228,7 +234,7 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false): A
     for (const r of arms) {
       const s = shoulderLocal(r.sx, p.lean)
       const wristWorld = r.sx > 0 ? p.rightWrist : p.leftWrist
-      const target = wristWorld ? root.worldToLocal(wristWorld.clone()) : chestHold.clone().setX(r.sx * 0.05)
+      const target = wristWorld ? root.worldToLocal(wristWorld.clone()) : (r.sx > 0 ? tableRest : fanHold).clone()
       const pole = s.clone().add(new THREE.Vector3(r.sx * 0.4, -0.5, 0.1))
       const { elbow, wrist } = solveElbow(s, target, pole)
       segment(r.upper, s, elbow)
