@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay } from 'react-icons/gi';
+import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow } from 'react-icons/gi';
+import { getViewSettings, onViewSettings, setViewSettings, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
 import { previewSound, audioReady } from '../table3d/audio';
 
@@ -17,6 +18,12 @@ function useAudioSettings(): AudioSettings {
   return s;
 }
 
+function useViewSettings(): ViewSettings {
+  const [s, set] = useState(getViewSettings());
+  useEffect(() => onViewSettings(set), []);
+  return s;
+}
+
 export function SettingsButton({ className = 'hud-tab' }: { className?: string }) {
   return (
     <button type="button" className={className} onClick={() => openSettings(true)} title="Ajustes (O)">
@@ -28,6 +35,7 @@ export function SettingsButton({ className = 'hud-tab' }: { className?: string }
 export function SettingsHost() {
   const [open, setOpen] = useState(false);
   const s = useAudioSettings();
+  const view = useViewSettings();
 
   useEffect(() => {
     openers.add(setOpen);
@@ -107,6 +115,24 @@ export function SettingsHost() {
             />
           </label>
           {!audioReady() && <p className="ledger-note">El sonido arranca con tu primer click en la mesa.</p>}
+        </fieldset>
+
+        <fieldset className="ledger-group">
+          <legend>Cámara</legend>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={view.cameraReturn}
+            className={`setting-row ${view.cameraReturn ? 'on' : ''}`}
+            onClick={() => setViewSettings({ cameraReturn: !view.cameraReturn })}
+          >
+            <GiReturnArrow aria-hidden className="setting-icon" />
+            <span className="setting-text">
+              <b>Volver a tu lugar</b>
+              <small>{view.cameraReturn ? 'al soltar, la vista vuelve a mirar la mesa' : 'al soltar, la vista queda donde la dejaste'}</small>
+            </span>
+            <span className="setting-state">{view.cameraReturn ? 'sí' : 'no'}</span>
+          </button>
         </fieldset>
 
         <button type="button" className="stamp-btn" onClick={() => setOpen(false)}>listo</button>
