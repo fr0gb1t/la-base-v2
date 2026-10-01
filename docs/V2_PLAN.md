@@ -40,6 +40,16 @@ user uploads or replays appear.
 Fully diegetic phases: declare with beans/tokens on the table, choose direction by turning an
 object, point at a teammate with the hand.
 
+Noted for the future (not started):
+- **Game modules**: turn the table into a platform where each card game is a selectable module
+  (La Base is the first). Potentially community modules through the Steam Workshop.
+- **Voice**: ask for microphone permission only to animate the speaking player's mask (audio is
+  not transmitted at first: people use Discord). Later, optional voice chat for the table and a
+  team-only channel.
+- **Señas anti-cheat**: today every client receives every seña and decides locally whether a
+  rival's shows (view centre on a face turned toward you). A modified client could read them all.
+  If that matters, the server would need each viewer's look direction and seat geometry to filter.
+
 ## Verification
 - `pnpm -r build`, the shared tests (75 passing at import).
 - Headless multi-client e2e (4 browsers): create/join, config, start, initial draw, bidding, play a
