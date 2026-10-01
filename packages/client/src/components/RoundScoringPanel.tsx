@@ -5,7 +5,12 @@ import { useGameStore } from '../store/gameStore';
 // it floats over it without catching clicks and closes by itself. Game over still blocks.
 const ROUND_SUMMARY_MS = 5000;
 
-export function RoundScoringPanel() {
+const REASONS: Record<string, string> = {
+  'All rounds complete': 'se jugaron todas las rondas',
+  'Kamikaze violation - Mano lost by 2+ bases': 'kamikaze fallido: el Mano perdió por 2 bases o más',
+};
+
+export function RoundScoringPanel({ myTeam }: { myTeam: 'nosotros' | 'ellos' }) {
   const {
     roundScore,
     gameOver,
@@ -31,74 +36,44 @@ export function RoundScoringPanel() {
   }
 
   if (gameOver) {
+    const rivalTeam = myTeam === 'nosotros' ? 'ellos' : 'nosotros';
+    const won = gameOver.winner === myTeam;
+    const tie = gameOver.winner !== 'nosotros' && gameOver.winner !== 'ellos';
+    const row = (team: 'nosotros' | 'ellos') => (
+      <tr className={team === myTeam ? 'mine' : 'rival'}>
+        <td>{team === myTeam ? 'Tu equipo' : 'Rivales'} <span className="dim">({team === 'nosotros' ? 'Nosotros' : 'Ellos'})</span></td>
+        <td><b>{gameOver.finalScores[team]}</b></td>
+      </tr>
+    );
+    const leave = () => {
+      setGameOver(null);
+      setRoomCode(null);
+      setReconnectToken(null);
+      setRoomPlayers([]);
+      setGameState(null);
+      setPlayerHand([]);
+      setCurrentPage('lobby');
+    };
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-slate-900 rounded-lg p-8 max-w-2xl w-full mx-4 shadow-2xl">
-          {/* Header */}
-          <h2 className="text-4xl font-bold mb-8 text-center text-white">
-            Partida terminada
-          </h2>
-
-          {/* Winner */}
-          <div className={`mb-8 p-8 rounded-lg text-center border-4 ${
-            gameOver.winner === 'nosotros'
-              ? 'bg-emerald-950 border-emerald-600'
-              : 'bg-orange-950 border-orange-600'
-          }`}>
-            <p className="text-lg text-slate-300 mb-2">Ganador:</p>
-            <p className={`text-5xl font-bold mb-2 ${
-              gameOver.winner === 'nosotros'
-                ? 'text-emerald-700'
-                : 'text-orange-700'
-            }`}>
-              {gameOver.winner.toUpperCase()}
-            </p>
-            <p className="text-sm text-slate-400 italic">{gameOver.reason}</p>
-          </div>
-
-          {/* Final Scores */}
-          <div className="mb-8 grid grid-cols-2 gap-6">
-            <div className="bg-slate-800 rounded-lg p-6 text-center border-2 border-slate-700">
-              <p className="text-sm text-emerald-700 font-semibold mb-2">Nosotros</p>
-              <p className="text-4xl font-bold text-emerald-700">
-                {gameOver.finalScores.nosotros}
-              </p>
-              <p className="text-xs text-emerald-600 mt-2">puntos totales</p>
-            </div>
-            <div className="bg-orange-950 rounded-lg p-6 text-center border-2 border-orange-700">
-              <p className="text-sm text-orange-700 font-semibold mb-2">Ellos</p>
-              <p className="text-4xl font-bold text-orange-700">
-                {gameOver.finalScores.ellos}
-              </p>
-              <p className="text-xs text-orange-600 mt-2">puntos totales</p>
-            </div>
-          </div>
-
-          {/* Play Again Button */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => {
-                // Return to lobby and reset game state
-                setGameOver(null);
-                setRoomCode(null);
-                setReconnectToken(null);
-                setRoomPlayers([]);
-                setGameState(null);
-                setPlayerHand([]);
-                setCurrentPage('lobby');
-              }}
-              className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-lg transition text-lg"
-            >
-              Volver al menú
-            </button>
-            <button
-              onClick={() => {
-                setGameOver(null);
-              }}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg transition text-lg"
-            >
-              Nueva partida
-            </button>
+      <div className="overlay-center game-over" role="dialog" aria-labelledby="game-over-title">
+        <div className="gate-panel">
+          <h2 id="game-over-title">Partida terminada</h2>
+          <p className={`game-over-result ${tie ? '' : won ? 'mine' : 'rival'}`}>
+            {tie ? 'Empate' : won ? 'Ganó tu equipo' : 'Ganaron los rivales'}
+          </p>
+          <p className="dim">{REASONS[gameOver.reason] ?? gameOver.reason}</p>
+          <table className="round-table">
+            <thead>
+              <tr><th /><th>puntos</th></tr>
+            </thead>
+            <tbody>
+              {row(myTeam)}
+              {row(rivalTeam)}
+            </tbody>
+          </table>
+          <div className="game-over-actions">
+            <button className="ritual-btn" onClick={leave}>volver al menú</button>
+            <button className="ritual-btn quiet" onClick={() => setGameOver(null)}>mirar la mesa</button>
           </div>
         </div>
       </div>

@@ -166,7 +166,7 @@ export function GamePage() {
       senaSeen: (id, sena) => logRef.current(`Viste a ${nameNow(id)}: ${gestureOf(sena)}`, 'sena'),
     });
     sceneRef.current = scene;
-    if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __table: scene });
+    if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __table: scene, __store: useGameStore });
     return () => {
       scene.dispose();
       sceneRef.current = null;
@@ -678,7 +678,7 @@ export function GamePage() {
 
       {gameState?.phase === 'bidding' && <BiddingPanel />}
       <LiveBidDisplay />
-      <RoundScoringPanel />
+      <RoundScoringPanel myTeam={myTeam} />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );

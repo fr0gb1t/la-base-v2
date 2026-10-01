@@ -2297,3 +2297,34 @@ button {
   background: transparent;
   border: 1.5px solid rgba(233, 220, 194, 0.7);
 }
+
+/* ---- game over: the same paper sheet as the gate panel, centred and blocking ---- */
+.game-over {
+  z-index: 70;
+  background: rgba(5, 4, 3, 0.55);
+  pointer-events: auto;
+}
+
+.game-over .gate-panel {
+  min-width: min(440px, 92vw);
+}
+
+.game-over-result {
+  font-size: 34px !important;
+  font-variant: small-caps;
+  margin: 6px 0 2px !important;
+}
+
+.game-over-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.ritual-btn.quiet {
+  background: transparent;
+  color: var(--ink);
+  border-color: rgba(20, 14, 12, 0.6);
+  box-shadow: none;
+}
