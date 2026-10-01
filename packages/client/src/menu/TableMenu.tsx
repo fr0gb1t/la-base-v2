@@ -109,11 +109,15 @@ export function TableMenu({ items, input, note }: { items: FloatItem[]; input?: 
         />
       )}
       <nav className="sr-only" aria-label="Opciones de la mesa">
-        {items.map((it) => (
-          <button key={it.id} type="button" disabled={it.disabled} aria-pressed={it.selected} onClick={it.onPick}>
-            {it.label}{it.sub ? ` (${it.sub})` : ''}
-          </button>
-        ))}
+        {items.map((it) =>
+          it.kind === 'label' ? (
+            <p key={it.id}>{it.label}</p>
+          ) : (
+            <button key={it.id} type="button" disabled={it.disabled} aria-pressed={it.selected} onClick={it.onPick}>
+              {it.label}{it.sub ? ` (${it.sub})` : ''}
+            </button>
+          ),
+        )}
       </nav>
       <div className="table-caption" aria-live="polite">{caption ?? note ?? ''}</div>
     </>

@@ -89,6 +89,8 @@ export function GameConfig() {
       <TableMenu
         note={`ases boca arriba = poder activo (espadas ${on('espadas')} · copas ${on('copas')} · oros ${on('oros')}) · click en un as para cambiarlo`}
         items={[
+          { id: 't-estructura', label: 'Estructura', kind: 'label', at: [0, 0.51], raise: -0.025, onPick: () => undefined }, // under its row
+          { id: 't-kamikazes', label: 'Kamikazes por equipo', kind: 'label', at: [-0.18, 0.74], raise: -0.02, onPick: () => undefined }, // under its chips
           ...(['clasica', 'alternativa', 'postpandemia'] as const).map((mode, i) => ({
             id: `est-${mode}`,
             label: names[mode],

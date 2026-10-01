@@ -11,8 +11,9 @@ export interface FloatItem {
   label: string
   sub?: string
   hint?: string // longer description shown in the caption while hovered
-  kind?: 'tag' | 'stamp' | 'chip'
+  kind?: 'tag' | 'stamp' | 'chip' | 'label' // label: a chalked title, not a button
   icon?: 'plane' // a small engraved glyph above the label (chips)
+  raise?: number // labels: metres above the row they name (default LABEL_RAISE)
   at: [number, number] // table x, z
   selected?: boolean
   disabled?: boolean
@@ -20,6 +21,7 @@ export interface FloatItem {
 }
 
 const PX_PER_M = 1400
+const LABEL_RAISE = 0.1 // m above the buttons it names
 const FONT = '"IM Fell English SC", Georgia, serif'
 
 /** A small propeller plane seen from above (the kamikaze token). */
@@ -63,10 +65,35 @@ export function plane(g: CanvasRenderingContext2D, cx: number, cy: number, s: nu
   g.restore()
 }
 
+/** A title written in chalk, floating over a group of buttons (transparent, no frame). */
+function labelTexture(text: string) {
+  const cv = document.createElement('canvas')
+  const g = cv.getContext('2d')!
+  const font = `46px ${FONT}`
+  g.font = font
+  cv.width = Math.ceil(g.measureText(text).width + 30)
+  cv.height = 68
+  g.font = font
+  g.textAlign = 'center'
+  g.textBaseline = 'middle'
+  // bone letters with an ink edge: they must read over the bright felt under the lamp
+  g.lineJoin = 'round'
+  g.lineWidth = 8
+  g.strokeStyle = PALETTE.ink
+  g.strokeText(text, cv.width / 2, 36)
+  g.fillStyle = PALETTE.bone
+  g.fillText(text, cv.width / 2, 36)
+  const t = new THREE.CanvasTexture(cv)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = 4
+  return { t, w: cv.width / PX_PER_M, h: cv.height / PX_PER_M }
+}
+
 function texture(item: FloatItem) {
   const kind = item.kind ?? 'tag'
   const cv = document.createElement('canvas')
   const g = cv.getContext('2d')!
+  if (kind === 'label') return labelTexture(item.label)
   const title = `${kind === 'chip' ? 64 : 44}px ${FONT}`
   g.font = title
   const tw = g.measureText(item.label).width
@@ -173,11 +200,12 @@ export class FloatingItems {
       if (cur) this.remove(cur)
       const { t, w, h } = texture(def)
       const geo = new THREE.PlaneGeometry(w, h)
-      const mat = new THREE.MeshStandardMaterial({ map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.3, roughness: 0.85, transparent: def.kind === 'chip', side: THREE.DoubleSide })
+      const flat = def.kind === 'chip' || def.kind === 'label'
+      const mat = new THREE.MeshStandardMaterial({ map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.3, roughness: 0.85, transparent: flat, side: THREE.DoubleSide })
       const mesh = new THREE.Mesh(geo, mat)
       // a vertical chip lit from above would cast a thin bar: round chips get a soft round contact
       // shadow on the felt instead (tags keep their real, rectangular shadow)
-      mesh.castShadow = def.kind !== 'chip'
+      mesh.castShadow = !flat
       let blob: THREE.Mesh | null = null
       if (def.kind === 'chip') {
         blob = new THREE.Mesh(new THREE.CircleGeometry(w * 0.55, 32), new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false }))
@@ -207,11 +235,13 @@ export class FloatingItems {
     const targets: THREE.Object3D[] = []
     for (const l of this.live.values()) {
       const h = (l.mesh.geometry as THREE.PlaneGeometry).parameters.height
-      const rest = new THREE.Vector3(l.def.at[0], TABLE_Y + 0.025 + h / 2, l.def.at[1])
+      // a label sits over the row of buttons it names (same depth, one button higher)
+      const raise = l.def.kind === 'label' ? l.def.raise ?? LABEL_RAISE : 0
+      const rest = new THREE.Vector3(l.def.at[0], TABLE_Y + 0.025 + h / 2 + raise, l.def.at[1])
       l.hit.position.copy(rest)
       l.hit.lookAt(camera.position)
       l.hit.updateMatrixWorld()
-      if (!l.def.disabled) targets.push(l.hit)
+      if (!l.def.disabled && l.def.kind !== 'label') targets.push(l.hit)
     }
     const hit = raycaster.intersectObjects(targets, false)[0]
     this.hovered = hit ? (hit.object.userData.floatId as string) : null
@@ -229,9 +259,9 @@ export class FloatingItems {
         ;(l.blob.material as THREE.MeshBasicMaterial).opacity = l.def.disabled ? 0.3 : 0.85 - l.lift * 0.3
       }
       const mat = l.mesh.material as THREE.MeshStandardMaterial
-      mat.emissiveIntensity = l.def.disabled ? 0.08 : 0.3 + l.lift * 0.35
+      mat.emissiveIntensity = l.def.kind === 'label' ? 0.55 : l.def.disabled ? 0.08 : 0.3 + l.lift * 0.35
       mat.opacity = l.def.disabled ? 0.45 : 1
-      mat.transparent = l.def.disabled || l.def.kind === 'chip'
+      mat.transparent = l.def.disabled || l.def.kind === 'chip' || l.def.kind === 'label'
     }
     return this.hovered
   }

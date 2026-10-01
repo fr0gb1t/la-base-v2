@@ -171,6 +171,7 @@ export function Lobby() {
           <TableMenu
             note="¿cuántos se sientan? elegí y abrí la mesa"
             items={[
+              { id: 't-jugadores', label: 'Jugadores', kind: 'label', at: [0, 0.34], onPick: () => undefined },
               ...[4, 6, 8].map((count, i) => ({
                 id: `n${count}`,
                 label: String(count),
