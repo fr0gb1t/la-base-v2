@@ -161,26 +161,18 @@ interface Live {
   key: string
   mesh: THREE.Mesh
   hit: THREE.Mesh
-  blob: THREE.Mesh | null
+  shadow: THREE.Mesh | null // invisible footprint that casts the real shadow
   lift: number
   phase: number
 }
 
-let blobTex: THREE.Texture | null = null
-function blobTexture() {
-  if (blobTex) return blobTex
-  const cv = document.createElement('canvas')
-  cv.width = cv.height = 64
-  const g = cv.getContext('2d')!
-  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32)
-  grd.addColorStop(0, 'rgba(0,0,0,0.75)')
-  grd.addColorStop(0.6, 'rgba(0,0,0,0.35)')
-  grd.addColorStop(1, 'rgba(0,0,0,0)')
-  g.fillStyle = grd
-  g.fillRect(0, 0, 64, 64)
-  blobTex = new THREE.CanvasTexture(cv)
-  return blobTex
-}
+// Shadows: a floating button standing upright under a lamp overhead would cast a thin bar. Each
+// one instead carries an invisible horizontal footprint of its own shape (a disc for chips, a
+// card for tags) that only exists in the shadow map: a real projected shadow, with the button's
+// shape, that moves and shrinks as the button lifts.
+// double-sided: the shadow pass draws back faces by default, and the light sees the top face
+const footprintMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide })
+const FOOTPRINT_DEPTH = 0.55 // a tag's footprint: its width × this fraction of its height
 
 export class FloatingItems {
   group = new THREE.Group()
@@ -203,27 +195,29 @@ export class FloatingItems {
       const flat = def.kind === 'chip' || def.kind === 'label'
       const mat = new THREE.MeshStandardMaterial({ map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.3, roughness: 0.85, transparent: flat, side: THREE.DoubleSide })
       const mesh = new THREE.Mesh(geo, mat)
-      // a vertical chip lit from above would cast a thin bar: round chips get a soft round contact
-      // shadow on the felt instead (tags keep their real, rectangular shadow)
-      mesh.castShadow = !flat
-      let blob: THREE.Mesh | null = null
-      if (def.kind === 'chip') {
-        blob = new THREE.Mesh(new THREE.CircleGeometry(w * 0.55, 32), new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false }))
-        blob.rotation.x = -Math.PI / 2
-        this.group.add(blob)
+      let shadow: THREE.Mesh | null = null
+      if (def.kind !== 'label') {
+        const foot = def.kind === 'chip' ? new THREE.CircleGeometry(w * 0.46, 32) : new THREE.PlaneGeometry(w, h * FOOTPRINT_DEPTH)
+        foot.rotateX(-Math.PI / 2)
+        shadow = new THREE.Mesh(foot, footprintMat)
+        shadow.castShadow = true
+        this.group.add(shadow)
       }
       const hit = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }))
       hit.visible = false
       hit.userData.floatId = def.id
       this.group.add(mesh, hit)
-      this.live.set(def.id, { def, key, mesh, hit, blob, lift: cur?.lift ?? 0, phase: Math.random() * 6 })
+      this.live.set(def.id, { def, key, mesh, hit, shadow, lift: cur?.lift ?? 0, phase: Math.random() * 6 })
     }
     for (const [id, l] of this.live) if (!seen.has(id)) this.remove(l)
   }
 
   private remove(l: Live) {
     this.group.remove(l.mesh, l.hit)
-    if (l.blob) this.group.remove(l.blob)
+    if (l.shadow) {
+      this.group.remove(l.shadow)
+      l.shadow.geometry.dispose()
+    }
     ;(l.mesh.material as THREE.MeshStandardMaterial).map?.dispose()
     ;(l.mesh.material as THREE.Material).dispose()
     l.mesh.geometry.dispose()
@@ -252,11 +246,11 @@ export class FloatingItems {
       l.mesh.position.copy(l.hit.position).add(new THREE.Vector3(0, l.lift * 0.02 + bob, 0))
       l.mesh.quaternion.copy(l.hit.quaternion)
       l.mesh.scale.setScalar(1 + l.lift * 0.08)
-      if (l.blob) {
-        l.blob.position.set(l.def.at[0], TABLE_Y + 0.002, l.def.at[1])
-        const k = 1 - l.lift * 0.25 // higher chip → smaller, fainter shadow
-        l.blob.scale.set(k, k * 0.75, k)
-        ;(l.blob.material as THREE.MeshBasicMaterial).opacity = l.def.disabled ? 0.3 : 0.85 - l.lift * 0.3
+      if (l.shadow) {
+        // the footprint rides with the button (same height, same heading)
+        l.shadow.position.copy(l.mesh.position)
+        l.shadow.rotation.y = Math.atan2(camera.position.x - l.mesh.position.x, camera.position.z - l.mesh.position.z)
+        l.shadow.scale.setScalar(l.mesh.scale.x)
       }
       const mat = l.mesh.material as THREE.MeshStandardMaterial
       mat.emissiveIntensity = l.def.kind === 'label' ? 0.55 : l.def.disabled ? 0.08 : 0.3 + l.lift * 0.35
