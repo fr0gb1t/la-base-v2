@@ -12,3 +12,6 @@ export * from './scoring.js';
 
 // Export game engine
 export * from './engine.js';
+
+// Export señas
+export * from './senas.js';

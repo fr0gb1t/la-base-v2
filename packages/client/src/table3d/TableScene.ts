@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { Card } from '@la-base/shared'
+import type { Card, Sena } from '@la-base/shared'
 import { buildLamp, buildRoom } from './table'
 import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, seatAngle, polar, playSlot } from './seats'
 import { makeAvatar, MAX_HAND, type Avatar, type AvatarPose } from './avatar'
@@ -65,6 +65,14 @@ const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 
 const seg = (t: number, a: number, b: number) => THREE.MathUtils.clamp((t - a) / (b - a), 0, 1)
 const quatOf = (rx: number, yaw: number, roll = 0) => new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, yaw, roll, 'YXZ'))
 const now = () => performance.now() / 1000
+const SENA_HOLD = 1.6 // s a seña stays on the face
+/** How far into a seña the face is (0 rest … 1 full) at `t` seconds since it started. */
+function senaAmount(s: Sena, t: number) {
+  if (t < 0) return 0
+  if (s === 'nada') return t < 0.2 ? t / 0.2 : t < 0.75 ? 1 : Math.max(0, 1 - (t - 0.75) / 0.2) // close, hold, reopen
+  if (t >= SENA_HOLD) return 0
+  return Math.min(1, t / 0.15, (SENA_HOLD - t) / 0.3)
+}
 // A bit tighter than a shooter's 58°: the table fills more of the screen (cards read without
 // zoom) while the masks of the players across still fit at the top.
 const BASE_FOV = 50
@@ -143,6 +151,7 @@ export class TableScene {
 
   // avatars
   private poses: AvatarPose[] = []
+  private senas = new Map<number, { s: Sena; t0: number; frozen?: boolean }>() // seat → seña on their face
   private focus: THREE.Vector3 | null = null
   private stareAtYou = 0
   private remoteLook = new Map<number, { yaw: number; pitch: number; t: number }>()
@@ -281,6 +290,12 @@ export class TableScene {
       views.forEach((v) => this.give(v))
       this.centerDeck.visible = false
     })
+  }
+
+  /** A player makes a seña: it plays on their mask for a moment. */
+  sena(playerId: string, s: Sena) {
+    const seat = this.seatOf(playerId)
+    if (seat > 0) this.senas.set(seat, { s, t0: now() })
   }
 
   presence(kind: 'look' | 'arm' | 'hover', playerId: string, data: Record<string, unknown>) {
@@ -1151,6 +1166,10 @@ export class TableScene {
         } else p.headYaw = Math.sin(ts * 0.3 + av.seat) * 0.35
       }
       av.pose(p)
+      const sg = this.senas.get(av.seat)
+      const amount = sg?.frozen ? 1 : sg ? senaAmount(sg.s, Math.floor((t - sg.t0) * 15) / 15) : 0 // stop-motion like the rest of the body
+      if (sg && amount <= 0 && t - sg.t0 > 0.5) this.senas.delete(av.seat)
+      av.sena(sg?.s ?? null, amount)
       // fingering a card in their hand
       const hv = this.remoteHover.get(av.seat)
       av.hand.forEach((c, i) => {
@@ -1217,6 +1236,18 @@ export class TableScene {
       handShown: this.vm.filter((v) => v.mesh.visible).length,
       hovered: this.hovered,
     }
+  }
+
+  /** Hold a seña on a seat's mask and look at it (preview/screenshots). */
+  debugSena(seat: number, s: Sena | null) {
+    if (s) this.senas.set(seat, { s, t0: now(), frozen: true })
+    else this.senas.delete(seat)
+  }
+
+  /** Zoom onto a seat's face, like a right-click on it. */
+  debugPeekHead(seat: number) {
+    this.peek = { target: this.avatars[seat].head.getWorldPosition(new THREE.Vector3()), standing: false }
+    this.aimT = 1
   }
 
   /** Screen position of the card you're dragging (null if none). */

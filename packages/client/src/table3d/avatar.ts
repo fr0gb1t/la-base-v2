@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { PALETTE, hex } from './look'
 import { CHAIR_R, SHOULDER_R, SHOULDER_Y, seatAngle, teamOf, polar, type PlayerCount } from './seats'
 import { makeCard, type CardView } from './cards'
+import type { Sena } from '@la-base/shared'
 
 // Placeholder anatomy for the demo (boxes/cylinders read fine at 360p under heavy post).
 // Production avatars: use the `modeling-3d-human-characters` skill for real arms and hands.
@@ -10,7 +11,7 @@ const UPPER = 0.32
 const FORE = 0.3
 const Y_AXIS = new THREE.Vector3(0, 1, 0)
 
-export type Sena = 'none' | 'ancho-espada' | 'ancho-basto' | 'siete-espada' | 'siete-oro' | 'tres' | 'dos' | 'falso' | 'nada'
+export type { Sena }
 
 const mat = (c: string, rough = 0.8) => new THREE.MeshStandardMaterial({ color: hex(c), roughness: rough })
 
@@ -75,29 +76,71 @@ function mask() {
     head.add(hole, lid, brow)
     return { lid, brow }
   })
-  const mouth = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.014), ink)
+  // mouth: a unit disc scaled into a line (rest), an O (kiss), an open oval (fish)...
+  const MOUTH = { x: 0.035, y: 0.007 }
+  const mouth = new THREE.Mesh(new THREE.CircleGeometry(1, 20), ink)
   mouth.position.set(0, -0.05, -0.134)
   mouth.rotation.y = Math.PI
+  mouth.scale.set(MOUTH.x, MOUTH.y, 1)
+  // puckered lips (kiss) and two front teeth over the lower lip (bite): hidden at rest
+  const lips = new THREE.Mesh(new THREE.RingGeometry(0.011, 0.019, 20), mat(PALETTE.rose, 0.6))
+  lips.position.set(0, -0.05, -0.137)
+  lips.rotation.y = Math.PI
+  const teeth = new THREE.Group()
+  for (const sx of [-1, 1]) {
+    const t = new THREE.Mesh(new THREE.PlaneGeometry(0.015, 0.014), new THREE.MeshBasicMaterial({ color: 0xf6efe0 }))
+    t.position.set(sx * 0.0075, 0, 0)
+    t.rotation.y = Math.PI
+    teeth.add(t)
+  }
+  teeth.position.set(0, -0.053, -0.136)
   const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.035, 0.05), mat(PALETTE.bone, 0.55))
   jaw.position.set(0, -0.085, -0.1)
-  head.add(hood, face, mouth, jaw)
+  head.add(hood, face, mouth, lips, teeth, jaw)
   head.traverse((o) => (o.castShadow = true))
 
-  // Each seña is a pose of lids / brows / mouth / jaw. amount 0..1 lets it flash briefly.
-  function sena(s: Sena, amount: number) {
-    const k = amount
-    eyes[0].lid.scale.y = eyes[1].lid.scale.y = 0.01
-    eyes[0].brow.position.y = eyes[1].brow.position.y = 0.07
-    mouth.position.x = 0
-    mouth.scale.set(1, 1, 1)
+  // Each seña is a pose of lids / brows / mouth / jaw, seen from the signer: "right" is the
+  // mask's own right (+x, it faces -z). amount 0..1 lets it flash and relax.
+  function sena(s: Sena | null, amount: number) {
+    const k = s ? amount : 0
+    eyes.forEach((e) => {
+      e.lid.scale.y = 0.01
+      e.brow.position.y = 0.07
+      e.brow.rotation.z = 0
+    })
+    mouth.position.set(0, -0.05, -0.134)
+    mouth.rotation.z = 0
+    mouth.scale.set(MOUTH.x, MOUTH.y, 1)
+    lips.visible = teeth.visible = false
     jaw.position.y = -0.085
-    if (s === 'ancho-espada') eyes.forEach((e) => (e.brow.position.y = 0.07 + 0.02 * k))
-    if (s === 'ancho-basto') eyes[0].lid.scale.y = Math.max(0.01, k)
-    if (s === 'siete-espada') mouth.position.x = 0.025 * k
-    if (s === 'siete-oro') mouth.position.x = -0.025 * k
-    if (s === 'tres') mouth.scale.set(1, 1 - 0.8 * k, 1)
-    if (s === 'dos') mouth.scale.set(1 - 0.6 * k, 1 + 1.2 * k, 1)
-    if (s === 'falso') jaw.position.y = -0.085 - 0.03 * k
+    if (s === 'ancho-espada') eyes.forEach((e) => (e.brow.position.y = 0.07 + 0.034 * k))
+    if (s === 'ancho-basto') {
+      eyes[1].lid.scale.y = Math.max(0.01, k)
+      eyes[1].brow.position.y = 0.07 - 0.008 * k
+      eyes[1].brow.rotation.z = 0.25 * k
+    }
+    if (s === 'ancho-copa' || s === 'ancho-oro') {
+      const side = s === 'ancho-copa' ? 1 : -1
+      mouth.position.x = side * 0.028 * k
+      mouth.rotation.z = side * 0.18 * k // a crooked smirk toward that side
+      mouth.scale.x = MOUTH.x * (1 - 0.25 * k)
+    }
+    if (s === 'tres') {
+      mouth.position.y = -0.05 - 0.004 * k
+      mouth.scale.y = MOUTH.y * (1 - 0.5 * k)
+      teeth.visible = k > 0.15
+      teeth.scale.y = k
+    }
+    if (s === 'dos') {
+      mouth.scale.set(THREE.MathUtils.lerp(MOUTH.x, 0.011, k), THREE.MathUtils.lerp(MOUTH.y, 0.011, k), 1)
+      lips.visible = k > 0.15
+      lips.scale.setScalar(0.4 + 0.6 * k)
+    }
+    if (s === 'porno') {
+      mouth.scale.set(THREE.MathUtils.lerp(MOUTH.x, 0.028, k), THREE.MathUtils.lerp(MOUTH.y, 0.016, k), 1)
+      mouth.position.y = -0.05 - 0.006 * k
+      jaw.position.y = -0.085 - 0.014 * k
+    }
     if (s === 'nada') eyes.forEach((e) => (e.lid.scale.y = Math.max(0.01, k)))
   }
   return { head, sena }
@@ -109,7 +152,7 @@ export interface Avatar {
   hand: CardView[] // face-down cards held at the chest (identity unknown to others)
   setHandCount(count: number): void
   head: THREE.Group
-  sena(s: Sena, amount: number): void
+  sena(s: Sena | null, amount: number): void
   // Pose in WORLD space; the avatar converts to local and solves IK.
   pose(p: AvatarPose): void
 }
