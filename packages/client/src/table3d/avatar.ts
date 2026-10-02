@@ -126,6 +126,11 @@ function mask() {
       mouth.rotation.z = side * 0.18 * k // a crooked smirk toward that side
       mouth.scale.x = MOUTH.x * (1 - 0.25 * k)
     }
+    if (s === 'figuras') {
+      // the mouth stretched to both sides at once: a long, tight line
+      mouth.scale.set(MOUTH.x * (1 + 0.75 * k), MOUTH.y * (1 - 0.45 * k), 1)
+      jaw.position.y = -0.085 + 0.004 * k
+    }
     if (s === 'tres') {
       mouth.position.y = -0.05 - 0.004 * k
       mouth.scale.y = MOUTH.y * (1 - 0.5 * k)

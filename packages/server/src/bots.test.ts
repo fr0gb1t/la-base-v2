@@ -27,7 +27,7 @@ test('partnerWorth reads señas: nothing signed → unknown, ancho de bastos →
   assert.equal(partnerWorth(undefined, 5), null);
   assert.ok(partnerWorth(['ancho-basto'], 1)! > 0.8);
   assert.ok(partnerWorth(['nada'], 5)! < 0.2);
-  assert.ok(partnerWorth(['nada'], 5)! < partnerWorth(['dos', 'tres'], 5)!); // 3 unsigned cards: figures
+  assert.ok(partnerWorth(['nada'], 5)! < partnerWorth(['dos', 'tres'], 5)!); // 3 cards they didn't sign
 });
 
 test('a partner who signed strength makes the bot ask for more', () => {

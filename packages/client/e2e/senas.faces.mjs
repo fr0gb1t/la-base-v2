@@ -2,7 +2,7 @@
 import puppeteer from 'puppeteer-core'
 import { io } from 'socket.io-client'
 const out = process.argv[2] ?? '/tmp/sena'
-const SENAS = ['ancho-espada', 'ancho-basto', 'ancho-copa', 'ancho-oro', 'tres', 'dos', 'porno', 'nada']
+const SENAS = ['ancho-espada', 'ancho-basto', 'ancho-copa', 'ancho-oro', 'figuras', 'tres', 'dos', 'porno', 'nada']
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const host = io('http://localhost:3000', { transports: ['websocket'] })
 await new Promise((r) => host.on('connect', r))

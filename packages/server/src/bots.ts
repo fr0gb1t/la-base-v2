@@ -27,6 +27,7 @@ const SENA_WORTH: Record<Sena, number> = {
   'ancho-espada': 0.45,
   'ancho-oro': 0.15,
   'ancho-copa': 0.1,
+  figuras: 0.35,
   porno: 0.08,
   tres: 0.03,
   dos: 0.02,
@@ -38,7 +39,7 @@ export function partnerWorth(senas: Sena[] | undefined, handSize: number): numbe
   if (!senas?.length) return null;
   if (senas.includes('nada')) return handSize * SENA_WORTH.nada;
   const signed = senas.reduce((sum, s) => sum + SENA_WORTH[s], 0);
-  return signed + Math.max(0, handSize - senas.length) * 0.3; // unsigned cards: figures (no seña of their own)
+  return signed + Math.max(0, handSize - senas.length) * 0.15; // the cards they didn't sign
 }
 
 export function chooseBid(hand: Card[], st: GameState, teamSize: number, players: number, partnerSenas: Sena[][] = []): number {

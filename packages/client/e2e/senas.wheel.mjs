@@ -8,7 +8,7 @@ const host = io('http://localhost:3000', { transports: ['websocket'] })
 await new Promise((r) => host.on('connect', r))
 const emit = (ev, p) => new Promise((r) => host.emit(ev, p, r))
 const got = []
-host.on('sena:made', (d) => got.push(d.sena))
+host.on('sena:made', (d) => got.push(d)) // filtered to mine below: bots sign too
 const room = (await emit('room:create', { playerName: 'Host', playerCount: 4 })).roomCode
 host.on('game:state', async (st) => {
   if (st.phase === 'initial_draw' && st.initialDraw?.currentDrawerPlayerId === host.id) await emit('draw:initialCard', { roomCode: room })
@@ -36,11 +36,12 @@ const hostLook = gazeToward(roster.indexOf(host.id), roster.indexOf(meId), roste
 const looking = setInterval(() => host.emit('presence:look', { roomCode: room, ...hostLook }), 200)
 await sleep(600)
 const results = {}
-// 1) hold the middle button, aim at the bottom item (index 4 = tres), release
+// 1) hold the middle button, aim at 'tres', release
 await p.mouse.move(640, 360)
 await p.mouse.down({ button: 'middle' })
 await sleep(300)
-await p.mouse.move(640, 360 + 118, { steps: 6 })
+const tresAt = (5 / 9) * Math.PI * 2 // 'tres' is the 6th of 9 items, clockwise from the top
+await p.mouse.move(640 + Math.sin(tresAt) * 118, 360 - Math.cos(tresAt) * 118, { steps: 6 })
 await sleep(300)
 await p.screenshot({ path: `${out}-held.png` })
 results.hubWhileHeld = await p.evaluate(() => document.querySelector('.sena-hub')?.textContent)
@@ -52,11 +53,11 @@ await sleep(800)
 await p.keyboard.press('g'); await sleep(300)
 results.openedWithG = await p.evaluate(() => !!document.querySelector('.sena-wheel'))
 await p.screenshot({ path: `${out}-g.png` })
-await p.keyboard.press('6'); await sleep(500)
+await p.keyboard.press('7'); await sleep(500) // 7 = dos
 results.status = await p.evaluate(() => document.querySelector('.phase-line')?.textContent)
-results.received = got
+results.received = got.filter((d) => d.playerId === meId).map((d) => d.sena)
 console.log(JSON.stringify(results, null, 1))
-const ok = results.closedAfterRelease && results.openedWithG && got[0] === 'tres' && got[1] === 'dos'
+const ok = results.closedAfterRelease && results.openedWithG && results.received[0] === 'tres' && results.received[1] === 'dos'
 clearInterval(looking)
 console.log(ok ? 'PASS' : 'FAIL')
 await b.close(); host.disconnect(); process.exit(ok ? 0 : 1)

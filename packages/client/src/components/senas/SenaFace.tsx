@@ -37,6 +37,8 @@ function Mouth({ sena }: { sena: Sena | null }) {
       const dx = sena === 'ancho-copa' ? 7 : -7;
       return <ellipse cx={32 + dx} cy={45} rx={6} ry={2} fill={INK} transform={`rotate(${dx > 0 ? -12 : 12} ${32 + dx} 45)`} />;
     }
+    case 'figuras':
+      return <ellipse cx={32} cy={45} rx={14} ry={1.1} fill={INK} />; // stretched to both sides
     case 'tres':
       return (
         <g>
