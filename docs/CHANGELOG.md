@@ -8,7 +8,7 @@
   rival; el segundo pedido lo frena para los dos hasta la ronda siguiente (que empieza el otro
   equipo, porque cambia la Mano). Si a un equipo se le acaba el tiempo mientras pide, pierde la
   partida. Es un reloj de verdad en el centro de la mesa, delante del mazo, de frente para cada
-  jugador, con pantalla LED roja de segmentos ("tu equipo / rivales"; sin tiempo, "- / -").
+  jugador, con pantalla LED roja de segmentos ("tu equipo / rivales"; sin tiempo, "- / -"). `fb9d520`, `025d9f5`
 - **Manual sobre la mesa:** el librito está apoyado en la mesa del juego, bajo la misma lámpara y
   con el mismo aspecto que los menús; ocupa toda la pantalla (las hojas ya no se cortan) y las
   pestañas son papelitos que salen de las hojas: lo leído a la izquierda, lo que falta a la
