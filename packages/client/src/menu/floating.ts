@@ -139,7 +139,9 @@ function texture(item: FloatItem) {
   g.textAlign = 'center'
   g.textBaseline = 'middle'
   g.font = title
-  if (item.icon === 'plane' && kind === 'chip') {
+  if (item.icon === 'plane' && kind === 'chip' && !item.label) {
+    plane(g, 64, 66, 70, g.fillStyle as string) // icon only: the plane fills the chip
+  } else if (item.icon === 'plane' && kind === 'chip') {
     plane(g, 64, 42, 48, g.fillStyle as string)
     g.font = `42px ${FONT}`
     g.fillText(item.label, 64, 94)

@@ -4,6 +4,9 @@ import { TableMenu } from '../menu/TableMenu';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 
+// rows of the config form on the felt (table z, toward you); the aces lie at z 0.14
+const ROW = { aces: 0.14, structure: 0.4, kamikazes: 0.58, actions: 0.76 } as const;
+
 export function GameConfig() {
   const socket = useSocket();
   const { roomCode, setCurrentPage } = useGameStore();
@@ -89,29 +92,36 @@ export function GameConfig() {
       <TableMenu
         note={`ases boca arriba = poder activo (espadas ${on('espadas')} · copas ${on('copas')} · oros ${on('oros')}) · click en un as para cambiarlo`}
         items={[
-          { id: 't-estructura', label: 'Estructura', kind: 'label', at: [0, 0.51], raise: -0.025, onPick: () => undefined }, // under its row
-          { id: 't-kamikazes', label: 'Kamikazes por equipo', kind: 'label', at: [-0.18, 0.74], raise: -0.02, onPick: () => undefined }, // under its chips
+          // a form laid on the felt: one row per choice, its title on the left (titles never sit
+          // above or below a row, where the buttons and their shadows would cover them)
+          { id: 't-ases', label: 'Poderes', kind: 'label', at: [-0.56, ROW.aces], raise: 0, onPick: () => undefined },
+          { id: 't-estructura', label: 'Estructura', kind: 'label', at: [-0.56, ROW.structure], raise: 0, onPick: () => undefined },
           ...(['clasica', 'alternativa', 'postpandemia'] as const).map((mode, i) => ({
             id: `est-${mode}`,
             label: names[mode],
             sub: `${sequences[mode].length} rondas`,
-            at: [(i - 1) * 0.3, 0.42] as [number, number],
+            at: [[-0.3, -0.05, 0.24][i], ROW.structure] as [number, number],
             selected: structure === mode,
             hint: `${names[mode]}: bases por ronda ${sequences[mode].join(' · ')}`,
             onPick: () => setStructure(mode),
           })),
-          ...[0, 1, 2, 3].map((count, i) => ({
-            id: `kami-${count}`,
-            label: String(count),
+          { id: 't-kamikazes', label: `Kamikazes: ${kamikazesPerTeam === 0 ? 'ninguno' : kamikazesPerTeam}`, kind: 'label', at: [-0.5, ROW.kamikazes], raise: 0, onPick: () => undefined },
+          // like a star rating: the first k planes are lit; clicking the last lit one turns it off
+          ...[1, 2, 3].map((k) => ({
+            id: `kami-${k}`,
+            label: '',
             kind: 'chip' as const,
             icon: 'plane' as const,
-            at: [-0.36 + i * 0.12, 0.62] as [number, number],
-            selected: kamikazesPerTeam === count,
-            hint: `${count} kamikaze${count === 1 ? '' : 's'} por equipo (todo o nada: 0 o todas las bases)`,
-            onPick: () => setKamikazesPerTeam(count),
+            at: [-0.2 + (k - 1) * 0.12, ROW.kamikazes] as [number, number],
+            selected: kamikazesPerTeam >= k,
+            hint:
+              kamikazesPerTeam === k
+                ? `quitar uno: ${k - 1 === 0 ? 'sin kamikazes' : `${k - 1} por equipo`}`
+                : `${k} kamikaze${k === 1 ? '' : 's'} por equipo (todo o nada: 0 o todas las bases)`,
+            onPick: () => setKamikazesPerTeam(kamikazesPerTeam === k ? k - 1 : k),
           })),
-          { id: 'iniciar', label: loading ? 'Iniciando…' : 'Iniciar partida', kind: 'stamp', at: [0.3, 0.64], disabled: loading, hint: `Mesa ${roomCode}`, onPick: handleStartGame },
-          { id: 'volver', label: 'Volver', at: [-0.56, 0.64], onPick: handleBack },
+          { id: 'volver', label: 'Volver', at: [-0.36, ROW.actions], onPick: handleBack },
+          { id: 'iniciar', label: loading ? 'Iniciando…' : 'Iniciar partida', kind: 'stamp', at: [0.24, ROW.actions], disabled: loading, hint: `Mesa ${roomCode}`, onPick: handleStartGame },
         ]}
       />
     </main>
