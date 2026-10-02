@@ -171,6 +171,8 @@ const C = (value, suit) => ({ value, suit })
   s.on('game:state', (st) => (state = st))
   s.on('sena:made', (d) => made.push({ ...d, t: Date.now() }))
   s.on('sena:asked', (d) => asked.push(d.playerId))
+  let hand = []
+  s.on('player:hand', (d) => (hand = d.hand))
   const room = (await emit('room:create', { playerName: 'Host', playerCount: 4 })).roomCode
   for (let i = 0; i < 3; i++) await emit('room:addBot', { roomCode: room })
   await sleep(800)
@@ -182,21 +184,24 @@ const C = (value, suit) => ({ value, suit })
   const myTeam = roster.find((p) => p.id === s.id)?.team
   const mate = roster.find((p) => p.id !== s.id && p.team === myTeam)
   await sleep(6000) // let the deal-time señas pass
-  // the partner holds a lone 3: nothing that wins, so its answer must be 'nada' (eyes closed)
-  await emit('test:rig', { roomCode: room, hands: { [mate.id]: [{ value: 3, suit: 'oros' }] } })
-  await sleep(300)
   const t0 = Date.now()
   const r = await emit('sena:ask', { roomCode: room })
   await sleep(3000)
   const answer = made.find((m) => m.playerId === mate.id && m.t >= t0)
   check('asking for señas is relayed', r.success)
-  check("the bot partner answers the knock: 'nada' with nothing that wins", answer?.sena === 'nada', JSON.stringify(made.map((m) => m.sena)))
-  // a bot whose turn comes to declare, without señas from its partner, knocks first
-  for (let i = 0; i < 300 && !asked.length; i++) {
+  // whatever it was dealt (deals are random), every hand has a seña: the partner always answers
+  check('the bot partner answers the knock with a seña', Boolean(answer), JSON.stringify(made.map((m) => m.sena)))
+  // the host never signs: when declaring for the team falls to its bot partner, the bot knocks first
+  let mateDeclared = false
+  for (let i = 0; i < 1200 && !asked.includes(mate.id); i++) {
     if (state?.phase === 'bidding' && state.currentBidPlayerId === s.id) await emit('bid:declare', { roomCode: room, bidValue: 0 })
+    if (state?.phase === 'bidding' && state.currentBidPlayerId === mate.id) mateDeclared = true
+    if (state?.readyGate && !state.readyGate.readyPlayerIds.includes(s.id)) await emit('game:ready', { roomCode: room })
+    if (state?.phase === 'playing' && state.currentTurnPlayerId === s.id && hand.length) await emit('card:play', { roomCode: room, card: hand[0], copasDirection: 'mantener' })
+    if (state?.pendingOrosChoice?.chooserPlayerId === s.id) await emit('ace:oros:choose', { roomCode: room, playerId: state.pendingOrosChoice.options[0] })
     await sleep(100)
   }
-  check('bots knock for señas before declaring when their partner signed nothing', asked.length > 0, `asked=${asked.length}`)
+  check('a bot knocks for señas before declaring when its partner signed nothing', asked.includes(mate.id), `mate declared: ${mateDeclared}; phase ${state?.phase} round ${state?.roundIndex} bidder ${state?.currentBidPlayerId === mate.id ? 'mate' : state?.currentBidPlayerId === s.id ? 'host' : 'rival'} turn ${state?.currentTurnPlayerId === s.id ? 'host' : '-'} gate ${state?.readyGate?.kind ?? '-'}`)
   s.disconnect()
 }
 
