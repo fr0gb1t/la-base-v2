@@ -61,6 +61,7 @@ const LOOK_SENS = 0.0012
 const ARM_SENS = 0.0009
 const PEEK_SENS = 0.0005
 const PITCH_MIN = -0.8
+const FACE_MARGIN = 0.14 // rad past a neighbour's head: their whole mask fits at the view centre
 const PITCH_MAX = 0.25
 const HOLD_SEC = 0.18
 const HOLD_PX = 6
@@ -521,7 +522,19 @@ export class TableScene {
     this.forward0 = new THREE.Vector3(-Math.cos(a0), 0, -Math.sin(a0))
     this.shoulder0 = polar(SHOULDER_R, a0, SHOULDER_Y).addScaledVector(this.rightOf(0), 0.19)
     this.edge0 = polar(TABLE_R, a0, 0)
-    this.yawMax = Math.max(0.35, (Math.PI - (2 * Math.PI) / this.n) / 2 - 0.2)
+    // you can turn just far enough to put any player's whole face in the centre of your view
+    // (measured to the real heads: they sit further out than your eye, so the inscribed angle
+    // to their seat falls short)
+    const head = new THREE.Vector3()
+    let need = 0.35
+    for (const av of this.avatars) {
+      if (av.seat === 0) continue
+      av.root.updateMatrixWorld(true)
+      const d = av.head.getWorldPosition(head).sub(this.eye)
+      const yaw = Math.atan2(-d.x, -d.z) - this.baseYaw
+      need = Math.max(need, Math.abs(Math.atan2(Math.sin(yaw), Math.cos(yaw))))
+    }
+    this.yawMax = need + FACE_MARGIN
   }
 
   private eye = new THREE.Vector3()
@@ -1388,6 +1401,22 @@ export class TableScene {
   debugSena(seat: number, s: Sena | null) {
     if (s) this.senas.set(seat, { s, t0: now(), frozen: true })
     else this.senas.delete(seat)
+  }
+
+  /** Turn your head (within the limits) toward a seat's face; returns the limits used. */
+  debugAimHead(seat: number) {
+    const d = this.avatars[seat].head.getWorldPosition(new THREE.Vector3()).sub(this.eye)
+    this.yawT = this.clampYaw(Math.atan2(-d.x, -d.z) - this.baseYaw)
+    this.pitchT = this.clampPitch(Math.atan2(d.y, Math.hypot(d.x, d.z)))
+    return { yawMax: this.yawMax, yawT: this.yawT }
+  }
+
+  /** Distance (m) from the centre of your view to a seat's head. */
+  debugAimMiss(seat: number) {
+    const o = this.camera.getWorldPosition(new THREE.Vector3())
+    const dir = this.camera.getWorldDirection(new THREE.Vector3())
+    const h = this.avatars[seat].head.getWorldPosition(new THREE.Vector3()).sub(o)
+    return h.addScaledVector(dir, -h.dot(dir)).length()
   }
 
   /** Zoom onto a seat's face, like a right-click on it. */
