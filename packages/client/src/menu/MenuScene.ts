@@ -1,7 +1,9 @@
 import { attachAudio } from '../table3d/audio'
 import * as THREE from 'three'
-import { buildLamp, buildRoom, type SeatLabel } from '../table3d/table'
-import { TABLE_Y, CARD_H, CARD_W } from '../table3d/seats'
+import { buildLamp, buildRoom } from '../table3d/table'
+import { TABLE_Y, TABLE_R, CARD_H, CARD_W, seatAngle, polar } from '../table3d/seats'
+import { NameTag, TAG_Y, TAG_R_OFFSET } from '../table3d/nameTags'
+import { getViewSettings, onViewSettings } from '../settings/viewSettings'
 import { makeAvatar, type Avatar } from '../table3d/avatar'
 import { makeCard, type CardView } from '../table3d/cards'
 import { drawFace, toTexture, type Rank, type Suit } from '../table3d/cardFace'
@@ -81,9 +83,10 @@ export class MenuScene {
   private timer = new THREE.Timer()
   private resizeObs: ResizeObserver
   private roomGroup = new THREE.Group()
-  private room: { setLabels(l: SeatLabel[]): void } | null = null
+  private room: ReturnType<typeof buildRoom> | null = null
   private seats = 0
-  private labels: SeatLabel[] = []
+  // the menu lives for the whole session: the table guides follow the view setting live
+  private offView = onViewSettings((v) => this.room?.setGuides(v.guides))
   private station: Station = 'entrada'
   private camPos = SHOTS.entrada.pos.clone()
   private camTarget = SHOTS.entrada.target.clone()
@@ -93,7 +96,7 @@ export class MenuScene {
   // card, so the lift animation can't flicker the hover
   private options: Array<{ view: CardView; mesh: THREE.Mesh; hit: THREE.Mesh; lift: number }> = []
   private aces: Array<{ view: CardView; flip: number; on: boolean }> = []
-  private avatars: Array<{ av: Avatar; rise: number; name: string }> = []
+  private avatars: Array<{ av: Avatar; rise: number; name: string; tag: NameTag }> = []
   private hovered = -1
   private focusIndex = -1
   private floating = new FloatingItems()
@@ -142,23 +145,24 @@ export class MenuScene {
     this.station = s
   }
 
-  /** Your name, chalked at your place while you type it. */
-  setMyName(name: string) {
-    if (this.station === 'sala') return
-    this.labels = Array.from({ length: this.seats }, (_, i) => (i === 0 ? { name: name || '…', team: 'random' as const } : { name: '', team: 'random' as const }))
-    this.room?.setLabels(this.labels)
-  }
+  /** Your name while you type it: it lives on the writable card now (nothing is chalked on the felt). */
+  setMyName(_name: string) {}
 
   setSeatCount(n: number) {
     if (n === this.seats) return
     this.seats = n
     this.roomGroup.clear()
     const tmp = new THREE.Scene()
-    this.room = buildRoom(tmp, n, this.labels)
+    // no names chalked on the felt (they float over each player, as in the game); the guides
+    // follow your view setting
+    this.room = buildRoom(tmp, n, [], getViewSettings().guides)
     ;[...tmp.children].forEach((c) => this.roomGroup.add(c))
     this.scene.background = tmp.background
     this.scene.fog = tmp.fog
-    this.avatars.forEach((a) => this.scene.remove(a.av.root))
+    this.avatars.forEach((a) => {
+      this.scene.remove(a.av.root, a.tag.mesh)
+      a.tag.dispose()
+    })
     this.avatars = []
   }
 
@@ -169,19 +173,27 @@ export class MenuScene {
     // add / remove avatars to match the list (by seat index = join order)
     while (this.avatars.length > players.length) {
       const a = this.avatars.pop()!
-      this.scene.remove(a.av.root)
+      this.scene.remove(a.av.root, a.tag.mesh)
+      a.tag.dispose()
     }
+    // name colours from YOUR side (seat 0 is you): your team teal, the rivals rose
+    const mine = players[0]?.team
+    const rel = (t?: string) => (!t || t === 'random' || !mine || mine === 'random' ? 'random' : t === mine ? 'nosotros' : 'ellos')
     players.forEach((p, i) => {
       if (!this.avatars[i] || this.avatars[i].name !== p.name) {
-        if (this.avatars[i]) this.scene.remove(this.avatars[i].av.root)
+        if (this.avatars[i]) {
+          this.scene.remove(this.avatars[i].av.root, this.avatars[i].tag.mesh)
+          this.avatars[i].tag.dispose()
+        }
         const av = makeAvatar(i, n, i === 0) // seat 0 is you, the camera: only your arms
         av.setHandCount(0)
         this.scene.add(av.root)
-        this.avatars[i] = { av, rise: 0, name: p.name }
+        const tag = new NameTag()
+        this.scene.add(tag.mesh)
+        this.avatars[i] = { av, rise: 0, name: p.name, tag }
       }
+      this.avatars[i].tag.set(p.name, rel(p.team), true)
     })
-    this.labels = Array.from({ length: n }, (_, i) => ({ name: players[i]?.name ?? '', team: players[i]?.team ?? 'random' }))
-    this.room?.setLabels(this.labels)
   }
 
   /** Config: each powered ace lies face up; switching a power off turns it face down. */
@@ -206,6 +218,7 @@ export class MenuScene {
   }
 
   dispose() {
+    this.offView()
     this.disposed = true
     this.renderer.setAnimationLoop(null)
     this.resizeObs.disconnect()
@@ -405,6 +418,10 @@ export class MenuScene {
       a.rise += ((showPeople ? 1 : 0) - a.rise) * k
       av.root.visible = i !== 0 && a.rise > 0.02 // seat 0 is you (the camera)
       av.root.position.y = (1 - ease(a.rise)) * -1.2
+      // the name floats over the body, as at the game table
+      a.tag.mesh.visible = av.root.visible
+      const ang = seatAngle(i, this.seats)
+      a.tag.place(polar(TABLE_R + TAG_R_OFFSET, ang, TAG_Y + av.root.position.y), Math.PI / 2 - ang, this.camera)
       av.pose({
         lean: 0.1 + Math.sin(ts * 0.8 + i) * 0.05,
         headYaw: Math.sin(ts * 0.25 + i * 1.7) * 0.6,
