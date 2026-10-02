@@ -273,7 +273,9 @@ export const audioReady = () => Boolean(listener) && ctx?.state === 'running'
 // The menus are part of the room too: paper, cards, chips and a pencil, quiet and dry-ish (a
 // little of the wooden room's reverb). Not positional: they happen under your hands.
 
-export type UiSound = 'hover' | 'pick' | 'stamp' | 'chip' | 'flip' | 'write' | 'page' | 'book' | 'paper'
+// menu sounds belong to the room, not to the cards: the lamp's pull chain for a button, a chair
+// that creaks when someone sits down (scrapes when they leave); only the aces sound like cards
+export type UiSound = 'hover' | 'chain' | 'stamp' | 'chip' | 'flip' | 'write' | 'page' | 'book' | 'paper' | 'sit' | 'leave'
 
 let noiseBuf: AudioBuffer | null = null
 function noise() {
@@ -316,6 +318,58 @@ function sample(name: string, gain: number, rate: number) {
   s.start()
 }
 
+/** A short tone: frequency glide and a fast decay (bead clicks, switches, thumps). */
+function tone(type: OscillatorType, f0: number, f1: number, dur: number, gain: number, at = 0) {
+  const t = ctx.currentTime + at
+  const o = ctx.createOscillator()
+  const g = ctx.createGain()
+  o.type = type
+  o.frequency.setValueAtTime(f0, t)
+  o.frequency.exponentialRampToValueAtTime(f1, t + dur)
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.exponentialRampToValueAtTime(gain, t + 0.004)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  o.connect(g).connect(uiOut())
+  o.start(t)
+  o.stop(t + dur + 0.02)
+}
+
+/** The lamp's pull chain: the beads rattle down, the switch inside clicks. */
+function pullChain() {
+  const beads = 3 + Math.floor(Math.random() * 2)
+  for (let i = 0; i < beads; i++) burst(0.012, 'bandpass', 5200 + Math.random() * 1600, 7, 0.09, undefined, i * (0.011 + Math.random() * 0.006))
+  const at = beads * 0.014 + 0.01
+  burst(0.02, 'bandpass', 2100, 3, 0.2, undefined, at)
+  tone('triangle', 1350, 900, 0.035, 0.08, at)
+}
+
+/** Wood under load: stick-slip pulses through the chair's resonance, the pitch wandering. */
+function creak(dur: number, at: number) {
+  const t = ctx.currentTime + at
+  const o = ctx.createOscillator()
+  o.type = 'sawtooth'
+  const rate = 38 + Math.random() * 14
+  o.frequency.setValueAtTime(rate, t)
+  o.frequency.linearRampToValueAtTime(rate * (1.6 + Math.random() * 0.5), t + dur * 0.6)
+  o.frequency.linearRampToValueAtTime(rate * 1.1, t + dur)
+  const f = ctx.createBiquadFilter()
+  f.type = 'bandpass'
+  f.frequency.value = 520 + Math.random() * 260
+  f.Q.value = 9
+  const g = ctx.createGain()
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.exponentialRampToValueAtTime(0.5, t + dur * 0.25)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  o.connect(f).connect(g).connect(uiOut())
+  o.start(t)
+  o.stop(t + dur + 0.02)
+}
+
+/** Weight settling on the seat. */
+function thump(at: number, gain: number) {
+  tone('sine', 120, 50, 0.16, gain, at)
+}
+
 let uiBus: GainNode | null = null
 function uiOut() {
   if (uiBus) return uiBus
@@ -343,8 +397,16 @@ export function uiSound(kind: UiSound) {
       burst(0.03, 'bandpass', 3400, 4, 0.05)
       return
     }
-    case 'pick':
-      return sample(`card-place-${1 + Math.floor(Math.random() * 4)}`, 0.55, 1.1)
+    case 'chain':
+      return pullChain()
+    case 'sit':
+      creak(0.42, 0)
+      thump(0.36, 0.28)
+      return
+    case 'leave':
+      burst(0.36, 'bandpass', 900, 2, 0.16, 280) // the legs scraping back over the floor
+      creak(0.25, 0.05)
+      return
     case 'flip':
       return sample(`card-slide-${1 + Math.floor(Math.random() * 3)}`, 0.5, 1.3)
     case 'stamp': {

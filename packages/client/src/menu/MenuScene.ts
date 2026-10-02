@@ -171,8 +171,11 @@ export class MenuScene {
   setPlayers(players: MenuPlayer[], capacity: number) {
     this.setSeatCount(Math.max(capacity, players.length, 2))
     const n = this.seats
-    // add / remove avatars to match the list (by seat index = join order)
+    // add / remove avatars to match the list (by seat index = join order); a chair creaks when
+    // someone sits down while you're there (not for the ones already seated when you arrive)
+    const arrived = this.avatars.length > 0
     while (this.avatars.length > players.length) {
+      uiSound('leave')
       const a = this.avatars.pop()!
       this.scene.remove(a.av.root, a.tag.mesh)
       a.tag.dispose()
@@ -186,6 +189,7 @@ export class MenuScene {
           this.scene.remove(this.avatars[i].av.root, this.avatars[i].tag.mesh)
           this.avatars[i].tag.dispose()
         }
+        if (arrived && i > 0) uiSound('sit')
         const av = makeAvatar(i, n, i === 0) // seat 0 is you, the camera: only your arms
         av.setHandCount(0)
         this.scene.add(av.root)
@@ -297,11 +301,11 @@ export class MenuScene {
       if (e.target !== this.renderer.domElement && !(e.target as HTMLElement)?.dataset?.menuPassthrough) return
       if (this.floatHovered) {
         const kind = this.floating.kindOf(this.floatHovered)
-        uiSound(kind === 'stamp' ? 'stamp' : kind === 'chip' ? 'chip' : 'pick')
+        uiSound(kind === 'stamp' ? 'stamp' : kind === 'chip' ? 'chip' : 'chain')
         return this.floating.pick(this.floatHovered)
       }
       if (this.inputHovered) {
-        uiSound('pick')
+        uiSound('write')
         return this.onInputClick()
       }
       if (this.station === 'config' && this.aceHovered >= 0) {
@@ -309,7 +313,7 @@ export class MenuScene {
         return this.onAcePick(ACE_SUITS[this.aceHovered])
       }
       if (this.station === 'lobby' && this.hovered >= 0) {
-        uiSound('pick')
+        uiSound('chain')
         this.onPick(MENU_OPTIONS[this.hovered].id)
       }
     })
