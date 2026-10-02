@@ -97,7 +97,8 @@ export function GamePage() {
   const [status, setStatus] = useState('');
   const [stamp, setStamp] = useState<{ text: string; key: number } | null>(null);
   const [announce, setAnnounce] = useState<{ title: string; sub: string; mine: boolean; key: number } | null>(null);
-  const [copasAsk, setCopasAsk] = useState<((choice: CopasChoice | null) => void) | null>(null);
+  // a question asked on the table itself (As de Copas / As de Oros); the DOM keeps hidden buttons
+  const [tableAsk, setTableAsk] = useState<'copas' | 'oros' | null>(null);
   const [hud, setHud] = useState<HudMode>(() => {
     try {
       const v = localStorage.getItem('laBase.hud') as HudMode | null;
@@ -140,9 +141,10 @@ export function GamePage() {
               resolve(Boolean(res?.success));
             });
           if (gs.acePowers.copas && card.suit === 'copas' && card.value === 1) {
-            // As de Copas: the card waits over the table while you choose the direction
-            setCopasAsk(() => (choice: CopasChoice | null) => {
-              setCopasAsk(null);
+            // As de Copas: the card waits over the table while you choose the direction, on the table
+            setTableAsk('copas');
+            void (sceneRef.current?.askDirection(gs.playDirection) ?? Promise.resolve(null)).then((choice) => {
+              setTableAsk(null);
               if (choice === null) resolve(false);
               else emit(choice);
             });
@@ -395,12 +397,13 @@ export function GamePage() {
       if (e.key === 'h' || e.key === 'H') cycleHud();
       if (e.key === 'j' || e.key === 'J') setShowLog((v) => !v);
       if ((e.key === 'p' || e.key === 'P') && inGame) askSenas();
+      if (e.key === 'Escape' && tableAsk === 'copas') sceneRef.current?.chooseOnTable(null); // no jugarla
       if ((e.key === 'g' || e.key === 'G') && inGame) setWheel((w) => (w ? null : { x: window.innerWidth / 2, y: window.innerHeight / 2, held: false }));
       if (e.key === 'Enter' && gate && !iAmReady) handleReady();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cycleHud, gate, iAmReady, handleReady, inGame, askSenas]);
+  }, [cycleHud, gate, iAmReady, handleReady, inGame, askSenas, tableAsk]);
 
   const handleLeaveGame = () => {
     if (socket && roomCode) socket.emit('room:leave', { roomCode });
@@ -445,6 +448,25 @@ export function GamePage() {
     sceneRef.current?.setDeckHint(Boolean(isMyDraw));
   }, [isMyDraw]);
   const canChooseOros = Boolean(gameState?.pendingOrosChoice && gameState.pendingOrosChoice.chooserPlayerId === myId);
+  // As de Oros: asked on the table — a tag over each teammate you may pick, or click their face
+  const orosOptions = canChooseOros ? gameState?.pendingOrosChoice?.options ?? [] : [];
+  const orosKey = orosOptions.join(',');
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene || !orosKey) return;
+    let live = true;
+    setTableAsk('oros');
+    void scene.askOpener(orosKey.split(',').map((id) => ({ id, name: nameOf(id) }))).then((id) => {
+      if (!live) return;
+      setTableAsk(null);
+      if (id) handleChooseOros(id);
+    });
+    return () => {
+      live = false;
+      setTableAsk(null);
+      scene.cancelTableChoice();
+    };
+  }, [orosKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   let phaseLine = '';
   if (gameState?.phase === 'initial_draw') {
@@ -661,32 +683,20 @@ export function GamePage() {
         </div>
       )}
 
-      {copasAsk && (
-        <div className="overlay-center">
-          <div className="ritual-panel">
-            <h2>As de Copas</h2>
-            <p>¿Cambiás el sentido de juego para el resto de la ronda?</p>
-            <div className="ritual-row">
-              <button className="ritual-btn" onClick={() => copasAsk('mantener')}>mantener</button>
-              <button className="ritual-btn" onClick={() => copasAsk('invertir')}>invertir</button>
-            </div>
-            <button className="ritual-link" onClick={() => copasAsk(null)}>no jugarla</button>
-          </div>
-        </div>
-      )}
-
-      {canChooseOros && gameState?.pendingOrosChoice && (
-        <div className="overlay-center">
-          <div className="ritual-panel">
-            <h2>As de Oros</h2>
-            <p>Elegí quién de tu equipo abre la próxima base.</p>
-            <div className="ritual-row wrap">
-              {gameState.pendingOrosChoice.options.map((id) => (
-                <button key={id} className="ritual-btn" onClick={() => handleChooseOros(id)}>{nameOf(id)}</button>
-              ))}
-            </div>
-          </div>
-        </div>
+      {tableAsk && (
+        <nav className="sr-only" aria-label={tableAsk === 'copas' ? 'As de Copas: sentido de juego' : 'As de Oros: quién abre la próxima base'}>
+          {tableAsk === 'copas' ? (
+            <>
+              <button type="button" onClick={() => sceneRef.current?.chooseOnTable('mantener')}>mantener el sentido</button>
+              <button type="button" onClick={() => sceneRef.current?.chooseOnTable('invertir')}>invertir el sentido</button>
+              <button type="button" onClick={() => sceneRef.current?.chooseOnTable(null)}>no jugarla</button>
+            </>
+          ) : (
+            gameState?.pendingOrosChoice?.options.map((id) => (
+              <button key={id} type="button" onClick={() => sceneRef.current?.chooseOnTable(id)}>{nameOf(id)} abre la próxima base</button>
+            ))
+          )}
+        </nav>
       )}
 
       {stamp && (

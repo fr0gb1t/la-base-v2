@@ -14,6 +14,7 @@ export interface FloatItem {
   kind?: 'tag' | 'stamp' | 'chip' | 'label' // label: a chalked title, not a button
   icon?: 'plane' // a small engraved glyph above the label (chips)
   raise?: number // labels: metres above the row they name (default LABEL_RAISE)
+  scale?: number // size multiplier (a tag far across the table)
   at: [number, number] // table x, z
   selected?: boolean
   disabled?: boolean
@@ -233,8 +234,10 @@ export class FloatingItems {
       const h = (l.mesh.geometry as THREE.PlaneGeometry).parameters.height
       // a label sits over the row of buttons it names (same depth, one button higher)
       const raise = l.def.kind === 'label' ? l.def.raise ?? LABEL_RAISE : 0
-      const rest = new THREE.Vector3(l.def.at[0], TABLE_Y + 0.025 + h / 2 + raise, l.def.at[1])
+      const k = l.def.scale ?? 1
+      const rest = new THREE.Vector3(l.def.at[0], TABLE_Y + 0.025 + (h * k) / 2 + raise, l.def.at[1])
       l.hit.position.copy(rest)
+      l.hit.scale.setScalar(k)
       l.hit.lookAt(camera.position)
       l.hit.updateMatrixWorld()
       if (!l.def.disabled && l.def.kind !== 'label') targets.push(l.hit)
@@ -247,7 +250,7 @@ export class FloatingItems {
       const bob = calm ? 0 : Math.sin(time * 1.4 + l.phase) * 0.004
       l.mesh.position.copy(l.hit.position).add(new THREE.Vector3(0, l.lift * 0.02 + bob, 0))
       l.mesh.quaternion.copy(l.hit.quaternion)
-      l.mesh.scale.setScalar(1 + l.lift * 0.08)
+      l.mesh.scale.setScalar((l.def.scale ?? 1) * (1 + l.lift * 0.08))
       if (l.shadow) {
         // the footprint rides with the button (same height, same heading)
         l.shadow.position.copy(l.mesh.position)
@@ -260,6 +263,11 @@ export class FloatingItems {
       mat.transparent = l.def.disabled || l.def.kind === 'chip' || l.def.kind === 'label'
     }
     return this.hovered
+  }
+
+  /** World position of an item (tests). */
+  positionOf(id: string) {
+    return this.live.get(id)?.mesh.getWorldPosition(new THREE.Vector3()) ?? null
   }
 
   pick(id: string | null) {

@@ -13,6 +13,7 @@ import { PALETTE, hex, DUOTONES } from './look'
 import { getViewSettings, onViewSettings } from '../settings/viewSettings'
 import { NameTag } from './nameTags'
 import { TableTokens } from './tableTokens'
+import { TableChoices, type CopasChoice, type Direction } from './tableChoices'
 
 // ---------------------------------------------------------------------------------------------
 // The 3D table, driven by real game events. Seats follow the server's turn order with the local
@@ -125,6 +126,8 @@ export class TableScene {
   private avatars: Avatar[] = []
   private nameTags: NameTag[] = []
   private tokens = new TableTokens()
+  private choices = new TableChoices()
+  private lastChoiceHint = ''
   private roomGroup = new THREE.Group()
   private handCounts: number[] = []
   private dealing = false
@@ -205,6 +208,7 @@ export class TableScene {
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera)
     this.scene.add(this.tokens.group)
+    this.scene.add(this.choices.group)
     this.scene.add(this.roomGroup)
     this.camera.add(this.viewmodel)
 
@@ -346,6 +350,26 @@ export class TableScene {
     let yaw = Math.atan2(-d.x, -d.z) - this.baseYaw
     yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw))
     return { yaw, pitch: Math.asin(THREE.MathUtils.clamp(d.y, -1, 1)) }
+  }
+
+  /** As de Copas, on the table: keep or invert the direction (null: the card goes back). */
+  askDirection(current: Direction): Promise<CopasChoice | null> {
+    return this.choices.askDirection(current)
+  }
+
+  /** As de Oros, on the table: who of your team opens the next base (tag over their spot or their face). */
+  askOpener(options: Array<{ id: string; name: string }>): Promise<string> {
+    const seated = options.map((o) => ({ ...o, seat: this.seatOf(o.id) })).filter((o) => o.seat >= 0)
+    return this.choices.askOpener(seated.map((o) => ({ ...o, head: this.avatars[o.seat].head })), this.n)
+  }
+
+  /** Answer / drop the open table question (keyboard, screen readers, tests). */
+  chooseOnTable(id: string | null) {
+    this.choices.choose(id)
+  }
+
+  cancelTableChoice() {
+    this.choices.cancel()
   }
 
   /** A player asks their partners for señas: two knocks on the table with the right hand. */
@@ -1040,6 +1064,7 @@ export class TableScene {
         return
       }
       if (e.button !== 0) return
+      if (this.choices.hovered && this.choices.click()) return // a decision on the table
       el.setPointerCapture(e.pointerId)
       if (this.hovered >= 0) this.pending = { k: this.hovered, t0: now(), moved: 0 }
       else {
@@ -1121,8 +1146,17 @@ export class TableScene {
     }
   }
 
-  private updateHover() {
+  private updateHover(time: number, dt: number) {
     this.raycaster.setFromCamera(this.mouse, this.camera)
+    // an open question on the table (As de Copas / Oros) takes the pointer before your cards
+    const choice = this.choices.update(time, dt, this.camera, this.raycaster)
+    this.renderer.domElement.style.cursor = choice ? 'pointer' : this.lookDrag ? 'grabbing' : 'crosshair'
+    if (choice || this.choices.active) {
+      this.hovered = -1
+      const hint = this.choices.hint() ?? ''
+      if (hint !== this.lastChoiceHint) this.cb.status((this.lastChoiceHint = hint))
+      return
+    }
     // targets: every card's rest-pose twin, plus the lifted card itself while it's hovered (so you
     // can move along the raised card without losing it)
     const targets = this.vm.filter((v) => v.mesh.visible).map((v) => v.hit)
@@ -1337,7 +1371,7 @@ export class TableScene {
       this.cb.look(g.yaw, g.pitch)
     }
 
-    this.updateHover()
+    this.updateHover(time, dt)
     this.vm.forEach((v, k) => {
       v.lift += ((k === this.hovered ? 1 : 0) - v.lift) * 0.25
       v.mesh.position.set(v.base.x, v.base.y + v.lift * 0.02, v.base.z + v.lift * 0.02)
@@ -1411,6 +1445,22 @@ export class TableScene {
   debugPeekHead(seat: number, dy = 0) {
     this.peek = { target: this.avatars[seat].head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, dy, 0)), standing: false }
     this.aimT = 1
+  }
+
+  /** Screen position of a tag of the open table question (tests). */
+  choiceScreen(id: string) {
+    const w = this.choices.positionOf(id)
+    if (!w) return null
+    const p = w.project(this.camera)
+    const r = this.renderer.domElement.getBoundingClientRect()
+    return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
+  }
+
+  /** Screen position of a seat's face (tests). */
+  headScreen(seat: number) {
+    const p = this.avatars[seat].head.getWorldPosition(new THREE.Vector3()).project(this.camera)
+    const r = this.renderer.domElement.getBoundingClientRect()
+    return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
   }
 
   /** Screen position of the card you're dragging (null if none). */
