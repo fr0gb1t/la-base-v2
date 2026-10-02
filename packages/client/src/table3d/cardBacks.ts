@@ -1,18 +1,21 @@
 import * as THREE from 'three'
 import { getViewSettings, onViewSettings } from '../settings/viewSettings'
+import type { BackDesign, DrawnBack } from './backDesigns'
 
 // Card backs, after the classic two-way backs of Bicycle cards: a white border, a field of fine
 // ornament and a central medallion, all symmetric under a half turn (an upside-down card looks
-// the same, so a back never tells anything). Every card shares ONE texture, redrawn in place
-// when the player picks another design in the settings.
+// the same, so a back never tells anything). Besides these drawn ones there are illustrated backs
+// (pictures in ./backs). Every card shares ONE texture, repainted in place when the player picks
+// another design in the settings.
 
-export type BackDesign = 'rueda-roja' | 'rueda-azul' | 'abanico' | 'rombos'
-export const BACK_DESIGNS: Array<{ id: BackDesign; label: string }> = [
-  { id: 'rueda-roja', label: 'Rueda roja' },
-  { id: 'rueda-azul', label: 'Rueda azul' },
-  { id: 'abanico', label: 'Abanico' },
-  { id: 'rombos', label: 'Rombos' },
-]
+export { BACK_DESIGNS, type BackDesign } from './backDesigns'
+
+// the illustrated backs: pictures of the whole card, 320 × 500
+const PICTURES = import.meta.glob('./backs/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>
+/** The picture of an illustrated back, or null for a drawn one. */
+export function backPicture(design: BackDesign): string | null {
+  return PICTURES[`./backs/${design}.webp`] ?? null
+}
 
 const W = 160
 const H = 250
@@ -205,7 +208,7 @@ function rombos(g: CanvasRenderingContext2D) {
   rule(g, CREAM)
 }
 
-export function drawBackDesign(design: BackDesign, size = 1): HTMLCanvasElement {
+export function drawBackDesign(design: DrawnBack, size = 1): HTMLCanvasElement {
   const cv = document.createElement('canvas')
   cv.width = W * SCALE * size
   cv.height = H * SCALE * size
@@ -215,7 +218,7 @@ export function drawBackDesign(design: BackDesign, size = 1): HTMLCanvasElement 
   return cv
 }
 
-function paint(g: CanvasRenderingContext2D, design: BackDesign) {
+function paint(g: CanvasRenderingContext2D, design: DrawnBack) {
   if (design === 'rueda-azul') rueda(g, '#234a6b')
   else if (design === 'abanico') abanico(g)
   else if (design === 'rombos') rombos(g)
@@ -224,22 +227,44 @@ function paint(g: CanvasRenderingContext2D, design: BackDesign) {
 
 // one shared, live texture for every card back
 let shared: { tex: THREE.CanvasTexture; cv: HTMLCanvasElement; design: BackDesign } | null = null
+
+/** Paints a design on the shared canvas (a picture once it has loaded). */
+function show(design: BackDesign) {
+  if (!shared) return
+  shared.design = design
+  const { cv, tex } = shared
+  const g = cv.getContext('2d')!
+  const url = backPicture(design)
+  if (!url) {
+    g.setTransform(SCALE, 0, 0, SCALE, 0, 0)
+    paint(g, design as DrawnBack)
+    tex.needsUpdate = true
+    return
+  }
+  const img = new Image()
+  img.onload = () => {
+    if (shared?.design !== design) return // picked another one meanwhile
+    g.setTransform(1, 0, 0, 1, 0, 0)
+    g.drawImage(img, 0, 0, cv.width, cv.height)
+    tex.needsUpdate = true
+  }
+  img.onerror = () => console.warn('[cards] could not load the card back', design)
+  img.src = url
+}
+
 export function backTexture(): THREE.CanvasTexture {
   if (shared) return shared.tex
-  const design = getViewSettings().cardBack
-  const cv = drawBackDesign(design)
+  const cv = document.createElement('canvas')
+  cv.width = W * SCALE
+  cv.height = H * SCALE
   const tex = new THREE.CanvasTexture(cv)
   tex.colorSpace = THREE.SRGBColorSpace
   tex.minFilter = THREE.LinearMipmapLinearFilter
   tex.anisotropy = 4
-  shared = { tex, cv, design }
+  shared = { tex, cv, design: getViewSettings().cardBack }
+  show(shared.design)
   onViewSettings((v) => {
-    if (!shared || v.cardBack === shared.design) return
-    shared.design = v.cardBack
-    const g = shared.cv.getContext('2d')!
-    g.setTransform(SCALE, 0, 0, SCALE, 0, 0)
-    paint(g, v.cardBack)
-    shared.tex.needsUpdate = true
+    if (shared && v.cardBack !== shared.design) show(v.cardBack)
   })
   return tex
 }

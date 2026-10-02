@@ -3,12 +3,13 @@ import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair
 import { getViewSettings, onViewSettings, setViewSettings, SENS_MIN, SENS_MAX, FOV_MIN, FOV_MAX, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
 import { previewSound, audioReady, uiSound } from '../table3d/audio';
-import { BACK_DESIGNS, drawBackDesign, type BackDesign } from '../table3d/cardBacks';
+import { BACK_DESIGNS, backPicture, drawBackDesign, type BackDesign } from '../table3d/cardBacks';
+import type { DrawnBack } from '../table3d/backDesigns';
 
 const previews = new Map<BackDesign, string>();
 /** A small picture of a card back for the chooser (drawn once). */
 function backPreview(d: BackDesign) {
-  if (!previews.has(d)) previews.set(d, drawBackDesign(d, 0.35).toDataURL());
+  if (!previews.has(d)) previews.set(d, backPicture(d) ?? drawBackDesign(d as DrawnBack, 0.35).toDataURL());
   return previews.get(d)!;
 }
 
@@ -156,7 +157,7 @@ export function SettingsHost() {
         <fieldset className="ledger-group">
           <legend>Cartas</legend>
           <div className="setting-backs" role="radiogroup" aria-label="Dorso de las cartas">
-            <span className="setting-backs-title"><b>Dorso</b> <small>(lo ves solo vos)</small></span>
+            <span className="setting-backs-title"><b>Dorso</b> <small>(lo ves solo vos) · {BACK_DESIGNS.find((d) => d.id === view.cardBack)?.label}</small></span>
             <div className="setting-backs-row">
               {BACK_DESIGNS.map((d) => (
                 <button
@@ -168,8 +169,7 @@ export function SettingsHost() {
                   onClick={() => setViewSettings({ cardBack: d.id })}
                   title={d.label}
                 >
-                  <img src={backPreview(d.id)} alt="" />
-                  <small>{d.label}</small>
+                  <img src={backPreview(d.id)} alt={d.label} loading="lazy" />
                 </button>
               ))}
             </div>

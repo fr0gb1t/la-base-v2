@@ -1,4 +1,6 @@
 // View settings: persisted per browser, observable.
+import { isBackDesign, type BackDesign } from '../table3d/backDesigns'
+
 export interface ViewSettings {
   cameraReturn: boolean // after dragging the view, ease back to the seated default
   reticle: boolean // a dot in the middle of the screen to aim (at faces, for señas)
@@ -7,7 +9,7 @@ export interface ViewSettings {
   guides: boolean // chalk guides where things go: dotted card boxes, circles for the beans
   lookSensitivity: number // multiplier on how far the view turns per pixel dragged (0.25–3)
   fov: number // vertical field of view in degrees (FOV_MIN–FOV_MAX)
-  cardBack: 'rueda-roja' | 'rueda-azul' | 'abanico' | 'rombos' // the design on the back of every card
+  cardBack: BackDesign // the design on the back of every card
 }
 
 export const SENS_MIN = 0.25
@@ -27,7 +29,7 @@ function load(): ViewSettings {
     }
     out.lookSensitivity = Math.min(SENS_MAX, Math.max(SENS_MIN, Number(out.lookSensitivity) || 1))
     out.fov = Math.min(FOV_MAX, Math.max(FOV_MIN, Number(out.fov) || DEFAULTS.fov))
-    if (!['rueda-roja', 'rueda-azul', 'abanico', 'rombos'].includes(out.cardBack)) out.cardBack = DEFAULTS.cardBack
+    if (!isBackDesign(out.cardBack)) out.cardBack = DEFAULTS.cardBack
     return out
   } catch {
     return { ...DEFAULTS }

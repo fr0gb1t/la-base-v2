@@ -3058,15 +3058,18 @@ button {
 }
 
 .setting-backs-row {
-  display: flex;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+  gap: 4px;
+  max-height: 140px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .setting-back {
   display: grid;
   justify-items: center;
-  gap: 3px;
-  padding: 4px;
+  padding: 2px;
   background: transparent;
   border: 2px solid transparent;
   cursor: pointer;
@@ -3074,14 +3077,10 @@ button {
 }
 
 .setting-back img {
-  width: 44px;
-  height: 69px;
+  width: 34px;
+  height: 53px;
   border-radius: 3px;
   box-shadow: 1px 2px 0 rgba(20, 14, 12, 0.35);
-}
-
-.setting-back small {
-  font-size: 11px;
 }
 
 .setting-back.on {
