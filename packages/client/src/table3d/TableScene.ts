@@ -59,10 +59,12 @@ const HOLD_FWD = -0.35
 const REACH = 0.78
 const HOVER_Y = TABLE_Y + 0.025
 const LOOK_SENS = 0.0012
+const EDGE_PX = 28 // a cursor this close to the side of the table counts as pinned there
+const EDGE_TURN = 1.1 // rad/s the view keeps turning while dragging against an edge
 const ARM_SENS = 0.0009
 const PEEK_SENS = 0.0005
 const PITCH_MIN = -0.8
-const FACE_MARGIN = 0.14 // rad past a neighbour's head: their whole mask fits at the view centre
+const FACE_MARGIN = 0.01 // rad: the turn stops with the neighbour's face right at the centre of the view
 const PITCH_MAX = 0.25
 const HOLD_SEC = 0.18
 const HOLD_PX = 6
@@ -594,6 +596,7 @@ export class TableScene {
   }
 
   private eye = new THREE.Vector3()
+  private pointerEdge: -1 | 0 | 1 = 0 // the cursor pinned to the left / right edge of the table
   private baseYaw = 0
   private forward0 = new THREE.Vector3()
   private shoulder0 = new THREE.Vector3()
@@ -1072,6 +1075,7 @@ export class TableScene {
     const el = this.renderer.domElement
     this.on(window, 'pointermove', (e: PointerEvent) => {
       const r = el.getBoundingClientRect()
+      this.pointerEdge = e.clientX <= r.left + EDGE_PX ? -1 : e.clientX >= r.right - EDGE_PX ? 1 : 0
       this.mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
       if (this.pending) {
         this.pending.moved += Math.abs(e.movementX) + Math.abs(e.movementY)
@@ -1404,6 +1408,13 @@ export class TableScene {
     })
 
     // camera
+    // dragging the view with the cursor stuck at a screen edge: keep turning that way (the cursor
+    // can't go further, so a neighbour's face could be out of reach of a single drag)
+    if (this.lookDrag && this.pointerEdge) {
+      const v = getViewSettings()
+      const dir = (v.invertLook ? -1 : 1) * this.pointerEdge // right edge: look right (yaw down)
+      this.yawT = this.clampYaw(this.yawT - dir * EDGE_TURN * v.lookSensitivity * dt)
+    }
     this.yaw += (this.yawT - this.yaw) * 0.15
     // eyes follow the card only when steering with a captured mouse; with a free cursor the view
     // stays put so the card stays under the pointer
