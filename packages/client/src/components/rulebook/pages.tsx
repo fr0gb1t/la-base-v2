@@ -8,6 +8,16 @@ import { Bean, Example, MiniCard, Plane, TableTop, INK, NUM_FONT, OXBLOOD, TEAL,
 // Tone: short and a bit cheeky (Exploding Kittens), steps and boxed examples (The Crew),
 // a board of faces for the señas (Quién soy).
 
+/** A ballpoint note scribbled by a previous player, in % of the page; `arrow`: degrees, if any. */
+export interface Note {
+  side: 'left' | 'right';
+  text: string;
+  x: number;
+  y: number;
+  rot: number;
+  arrow?: number;
+}
+
 export interface Chapter {
   id: string;
   tab: string;
@@ -15,6 +25,7 @@ export interface Chapter {
   kicker: string; // the one-liner under the title
   art: ReactNode;
   body: ReactNode;
+  notes?: Note[];
 }
 
 const SEQ = {
@@ -70,6 +81,7 @@ export const CHAPTERS: Chapter[] = [
         </Example>
       </>
     ),
+    notes: [{ side: 'left', text: 'tu compañero siempre del otro lado de un rival', x: 6, y: 80, rot: -4 }],
   },
   {
     id: 'cartas',
@@ -101,6 +113,7 @@ export const CHAPTERS: Chapter[] = [
         </Example>
       </>
     ),
+    notes: [{ side: 'left', text: '¡el ancho no perdona!', x: 8, y: 12, rot: -6, arrow: 40 }],
   },
   {
     id: 'rondas',
@@ -133,6 +146,7 @@ export const CHAPTERS: Chapter[] = [
         </Example>
       </>
     ),
+    notes: [{ side: 'right', text: 'la de 1 carta es pura suerte', x: 52, y: 86, rot: 3 }],
   },
   {
     id: 'mano',
@@ -171,6 +185,7 @@ export const CHAPTERS: Chapter[] = [
         <p>Después de cada base, <b>quien la gana abre la siguiente</b>: pasa a ser la nueva Mano.</p>
       </>
     ),
+    notes: [{ side: 'left', text: 'derecha DESDE TU SILLA', x: 52, y: 8, rot: 5, arrow: 120 }],
   },
   {
     id: 'declarar',
@@ -207,6 +222,7 @@ export const CHAPTERS: Chapter[] = [
         </p>
       </>
     ),
+    notes: [{ side: 'left', text: 'siempre alguien falla ;)', x: 48, y: 84, rot: -3 }],
   },
   {
     id: 'kamikaze',
@@ -238,6 +254,7 @@ export const CHAPTERS: Chapter[] = [
         </Example>
       </>
     ),
+    notes: [{ side: 'left', text: 'yo lo uso cuando tengo el ancho', x: 8, y: 8, rot: -5 }],
   },
   {
     id: 'base',
@@ -275,6 +292,7 @@ export const CHAPTERS: Chapter[] = [
         <p className="rb-small">En la mesa: click corto en una carta la juega; mantené el click para llevarla con el brazo (y amagar) y soltala sobre tu recuadro de tiza.</p>
       </>
     ),
+    notes: [{ side: 'right', text: 'si va ganando tu compañero… ¡largá tus altas!', x: 46, y: 90, rot: -2 }],
   },
   {
     id: 'ases',
@@ -318,6 +336,7 @@ export const CHAPTERS: Chapter[] = [
         <p className="rb-small">Con el poder apagado, cada uno de estos ases vale 1 y listo.</p>
       </>
     ),
+    notes: [{ side: 'left', text: 'el de espadas solo sirve DESPUÉS', x: 50, y: 4, rot: 4 }],
   },
   {
     id: 'puntos',
@@ -355,6 +374,7 @@ export const CHAPTERS: Chapter[] = [
         </Example>
       </>
     ),
+    notes: [{ side: 'left', text: '¡pedir cero también vale!', x: 10, y: 14, rot: -5 }],
   },
   {
     id: 'senas',
@@ -397,6 +417,7 @@ export const CHAPTERS: Chapter[] = [
         <p className="rb-small">«Nada» (ojos cerrados): ni figuras, ni ancho de bastos, ni ases con poder.</p>
       </>
     ),
+    notes: [{ side: 'right', text: 'que no te vean mirando…', x: 56, y: 9, rot: 6 }],
   },
   {
     id: 'fin',
@@ -422,6 +443,7 @@ export const CHAPTERS: Chapter[] = [
         </ol>
       </>
     ),
+    notes: [{ side: 'left', text: 'perdimos así una vez. nunca más', x: 18, y: 80, rot: -4, arrow: -30 }],
   },
   {
     id: 'mesa',
@@ -453,5 +475,6 @@ export const CHAPTERS: Chapter[] = [
         <p className="rb-small">Iconos: game-icons.net (CC BY 3.0) · Sonidos: Kenney (CC0)</p>
       </>
     ),
+    notes: [{ side: 'right', text: 'la ruedita es lo mejor', x: 50, y: 84, rot: 3 }],
   },
 ];
