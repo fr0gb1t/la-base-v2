@@ -219,7 +219,9 @@ export class TableTokens {
     for (const seat of [...this.heaps.keys()]) if (!live.has(seat)) this.heaps.delete(seat)
     for (const b of s.bids) {
       const a = seatAngle(b.seat, s.n)
-      const centre = polar(PLAY_R - CARD_H / 2 + HEAP_R * 0.4, a, TABLE_Y).addScaledVector(right(a), CARD_W / 2 + 0.03 + HEAP_R)
+      // centred level with the card's top edge and kept clear of the won-card piles, which lie
+      // further out on the same side (from r ≈ 0.66): beans must never sit on top of cards
+      const centre = polar(PLAY_R - CARD_H / 2 - 0.01, a, TABLE_Y).addScaledVector(right(a), CARD_W / 2 + 0.03 + HEAP_R)
       const asked = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.05), new THREE.MeshBasicMaterial({ map: askedTexture(b.value), transparent: true, opacity: this.guides ? 0.9 : 0, depthWrite: false }))
       asked.position.copy(centre).addScaledVector(right(a), HEAP_R + 0.03).setY(TABLE_Y + 0.0025)
       asked.rotation.set(-Math.PI / 2, 0, Math.PI / 2 - a) // flat, upright for the player who asked
