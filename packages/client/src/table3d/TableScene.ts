@@ -64,6 +64,7 @@ const FACE_MARGIN = 0.14 // rad past a neighbour's head: their whole mask fits a
 const PITCH_MAX = 0.25
 const HOLD_SEC = 0.18
 const HOLD_PX = 6
+const FELT = new THREE.Plane(new THREE.Vector3(0, 1, 0), -TABLE_Y)
 const LOOK_HEARTBEAT = 1 // s: resend where you look even when still
 const HEAD_YAW_MAX = 1.5 // rad: a mask turns as far as any camera can (78° at 8 players) and a bit more
 const PRESENCE_TTL = 1.5 // s: remote look/arm older than this is ignored
@@ -194,6 +195,7 @@ export class TableScene {
     if (v.guides === this.guides) return
     this.guides = v.guides
     this.felt?.setGuides(v.guides)
+    this.tokens.setGuides(v.guides)
   })
   private turnSeat = -1
   private winnerSeat = -1 // base resolved, waiting for everyone to confirm: the winning card glows
@@ -208,6 +210,7 @@ export class TableScene {
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera)
     this.scene.add(this.tokens.group)
+    this.tokens.setGuides(this.guides)
     this.scene.add(this.choices.group)
     this.scene.add(this.roomGroup)
     this.camera.add(this.viewmodel)
@@ -1148,6 +1151,9 @@ export class TableScene {
 
   private updateHover(time: number, dt: number) {
     this.raycaster.setFromCamera(this.mouse, this.camera)
+    // the felt under the pointer (bean heaps reveal their chalked number there)
+    const felt = this.raycaster.ray.intersectPlane(FELT, new THREE.Vector3())
+    this.tokens.hoverAt(felt && felt.clone().setY(0).length() < TABLE_R ? felt : null)
     // an open question on the table (As de Copas / Oros) takes the pointer before your cards
     const choice = this.choices.update(time, dt, this.camera, this.raycaster)
     this.renderer.domElement.style.cursor = choice ? 'pointer' : this.lookDrag ? 'grabbing' : 'crosshair'
@@ -1458,6 +1464,15 @@ export class TableScene {
     const p = w.project(this.camera)
     const r = this.renderer.domElement.getBoundingClientRect()
     return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
+  }
+
+  /** Bean heaps on screen and whether their asked number shows (tests). */
+  heapsScreen() {
+    const r = this.renderer.domElement.getBoundingClientRect()
+    return this.tokens.marksState().map((m) => {
+      const p = m.centre.project(this.camera)
+      return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height, shown: m.shown }
+    })
   }
 
   /** Screen position of a seat's face (tests). */

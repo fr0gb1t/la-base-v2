@@ -143,6 +143,10 @@ export class TableTokens {
   // where each seat's beans fell (offsets inside the heap circle): kept so they never jump, and
   // drawn afresh at random for every new round
   private heaps = new Map<number, Array<{ x: number; z: number; spin: number }>>()
+  // the chalked number of bases asked: always shown with the table guides on; with them off,
+  // only while the pointer is over that bean heap
+  private marks: Array<{ mesh: THREE.Mesh; centre: THREE.Vector3 }> = []
+  private guides = true
 
   constructor() {
     this.group.add(this.dealer, this.bidder, this.dynamic)
@@ -158,6 +162,25 @@ export class TableTokens {
       this.group.add(b)
     }
     this.dealer.visible = this.bidder.visible = false
+  }
+
+  /** The chalked numbers: where each heap is and whether its number shows (tests). */
+  marksState() {
+    return this.marks.map((m) => ({ centre: m.centre.clone(), shown: m.mesh.visible && (m.mesh.material as THREE.MeshBasicMaterial).opacity > 0.5 }))
+  }
+
+  setGuides(on: boolean) {
+    this.guides = on
+  }
+
+  /** Per frame: where the pointer meets the felt (null: nowhere). Fades the asked numbers in/out. */
+  hoverAt(point: THREE.Vector3 | null) {
+    for (const m of this.marks) {
+      const near = point !== null && Math.hypot(point.x - m.centre.x, point.z - m.centre.z) < HEAP_R + 0.06
+      const mat = m.mesh.material as THREE.MeshBasicMaterial
+      mat.opacity += ((this.guides || near ? 0.9 : 0) - mat.opacity) * 0.2
+      m.mesh.visible = mat.opacity > 0.02
+    }
   }
 
   /** This seat's beans: keep the ones already on the felt, drop new ones at random. */
@@ -190,16 +213,19 @@ export class TableTokens {
     if (s.bidderSeat >= 0) place(this.bidder, s.bidderSeat, s.bidderSeat === s.dealerSeat ? 0.6 : 0.7, -0.17)
 
     this.dynamic.clear()
+    this.marks = []
     // bases asked (chalked number) and won (a heap of beans), beside the card's top edge
     const live = new Set(s.bids.map((b) => b.seat))
     for (const seat of [...this.heaps.keys()]) if (!live.has(seat)) this.heaps.delete(seat)
     for (const b of s.bids) {
       const a = seatAngle(b.seat, s.n)
       const centre = polar(PLAY_R - CARD_H / 2 + HEAP_R * 0.4, a, TABLE_Y).addScaledVector(right(a), CARD_W / 2 + 0.03 + HEAP_R)
-      const asked = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.05), new THREE.MeshBasicMaterial({ map: askedTexture(b.value), transparent: true, opacity: 0.9, depthWrite: false }))
+      const asked = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.05), new THREE.MeshBasicMaterial({ map: askedTexture(b.value), transparent: true, opacity: this.guides ? 0.9 : 0, depthWrite: false }))
       asked.position.copy(centre).addScaledVector(right(a), HEAP_R + 0.03).setY(TABLE_Y + 0.0025)
       asked.rotation.set(-Math.PI / 2, 0, Math.PI / 2 - a) // flat, upright for the player who asked
       this.dynamic.add(asked)
+      // the heap and its number count as one hover zone
+      this.marks.push({ mesh: asked, centre: centre.clone().addScaledVector(right(a), 0.02) })
       this.heapFor(b.seat, b.won).forEach((p, i) => {
         const bn = bean(0)
         bn.position.set(centre.x + p.x, TABLE_Y + 0.004, centre.z + p.z)
