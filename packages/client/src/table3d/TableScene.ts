@@ -102,9 +102,6 @@ function senaAmount(s: Sena, t: number) {
   if (t >= SENA_HOLD) return 0
   return Math.min(1, t / 0.15, (SENA_HOLD - t) / 0.3)
 }
-// A bit tighter than a shooter's 58°: the table fills more of the screen (cards read without
-// zoom) while the masks of the players across still fit at the top.
-const BASE_FOV = 50
 const DEFAULT_PITCH = -0.34
 const CHAIR_R_TAG = TABLE_R + TAG_R_OFFSET // in front of the coat, over the table edge (never inside the body)
 const HAND_MIN = -0.2 // fully lowered: out of the frame
@@ -653,7 +650,7 @@ export class TableScene {
     this.vm.forEach((v, k) => {
       // held in the LEFT hand, off to the side: your own play zone must stay visible
       const off = k - (c - 1) / 2
-      // height tuned for BASE_FOV 50: the whole card face stays on screen (at -0.25 its lower half
+      // height tuned for a 50° field of view (wider settings only show more around it): the whole card face stays on screen (at -0.25 its lower half
       // fell below the frame and grabbing it failed near the edge)
       v.base = { x: -0.15 + off * 0.026, y: HAND_Y - Math.abs(off) * 0.004, z: -0.36 + k * 0.002, rz: -0.04 - off * 0.14 }
       v.mesh.visible = k < c
@@ -1275,6 +1272,7 @@ export class TableScene {
     this.baseCam.position.copy(seated)
     this.baseCam.rotation.set(this.pitch, this.baseYaw + this.yaw, 0, 'YXZ')
     this.baseCam.aspect = this.camera.aspect
+    this.baseCam.fov = getViewSettings().fov // the unzoomed view: aiming the zoom uses its rays
     this.baseCam.updateProjectionMatrix()
     this.baseCam.updateMatrixWorld()
     const standing = this.eye.clone().addScaledVector(this.forward0, 0.34).add(new THREE.Vector3(0, 0.62, 0))
@@ -1285,7 +1283,10 @@ export class TableScene {
       const m = new THREE.Matrix4().lookAt(this.camera.position, this.lookTarget, new THREE.Vector3(0, 1, 0))
       this.camera.quaternion.slerp(new THREE.Quaternion().setFromRotationMatrix(m), look)
     }
-    this.camera.fov = THREE.MathUtils.lerp(THREE.MathUtils.lerp(BASE_FOV, 24, this.aim), 20, st)
+    // the field of view is a setting: wide enough by default to see your neighbours' heads (and
+    // where they look) without turning
+    const fov = getViewSettings().fov
+    this.camera.fov = THREE.MathUtils.lerp(THREE.MathUtils.lerp(fov, 24, this.aim), 20, st)
     this.camera.updateProjectionMatrix()
   }
 

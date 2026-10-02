@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare, GiMouse } from 'react-icons/gi';
-import { getViewSettings, onViewSettings, setViewSettings, SENS_MIN, SENS_MAX, type ViewSettings } from './viewSettings';
+import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare, GiMouse, GiEyeTarget } from 'react-icons/gi';
+import { getViewSettings, onViewSettings, setViewSettings, SENS_MIN, SENS_MAX, FOV_MIN, FOV_MAX, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
 import { previewSound, audioReady } from '../table3d/audio';
 
@@ -175,6 +175,23 @@ export function SettingsHost() {
               style={{ ['--fill' as string]: `${((view.lookSensitivity - SENS_MIN) / (SENS_MAX - SENS_MIN)) * 100}%` }}
               onChange={(e) => setViewSettings({ lookSensitivity: Number(e.target.value) / 100 })}
               aria-label="Sensibilidad del mouse al mirar"
+            />
+          </label>
+          <label className="setting-volume">
+            <span className="setting-volume-head">
+              <GiEyeTarget aria-hidden className="setting-icon" />
+              <b>Campo visual</b>
+              <span className="setting-state">{Math.round(view.fov)}°</span>
+            </span>
+            <input
+              type="range"
+              min={FOV_MIN}
+              max={FOV_MAX}
+              step={1}
+              value={view.fov}
+              style={{ ['--fill' as string]: `${((view.fov - FOV_MIN) / (FOV_MAX - FOV_MIN)) * 100}%` }}
+              onChange={(e) => setViewSettings({ fov: Number(e.target.value) })}
+              aria-label="Campo visual en grados"
             />
           </label>
           <Switch
