@@ -191,7 +191,6 @@ export class TableScene {
     if (v.guides === this.guides) return
     this.guides = v.guides
     this.felt?.setGuides(v.guides)
-    this.tokens.setGuides(v.guides)
   })
   private turnSeat = -1
   private winnerSeat = -1 // base resolved, waiting for everyone to confirm: the winning card glows
@@ -206,7 +205,6 @@ export class TableScene {
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera)
     this.scene.add(this.tokens.group)
-    this.tokens.setGuides(this.guides)
     this.scene.add(this.roomGroup)
     this.camera.add(this.viewmodel)
 

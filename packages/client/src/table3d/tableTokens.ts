@@ -1,11 +1,12 @@
 import * as THREE from 'three'
 import { PALETTE, SUIT_INK } from './look'
-import { TABLE_Y, PLAY_R, CARD_H, seatAngle, polar } from './seats'
+import { TABLE_Y, PLAY_R, CARD_H, CARD_W, seatAngle, polar } from './seats'
 
 // Physical tokens on the felt that carry the game's state, so it reads on the table itself:
 //  - dealer chip (rotates every round) and "pide" chip (who declares first this round)
-//  - chalk circles beside each bidder's card (from its top edge inward), one per base asked, filled with beans as their
-//    team wins bases (extra beans spill past the circles)
+//  - beside each bidder's card, level with its top edge: the bases asked chalked as a number, and
+//    a little heap of beans (one per base won) dropped at random inside a circle no wider than a
+//    card; beans past the bid are reddish
 //  - a metal plane (Monopoly-token style) in front of whoever called each kamikaze
 //  - a small pile of beans near the centre (decoration for now; later, grabbable)
 
@@ -17,7 +18,6 @@ export interface TokenState {
   kamikazeSeats: number[] // one entry per call, in order
 }
 
-const out = (a: number) => new THREE.Vector3(Math.cos(a), 0, Math.sin(a))
 const right = (a: number) => new THREE.Vector3(Math.sin(a), 0, -Math.cos(a))
 const BEAN = '#e9dcc2'
 
@@ -93,8 +93,46 @@ function bean(seed: number) {
   return m
 }
 
-const ringGeo = new THREE.RingGeometry(0.016, 0.0205, 32)
-const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.chalk), transparent: true, opacity: 0.9, depthWrite: false })
+const HEAP_R = CARD_W * 0.75 // radius of the circle the beans fall in (under a card's width)
+const BEAN_GAP = 0.02 // beans don't land on top of each other
+
+/** The bases asked, chalked on the felt: the number in a rough circle. */
+const askedTex = new Map<number, THREE.Texture>()
+function askedTexture(value: number) {
+  const hit = askedTex.get(value)
+  if (hit) return hit
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = 96
+  const g = cv.getContext('2d')!
+  g.strokeStyle = g.fillStyle = PALETTE.chalk
+  g.lineWidth = 5
+  g.beginPath()
+  g.arc(48, 48, 38, 0.3, Math.PI * 2 + 0.1) // not quite closed: drawn by hand
+  g.stroke()
+  g.font = '56px "IM Fell English SC", Georgia, serif'
+  g.textAlign = 'center'
+  g.textBaseline = 'middle'
+  g.fillText(String(value), 48, 52)
+  const t = new THREE.CanvasTexture(cv)
+  t.colorSpace = THREE.SRGBColorSpace
+  askedTex.set(value, t)
+  return t
+}
+
+/** A random spot inside the heap circle, clear of the beans already there (best effort). */
+function dropSpot(taken: Array<{ x: number; z: number }>) {
+  let best = { x: 0, z: 0 }
+  let bestGap = -1
+  for (let k = 0; k < 24; k++) {
+    const r = Math.sqrt(Math.random()) * (HEAP_R - 0.01)
+    const t = Math.random() * Math.PI * 2
+    const c = { x: Math.cos(t) * r, z: Math.sin(t) * r }
+    const gap = Math.min(Infinity, ...taken.map((o) => Math.hypot(o.x - c.x, o.z - c.z)))
+    if (gap >= BEAN_GAP) return c
+    if (gap > bestGap) [best, bestGap] = [c, gap]
+  }
+  return best
+}
 
 export class TableTokens {
   group = new THREE.Group()
@@ -102,6 +140,9 @@ export class TableTokens {
   private dealer = chip('D', SUIT_INK.oros, PALETTE.bone, PALETTE.ink)
   private bidder = chip('pide', PALETTE.oxblood, PALETTE.oxblood, PALETTE.bone)
   private dynamic = new THREE.Group()
+  // where each seat's beans fell (offsets inside the heap circle): kept so they never jump, and
+  // drawn afresh at random for every new round
+  private heaps = new Map<number, Array<{ x: number; z: number; spin: number }>>()
 
   constructor() {
     this.group.add(this.dealer, this.bidder, this.dynamic)
@@ -119,9 +160,13 @@ export class TableTokens {
     this.dealer.visible = this.bidder.visible = false
   }
 
-  /** Chalk circles are placement guides: the beans stay, the circles can be hidden. */
-  setGuides(on: boolean) {
-    ringMat.visible = on
+  /** This seat's beans: keep the ones already on the felt, drop new ones at random. */
+  private heapFor(seat: number, won: number) {
+    let heap = this.heaps.get(seat) ?? []
+    if (won < heap.length) heap = [] // a new round: the heap starts over
+    while (heap.length < won) heap = [...heap, { ...dropSpot(heap), spin: Math.random() * Math.PI * 2 }]
+    this.heaps.set(seat, heap)
+    return heap
   }
 
   update(s: TokenState | null) {
@@ -145,38 +190,23 @@ export class TableTokens {
     if (s.bidderSeat >= 0) place(this.bidder, s.bidderSeat, s.bidderSeat === s.dealerSeat ? 0.6 : 0.7, -0.17)
 
     this.dynamic.clear()
-    // bases asked: chalk circles in a row from the place toward the centre, beans as they're won
+    // bases asked (chalked number) and won (a heap of beans), beside the card's top edge
+    const live = new Set(s.bids.map((b) => b.seat))
+    for (const seat of [...this.heaps.keys()]) if (!live.has(seat)) this.heaps.delete(seat)
     for (const b of s.bids) {
       const a = seatAngle(b.seat, s.n)
-      // first circle level with the top (centre-side) edge of the card, then on toward the centre
-      const start = polar(PLAY_R - CARD_H / 2 + 0.02, a, TABLE_Y + 0.0025).addScaledVector(right(a), 0.16)
-      const step = out(a).multiplyScalar(-0.048)
-      const total = Math.max(b.value, b.won)
-      for (let i = 0; i < total; i++) {
-        const p = start.clone().addScaledVector(step, i)
-        if (i < b.value) {
-          const ring = new THREE.Mesh(ringGeo, ringMat)
-          ring.rotation.x = -Math.PI / 2
-          ring.position.copy(p)
-          this.dynamic.add(ring)
-        }
-        if (i < b.won) {
-          const bn = bean(i + b.seat * 7)
-          bn.position.copy(p).setY(TABLE_Y + 0.004)
-          if (i >= b.value) (bn.material as THREE.MeshStandardMaterial).color.set('#c46a5c') // over the bid
-          this.dynamic.add(bn)
-        }
-      }
-      if (b.value === 0) {
-        // asked zero: one crossed-out circle
-        const ring = new THREE.Mesh(ringGeo, ringMat)
-        ring.rotation.x = -Math.PI / 2
-        ring.position.copy(start)
-        const bar = new THREE.Mesh(new THREE.PlaneGeometry(0.046, 0.004), ringMat)
-        bar.rotation.set(-Math.PI / 2, 0, Math.PI / 4)
-        bar.position.copy(start).setY(TABLE_Y + 0.0027)
-        this.dynamic.add(ring, bar)
-      }
+      const centre = polar(PLAY_R - CARD_H / 2 + HEAP_R * 0.4, a, TABLE_Y).addScaledVector(right(a), CARD_W / 2 + 0.03 + HEAP_R)
+      const asked = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.05), new THREE.MeshBasicMaterial({ map: askedTexture(b.value), transparent: true, opacity: 0.9, depthWrite: false }))
+      asked.position.copy(centre).addScaledVector(right(a), HEAP_R + 0.03).setY(TABLE_Y + 0.0025)
+      asked.rotation.set(-Math.PI / 2, 0, Math.PI / 2 - a) // flat, upright for the player who asked
+      this.dynamic.add(asked)
+      this.heapFor(b.seat, b.won).forEach((p, i) => {
+        const bn = bean(0)
+        bn.position.set(centre.x + p.x, TABLE_Y + 0.004, centre.z + p.z)
+        bn.rotation.y = p.spin
+        if (i >= b.value) (bn.material as THREE.MeshStandardMaterial).color.set('#c46a5c') // over the bid
+        this.dynamic.add(bn)
+      })
     }
     // kamikaze planes, in front of whoever called each one, lined up along the edge
     const perSeat = new Map<number, number>()
