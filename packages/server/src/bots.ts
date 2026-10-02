@@ -73,6 +73,7 @@ export function chooseCard(
 ): number {
   const byRank = hand.map((c, i) => ({ c, i })).sort((a, b) => cardRank(a.c) - cardRank(b.c));
   const lowest = byRank[0].i;
+  const highest = byRank[byRank.length - 1].i;
   const bid = st.bids.find((b) => b.team === team)?.value ?? 0;
   const need = bid - st.basesWon[team]; // > 0: we still want bases
   const played = st.currentBaseCards;
@@ -80,9 +81,18 @@ export function chooseCard(
     const next: PlayedCard = { playerId: me, card, order: played.length };
     return resolveBase([...played, next], st.acePowers, st.playDirection).playerId === me;
   };
+  // the plan: keep as many strong cards as bases we still need; everything above that is spare,
+  // and a spare high card kept too long wins bases we don't want later
+  const keep = new Set(byRank.slice(byRank.length - Math.max(0, need)).map((x) => x.i));
+  const spare = byRank.filter((x) => !keep.has(x.i));
+  /** Shed the highest spare card that loses this base (the lowest card if none). */
+  const shed = () => {
+    const losing = spare.filter(({ c }) => !winsWith(c));
+    return losing.length ? losing[losing.length - 1].i : lowest;
+  };
   if (played.length === 0) {
-    // leading: open strong if we need bases, otherwise get rid of the weakest card
-    return need > 0 ? byRank[byRank.length - 1].i : lowest;
+    // leading: open strong if we need bases, otherwise with the weakest card
+    return need > 0 ? highest : lowest;
   }
   const current = resolveBase(played, st.acePowers, st.playDirection);
   const teammateWinning = teamOf(current.playerId) === team;
@@ -90,13 +100,16 @@ export function chooseCard(
   const ace = partnerHolds('ancho-basto');
   const partnerWillWin = ace !== null && !played.some((p) => p.playerId === ace);
   if (need > 0) {
-    if (teammateWinning || partnerWillWin) return lowest; // don't overtake your partner
+    // our side takes it anyway: don't overtake the partner, use the turn to shed a spare card
+    if (teammateWinning || partnerWillWin) return shed();
     const winner = byRank.find(({ c }) => winsWith(c));
-    return winner ? winner.i : lowest; // cheapest card that takes the base
+    if (winner) return winner.i; // the cheapest card that takes it
+    return shed(); // can't win this one: get rid of a high card we won't need
   }
-  // bid already met: dump the highest card that still loses (keeps strong cards out of our hand)
+  // bid met: shed the highest card that still loses; if every card wins, win with the highest
+  // (we take this base anyway, and that card would only win more later)
   const losers = byRank.filter(({ c }) => !winsWith(c));
-  return losers.length ? losers[losers.length - 1].i : lowest;
+  return losers.length ? losers[losers.length - 1].i : highest;
 }
 
 /** Secret proving a connection is one of our bots (only bots may flag themselves as bots). */

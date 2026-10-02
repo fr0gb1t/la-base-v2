@@ -50,3 +50,41 @@ test('what a bot caught on rival faces moves its bid: strong rivals down, empty-
   assert.ok(strongRivals < blind, `blind ${blind} strong ${strongRivals}`);
   assert.ok(weakRivals >= blind, `blind ${blind} weak ${weakRivals}`);
 });
+
+test('needing one more base and unable to win this one, the bot sheds a spare high card', () => {
+  // asked 2, already won 1; a rival leads a rey and nothing of ours beats it
+  const hand: Card[] = [{ suit: 'oros', value: 12 }, { suit: 'copas', value: 11 }, { suit: 'espadas', value: 4 }];
+  const st = state({
+    phase: 'playing',
+    bids: [{ team: 'nosotros', value: 2 }] as GameState['bids'],
+    basesWon: { nosotros: 1, ellos: 0 },
+    currentBaseCards: [{ playerId: 'rival', card: { suit: 'espadas', value: 12 }, order: 0 }],
+  });
+  const teamOf = (id: string) => (id === 'mate' || id === 'me' ? 'nosotros' : 'ellos');
+  // keeps the rey for the base still needed, sheds the caballo (not the 4)
+  assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf), 1);
+});
+
+test('while the partner takes the base, the bot sheds a spare card under it', () => {
+  const hand: Card[] = [{ suit: 'oros', value: 12 }, { suit: 'copas', value: 10 }, { suit: 'espadas', value: 3 }];
+  const st = state({
+    phase: 'playing',
+    bids: [{ team: 'nosotros', value: 1 }] as GameState['bids'],
+    basesWon: { nosotros: 0, ellos: 0 },
+    currentBaseCards: [{ playerId: 'mate', card: { suit: 'bastos', value: 1 }, order: 0 }], // ancho de bastos
+  });
+  const teamOf = (id: string) => (id === 'mate' || id === 'me' ? 'nosotros' : 'ellos');
+  assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf), 1); // the sota goes, the rey stays for later
+});
+
+test('bid met and every card wins: win with the highest, so it cannot win again later', () => {
+  const hand: Card[] = [{ suit: 'oros', value: 12 }, { suit: 'copas', value: 11 }];
+  const st = state({
+    phase: 'playing',
+    bids: [{ team: 'nosotros', value: 0 }] as GameState['bids'],
+    basesWon: { nosotros: 0, ellos: 0 },
+    currentBaseCards: [{ playerId: 'rival', card: { suit: 'espadas', value: 4 }, order: 0 }],
+  });
+  const teamOf = (id: string) => (id === 'me' ? 'nosotros' : 'ellos');
+  assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf), 0);
+});
