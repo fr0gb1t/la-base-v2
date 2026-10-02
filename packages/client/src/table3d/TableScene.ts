@@ -1017,9 +1017,10 @@ export class TableScene {
       } else if (this.peek) this.panPeek(e.movementX, e.movementY)
       else if (this.lookDrag) {
         this.lookDrag.moved += Math.abs(e.movementX) + Math.abs(e.movementY)
-        const dir = getViewSettings().invertLook ? -1 : 1 // inverted: you drag the table, not your head
-        this.yawT = this.clampYaw(this.yawT - dir * e.movementX * LOOK_SENS)
-        this.pitchT = this.clampPitch(this.pitchT - dir * e.movementY * LOOK_SENS)
+        const v = getViewSettings()
+        const k = (v.invertLook ? -1 : 1) * v.lookSensitivity * LOOK_SENS // inverted: you drag the table, not your head
+        this.yawT = this.clampYaw(this.yawT - e.movementX * k)
+        this.pitchT = this.clampPitch(this.pitchT - e.movementY * k)
       }
     })
     this.on(el, 'contextmenu', (e: Event) => e.preventDefault())
@@ -1152,7 +1153,8 @@ export class TableScene {
     const dist = this.camera.position.distanceTo(this.peek.target)
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).setY(0).normalize()
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).setY(0).normalize()
-    this.peek.target.addScaledVector(right, dx * PEEK_SENS * dist).addScaledVector(fwd, -dy * PEEK_SENS * dist)
+    const k = PEEK_SENS * dist * getViewSettings().lookSensitivity
+    this.peek.target.addScaledVector(right, dx * k).addScaledVector(fwd, -dy * k)
     if (this.peek.target.y <= TABLE_Y + 0.01) {
       const flat = this.peek.target.clone().setY(0)
       if (flat.length() > 0.95) flat.setLength(0.95)

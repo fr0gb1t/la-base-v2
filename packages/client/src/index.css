@@ -2351,3 +2351,7 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+.ledger-col {
+  min-width: 0;
+}

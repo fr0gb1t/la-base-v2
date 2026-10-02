@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare } from 'react-icons/gi';
-import { getViewSettings, onViewSettings, setViewSettings, type ViewSettings } from './viewSettings';
+import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare, GiMouse } from 'react-icons/gi';
+import { getViewSettings, onViewSettings, setViewSettings, SENS_MIN, SENS_MAX, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
 import { previewSound, audioReady } from '../table3d/audio';
 
@@ -81,6 +81,7 @@ export function SettingsHost() {
       <section className="ledger settings" role="dialog" aria-modal="true" aria-label="Ajustes">
         <h2><GiCog aria-hidden /> Ajustes</h2>
 
+        <div className="ledger-col">
         <fieldset className="ledger-group">
           <legend>Sonido</legend>
 
@@ -139,14 +140,7 @@ export function SettingsHost() {
         </fieldset>
 
         <fieldset className="ledger-group">
-          <legend>Mesa y cámara</legend>
-          <Switch
-            on={view.cameraReturn}
-            icon={<GiReturnArrow aria-hidden className="setting-icon" />}
-            title="Volver a tu lugar"
-            hint={view.cameraReturn ? 'al soltar, la vista vuelve a mirar la mesa' : 'al soltar, la vista queda donde la dejaste'}
-            onToggle={() => setViewSettings({ cameraReturn: !view.cameraReturn })}
-          />
+          <legend>Mesa</legend>
           <Switch
             on={view.handResetOnTurn}
             icon={<GiHand aria-hidden className="setting-icon" />}
@@ -155,18 +149,47 @@ export function SettingsHost() {
             onToggle={() => setViewSettings({ handResetOnTurn: !view.handResetOnTurn })}
           />
           <Switch
-            on={view.invertLook}
-            icon={<GiMovementSensor aria-hidden className="setting-icon" />}
-            title="Invertir cámara"
-            hint={view.invertLook ? 'arrastrás la mesa: la vista va al revés del mouse' : 'arrastrás la mirada: la vista sigue al mouse'}
-            onToggle={() => setViewSettings({ invertLook: !view.invertLook })}
-          />
-          <Switch
             on={view.guides}
             icon={<GiDividedSquare aria-hidden className="setting-icon" />}
             title="Guías en la mesa"
             hint={view.guides ? 'recuadros de tiza para las cartas y círculos para los porotos' : 'mesa limpia: sin recuadros ni círculos (los porotos quedan)'}
             onToggle={() => setViewSettings({ guides: !view.guides })}
+          />
+        </fieldset>
+        </div>
+
+        <fieldset className="ledger-group">
+          <legend>Cámara</legend>
+          <label className="setting-volume">
+            <span className="setting-volume-head">
+              <GiMouse aria-hidden className="setting-icon" />
+              <b>Sensibilidad del mouse</b>
+              <span className="setting-state">{view.lookSensitivity.toFixed(2)}×</span>
+            </span>
+            <input
+              type="range"
+              min={SENS_MIN * 100}
+              max={SENS_MAX * 100}
+              step={5}
+              value={Math.round(view.lookSensitivity * 100)}
+              style={{ ['--fill' as string]: `${((view.lookSensitivity - SENS_MIN) / (SENS_MAX - SENS_MIN)) * 100}%` }}
+              onChange={(e) => setViewSettings({ lookSensitivity: Number(e.target.value) / 100 })}
+              aria-label="Sensibilidad del mouse al mirar"
+            />
+          </label>
+          <Switch
+            on={view.cameraReturn}
+            icon={<GiReturnArrow aria-hidden className="setting-icon" />}
+            title="Volver a tu lugar"
+            hint={view.cameraReturn ? 'al soltar, la vista vuelve a mirar la mesa' : 'al soltar, la vista queda donde la dejaste'}
+            onToggle={() => setViewSettings({ cameraReturn: !view.cameraReturn })}
+          />
+          <Switch
+            on={view.invertLook}
+            icon={<GiMovementSensor aria-hidden className="setting-icon" />}
+            title="Invertir cámara"
+            hint={view.invertLook ? 'arrastrás la mesa: la vista va al revés del mouse' : 'arrastrás la mirada: la vista sigue al mouse'}
+            onToggle={() => setViewSettings({ invertLook: !view.invertLook })}
           />
           <Switch
             on={view.reticle}
