@@ -1321,7 +1321,8 @@ export class TableScene {
       const mat = z.material as THREE.MeshBasicMaterial
       const card = this.onTable.get(s)
       if (s === this.winnerSeat) {
-        z.visible = true
+        // the winner's box burns amber — a guide, so not with the guides off (the card still lifts)
+        z.visible = this.guides
         mat.color.set(hex(PALETTE.amber)).multiplyScalar(2.2)
         mat.opacity = 0.7 + 0.3 * Math.sin(time * 5)
         if (card) card.root.position.y = CARD_Y_WIN + Math.sin(time * 3) * 0.003
