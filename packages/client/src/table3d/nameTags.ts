@@ -9,6 +9,9 @@ type Team = keyof typeof TEAM_COLOR
 
 const FACE_CAMERA = 0.85 // 1 = perfectly flat to you, 0 = aligned with the seat
 const H = 0.07 // metres, text height
+/** Where names float: in front of each body at belly height, over the table edge. */
+export const TAG_Y = 0.84
+export const TAG_R_OFFSET = 0.15 // past the table edge (never inside the body)
 
 export class NameTag {
   mesh: THREE.Mesh

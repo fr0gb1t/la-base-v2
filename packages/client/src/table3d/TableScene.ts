@@ -11,7 +11,7 @@ import { schedule, tickJobs, wait } from './jobs'
 import { attachAudio, sfx, lampBuzz, toggleMute } from './audio'
 import { PALETTE, hex, DUOTONES } from './look'
 import { getViewSettings, onViewSettings } from '../settings/viewSettings'
-import { NameTag } from './nameTags'
+import { NameTag, TAG_Y, TAG_R_OFFSET } from './nameTags'
 import { TableTokens } from './tableTokens'
 import { TableChoices, type CopasChoice, type Direction } from './tableChoices'
 
@@ -104,7 +104,7 @@ function senaAmount(s: Sena, t: number) {
 // zoom) while the masks of the players across still fit at the top.
 const BASE_FOV = 50
 const DEFAULT_PITCH = -0.34
-const CHAIR_R_TAG = TABLE_R + 0.15 // in front of the coat, over the table edge (never inside the body)
+const CHAIR_R_TAG = TABLE_R + TAG_R_OFFSET // in front of the coat, over the table edge (never inside the body)
 const HAND_MIN = -0.2 // fully lowered: out of the frame
 const HAND_MAX = 0.04
 const HAND_WHEEL = 0.0003 // metres per wheel delta unit (~7 notches from resting to hidden)
@@ -1399,7 +1399,7 @@ export class TableScene {
     this.nameTags.forEach((t, s) => {
       if (s === 0) return
       const a = seatAngle(s, this.n)
-      t.place(polar(CHAIR_R_TAG, a, 0.9), Math.PI / 2 - a, this.camera)
+      t.place(polar(CHAIR_R_TAG, a, TAG_Y), Math.PI / 2 - a, this.camera)
     })
 
     // camera
