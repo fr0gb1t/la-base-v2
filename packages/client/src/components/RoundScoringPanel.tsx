@@ -8,6 +8,8 @@ const ROUND_SUMMARY_MS = 5000;
 const REASONS: Record<string, string> = {
   'All rounds complete': 'se jugaron todas las rondas',
   'Kamikaze violation - Mano lost by 2+ bases': 'kamikaze fallido: el Mano perdió por 2 bases o más',
+  'Tiebreak complete': 'se definió en las rondas de desempate',
+  'Tie after tiebreak': 'empate también después del desempate: ganan los dos equipos',
 };
 
 export function RoundScoringPanel({ myTeam }: { myTeam: 'nosotros' | 'ellos' }) {
@@ -59,7 +61,7 @@ export function RoundScoringPanel({ myTeam }: { myTeam: 'nosotros' | 'ellos' }) 
         <div className="gate-panel">
           <h2 id="game-over-title">Partida terminada</h2>
           <p className={`game-over-result ${tie ? '' : won ? 'mine' : 'rival'}`}>
-            {tie ? 'Empate' : won ? 'Ganó tu equipo' : 'Ganaron los rivales'}
+            {tie ? 'Empate: ganan los dos' : won ? 'Ganó tu equipo' : 'Ganaron los rivales'}
           </p>
           <p className="dim">{REASONS[gameOver.reason] ?? gameOver.reason}</p>
           <table className="round-table">

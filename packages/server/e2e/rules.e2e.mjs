@@ -159,6 +159,39 @@ const C = (value, suit) => ({ value, suit })
   t.close()
 }
 
+// ---------------------------------------------------------------- G. a tie after the last round: two tiebreak rounds, not a win for Ellos
+{
+  const t = await table()
+  const mano = t.st().currentBidPlayerId
+  const manoTeam = t.teamOf(mano)
+  const other = manoTeam === 'nosotros' ? 'ellos' : 'nosotros'
+  // the last round of the clásica (1 base): the Mano holds a rey, everybody else a low card; the
+  // scores are set so that Mano's team (+11 for 1 of 1) and the other (−1, asked 1 got 0) end level
+  const hands = {}
+  t.order.forEach((o, i) => (hands[o.id] = [o.id === mano ? C(12, 'oros') : C(4 + i, 'copas')]))
+  await t.ps[0].emit('test:rig', { roomCode: t.room, hands, roundIndex: 11, scores: { [manoTeam]: 50, [other]: 62 } })
+  await t.byId(mano).emit('bid:declare', { roomCode: t.room, bidValue: 1 })
+  await t.until((s) => s.bids.length === 1)
+  await t.byId(t.st().currentBidPlayerId).emit('bid:declare', { roomCode: t.room, bidValue: 1 })
+  await t.until((s) => s.phase === 'playing')
+  for (let k = 0; k < 4; k++) {
+    await t.until((s) => Boolean(s.currentTurnPlayerId) || Boolean(s.readyGate))
+    const turn = t.st().currentTurnPlayerId
+    if (!turn || t.st().readyGate) break
+    await t.byId(turn).emit('card:play', { roomCode: t.room, card: hands[turn][0] })
+    await sleep(80)
+  }
+  for (let g = 0; g < 2; g++) {
+    await t.until((s) => Boolean(s.readyGate))
+    for (const p of t.ps) await p.emit('game:ready', { roomCode: t.room })
+    await sleep(150)
+  }
+  await t.until((s) => s.tiebreak === true || s.phase === 'game_over')
+  const s = t.st()
+  check('a tie after the last round adds two tiebreak rounds with the most bases', s.tiebreak === true && s.structureSequence.length === 14 && s.structureSequence.slice(-2).every((n) => n === 5) && s.phase !== 'game_over', `phase ${s.phase} rounds ${s.structureSequence.length} scores ${JSON.stringify(s.scores)}`)
+  t.close()
+}
+
 // ---------------------------------------------------------------- F. asking for señas: rival bots watch the answer; bots ask before bidding
 {
   const s = io(SERVER, { transports: ['websocket'], forceNew: true })

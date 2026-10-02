@@ -186,10 +186,21 @@ export function setupSocketHandlers(io: SocketIOServer) {
           round: room.gameState.roundIndex,
         });
 
-        if (room.gameState.roundIndex >= room.gameState.structureSequence.length - 1) {
+        const lastRound = room.gameState.roundIndex >= room.gameState.structureSequence.length - 1;
+        const tied = room.gameState.scores.nosotros === room.gameState.scores.ellos;
+        if (lastRound && tied && !room.gameState.tiebreak) {
+          // tie: two more rounds with the structure's most bases (the deal keeps rotating, so the
+          // Mano alternates between the teams); the game goes on below as after any round
+          const most = Math.max(...room.gameState.structureSequence);
+          room.gameState.structureSequence = [...room.gameState.structureSequence, most, most];
+          room.gameState.tiebreak = true;
+          io.to(roomCode).emit('game:tiebreak', { rounds: 2, bases: most, scores: room.gameState.scores });
+        } else if (lastRound) {
+          // after the tiebreak a tie stands: both teams win (rulebook FAQ)
+          const { nosotros, ellos } = room.gameState.scores;
           io.to(roomCode).emit('game:gameOver', {
-            winner: room.gameState.scores.nosotros > room.gameState.scores.ellos ? 'nosotros' : 'ellos',
-            reason: 'All rounds complete',
+            winner: nosotros > ellos ? 'nosotros' : ellos > nosotros ? 'ellos' : 'empate',
+            reason: nosotros === ellos ? 'Tie after tiebreak' : room.gameState.tiebreak ? 'Tiebreak complete' : 'All rounds complete',
             finalScores: room.gameState.scores,
           });
 
@@ -1144,9 +1155,11 @@ export function setupSocketHandlers(io: SocketIOServer) {
      * test:rig - TEST ONLY (LABASE_TEST=1): set every player's hand to reproduce exact situations.
      */
     if (process.env.LABASE_TEST === '1') {
-      socket.on('test:rig', (payload: { roomCode: string; hands: Record<string, Card[]> }, callback?: (r: unknown) => void) => {
+      socket.on('test:rig', (payload: { roomCode: string; hands: Record<string, Card[]>; roundIndex?: number; scores?: { nosotros: number; ellos: number } }, callback?: (r: unknown) => void) => {
         const room = roomManager.getRoom(payload.roomCode);
         if (!room) return callback?.({ success: false });
+        if (room.gameState && typeof payload.roundIndex === 'number') room.gameState.roundIndex = payload.roundIndex;
+        if (room.gameState && payload.scores) room.gameState.scores = { ...payload.scores };
         room.players.forEach((p) => {
           if (payload.hands[p.id]) {
             p.hand = payload.hands[p.id];

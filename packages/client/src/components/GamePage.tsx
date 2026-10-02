@@ -326,6 +326,11 @@ export function GamePage() {
       );
     };
     socket.on('sena:made', onSena);
+    const onTiebreak = (d: { rounds: number; bases: number }) => {
+      setAnnounce({ title: 'Empate', sub: `${d.rounds} rondas de desempate de ${d.bases} bases`, mine: true, key: Date.now() });
+      logRef.current(`Empate al final: se juegan ${d.rounds} rondas de desempate de ${d.bases} bases`, 'round');
+    };
+    socket.on('game:tiebreak', onTiebreak);
     // knocking on the table is a hand gesture: everybody sees and hears it
     const onAsked = (d: { playerId: string }) => {
       sceneRef.current?.askSenas(d.playerId);
@@ -350,6 +355,7 @@ export function GamePage() {
       socket.off('game:gateReleased', onGateReleased);
       socket.off('game:bidDeclared', onBid);
       socket.off('sena:made', onSena);
+      socket.off('game:tiebreak', onTiebreak);
       socket.off('sena:asked', onAsked);
       socket.off('game:roundScored', onRoundScored);
       socket.off('presence:look', onLook);
@@ -574,7 +580,7 @@ export function GamePage() {
         {hud !== 'oculto' ? (
           <div className="pad" aria-label="Anotador">
             <div className="pad-head">
-              <span>Ronda {gameState ? gameState.roundIndex + 1 : 0}<small> de {gameState?.structureSequence.length ?? 0}</small></span>
+              <span>Ronda {gameState ? gameState.roundIndex + 1 : 0}<small> de {gameState?.structureSequence.length ?? 0}{gameState?.tiebreak ? ' · desempate' : ''}</small></span>
               <span>base {Math.min(basesPlayed + (gate ? 0 : 1), maxBases)}<small> de {maxBases}</small></span>
               <span className="pad-dir" title={gameState?.playDirection === 'horario' ? 'sentido horario' : 'sentido antihorario'}>
                 {gameState?.playDirection === 'horario' ? '↻' : '↺'}

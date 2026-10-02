@@ -125,6 +125,8 @@ export type GameState = {
   dealerPlayerId?: string | null;
   /** every kamikaze called this game, in order (one metal plane token on the table each) */
   kamikazeCalls?: Array<{ playerId: string; team: AssignedTeam; round: number }>;
+  // tied after the last round: two extra rounds with the structure's most bases were appended
+  tiebreak?: boolean;
 };
 
 export type GameConfig = {
