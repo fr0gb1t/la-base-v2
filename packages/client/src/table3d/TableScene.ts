@@ -65,6 +65,8 @@ const FACE_MARGIN = 0.14 // rad past a neighbour's head: their whole mask fits a
 const PITCH_MAX = 0.25
 const HOLD_SEC = 0.18
 const HOLD_PX = 6
+const LOOK_HEARTBEAT = 1 // s: resend where you look even when still
+const HEAD_YAW_MAX = 1.5 // rad: a mask turns as far as any camera can (78° at 8 players) and a bit more
 const PRESENCE_TTL = 1.5 // s: remote look/arm older than this is ignored
 const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2)
 const seg = (t: number, a: number, b: number) => THREE.MathUtils.clamp((t - a) / (b - a), 0, 1)
@@ -1297,9 +1299,10 @@ export class TableScene {
         continue
       }
       const look = this.remoteLook.get(av.seat)
-      if (look && t - look.t < PRESENCE_TTL && this.stareAtYou <= 0) {
-        // a real player: their head goes where they are really looking
-        p.headYaw = THREE.MathUtils.clamp(look.yaw, -1.3, 1.3)
+      if (look) {
+        // their head always shows where their camera points: a truthful reference for everyone
+        // (no dramatic stares or idle wandering on top of it)
+        p.headYaw = THREE.MathUtils.clamp(look.yaw, -HEAD_YAW_MAX, HEAD_YAW_MAX)
         p.headPitch = look.pitch
       } else {
         const target = this.stareAtYou > 0 ? camWorld : this.focus
@@ -1314,7 +1317,7 @@ export class TableScene {
       const sg = this.senas.get(av.seat)
       if (sg?.gaze && t - sg.t0 < SENA_HOLD + 0.3) {
         // the seña is made toward where they were looking when they made it
-        p.headYaw = THREE.MathUtils.clamp(sg.gaze.yaw, -1.3, 1.3)
+        p.headYaw = THREE.MathUtils.clamp(sg.gaze.yaw, -HEAD_YAW_MAX, HEAD_YAW_MAX)
         p.headPitch = sg.gaze.pitch
       }
       av.pose(p)
@@ -1353,9 +1356,13 @@ export class TableScene {
     this.pitch += (this.pitchT - this.pitch) * 0.15
     this.aim += (this.aimT - this.aim) * 0.12
     this.updateCamera()
-    if (t - this.lastLookSent.t > 0.1 && (Math.abs(this.yaw - this.lastLookSent.yaw) > 0.01 || Math.abs(this.pitch - this.lastLookSent.pitch) > 0.01)) {
-      this.lastLookSent = { t, yaw: this.yaw, pitch: this.pitch }
-      this.cb.look(this.yaw, this.pitch)
+    // your head, as the others see it, points exactly where your camera points (zoom included);
+    // a heartbeat keeps it fresh when you hold still
+    const g = this.gaze()
+    const moved = Math.abs(g.yaw - this.lastLookSent.yaw) > 0.01 || Math.abs(g.pitch - this.lastLookSent.pitch) > 0.01
+    if ((moved && t - this.lastLookSent.t > 0.1) || t - this.lastLookSent.t > LOOK_HEARTBEAT) {
+      this.lastLookSent = { t, yaw: g.yaw, pitch: g.pitch }
+      this.cb.look(g.yaw, g.pitch)
     }
 
     this.updateHover()
@@ -1409,6 +1416,15 @@ export class TableScene {
     this.yawT = this.clampYaw(Math.atan2(-d.x, -d.z) - this.baseYaw)
     this.pitchT = this.clampPitch(Math.atan2(d.y, Math.hypot(d.x, d.z)))
     return { yawMax: this.yawMax, yawT: this.yawT }
+  }
+
+  /** A remote player's head turn as drawn here (yaw/pitch in their seat's frame). */
+  debugHeadOf(playerId: string) {
+    const av = this.avatars[this.seatOf(playerId)]
+    const d = av.head.getWorldDirection(new THREE.Vector3()).negate()
+    const q = av.root.getWorldQuaternion(new THREE.Quaternion()).invert()
+    d.applyQuaternion(q)
+    return { yaw: Math.atan2(-d.x, -d.z), pitch: Math.asin(THREE.MathUtils.clamp(d.y, -1, 1)) }
   }
 
   /** Distance (m) from the centre of your view to a seat's head. */
