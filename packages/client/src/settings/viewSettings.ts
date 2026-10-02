@@ -14,11 +14,13 @@ export interface ViewSettings {
 
 export const SENS_MIN = 0.25
 export const SENS_MAX = 3
-// 66°: at 16:9 the view spans ~49° to each side, past the neighbours' heads (~47° with 4 players)
+// 63°: at 16:9 the edge of the view falls on the neighbours' faces with 4 players (their centres
+// sit 47.5° to each side): you see where they look, nothing more. With 6 or 8, two players are
+// always out of view.
 export const FOV_MIN = 50
 export const FOV_MAX = 80
 const KEY = 'laBase.view'
-const DEFAULTS: ViewSettings = { cameraReturn: false, reticle: true, invertLook: false, handResetOnTurn: true, guides: true, lookSensitivity: 1, fov: 66, cardBack: 'rueda-roja' }
+const DEFAULTS: ViewSettings = { cameraReturn: false, reticle: true, invertLook: false, handResetOnTurn: true, guides: true, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja' }
 
 function load(): ViewSettings {
   try {
@@ -29,6 +31,7 @@ function load(): ViewSettings {
     }
     out.lookSensitivity = Math.min(SENS_MAX, Math.max(SENS_MIN, Number(out.lookSensitivity) || 1))
     out.fov = Math.min(FOV_MAX, Math.max(FOV_MIN, Number(out.fov) || DEFAULTS.fov))
+    if (out.fov === 66) out.fov = DEFAULTS.fov // the previous default: move it along
     if (!isBackDesign(out.cardBack)) out.cardBack = DEFAULTS.cardBack
     return out
   } catch {

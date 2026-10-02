@@ -104,6 +104,7 @@ function senaAmount(s: Sena, t: number) {
   return Math.min(1, t / 0.15, (SENA_HOLD - t) / 0.3)
 }
 const DEFAULT_PITCH = -0.34
+const HAND_FOV = 50 // the field of view your hand was laid out for
 const CHAIR_R_TAG = TABLE_R + TAG_R_OFFSET // in front of the coat, over the table edge (never inside the body)
 const HAND_MIN = -0.2 // fully lowered: out of the frame
 const HAND_MAX = 0.04
@@ -651,8 +652,8 @@ export class TableScene {
   private fanBase(slot: number, c: number) {
     // held in the LEFT hand, off to the side: your own play zone must stay visible
     const off = slot - (c - 1) / 2
-    // height tuned for a 50° field of view (wider settings only show more around it): the whole
-    // card face stays on screen (at -0.25 its lower half fell below the frame and grabbing it
+    // height tuned for HAND_FOV (at other fields of view the viewmodel is rescaled to match): the
+    // whole card face stays on screen (at -0.25 its lower half fell below the frame and grabbing it
     // failed near the edge)
     return { x: -0.15 + off * 0.026, y: HAND_Y - Math.abs(off) * 0.004, z: -0.36 + slot * 0.002, rz: -0.04 - off * 0.14 }
   }
@@ -1543,7 +1544,16 @@ export class TableScene {
     const rearranging = this.drag?.insert !== undefined
     this.lowered += (((this.drag && !rearranging) || this.busy || this.stand > 0.1 ? 1 : 0) - this.lowered) * 0.12
     this.handOffset += (this.handOffsetT - this.handOffset) * 0.2
-    this.viewmodel.position.set(Math.sin(time * 1.3) * 0.003 - 0.04 * this.lowered, Math.sin(time * 2.1) * 0.002 - 0.12 * this.aim - 0.09 * this.lowered + this.handOffset, 0)
+    // your hand looks the same at any field of view: it was laid out for 50°, and stretching the
+    // camera-space x/y by the ratio of the half-angle tangents projects it exactly as at 50° (a
+    // wide view would otherwise shrink it, push it down and stretch the cards near the edge)
+    const k = Math.tan(THREE.MathUtils.degToRad(getViewSettings().fov / 2)) / Math.tan(THREE.MathUtils.degToRad(HAND_FOV / 2))
+    this.viewmodel.scale.set(k, k, 1)
+    this.viewmodel.position.set(
+      (Math.sin(time * 1.3) * 0.003 - 0.04 * this.lowered) * k,
+      (Math.sin(time * 2.1) * 0.002 - 0.12 * this.aim - 0.09 * this.lowered + this.handOffset) * k,
+      0,
+    )
 
     if (this.duo) {
       const u = (now() - this.duo.t0) / 1.6
