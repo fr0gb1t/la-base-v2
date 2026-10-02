@@ -2869,23 +2869,35 @@ button {
 
 .rb-book {
   position: relative;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
   min-height: 0;
-  perspective: 2400px;
-  transform: rotate(-0.5deg);
-  /* the stack of pages under the open spread */
-  filter: drop-shadow(0 26px 40px rgba(0, 0, 0, 0.75));
 }
 
-.rb-half {
+.rb-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* the pages, laid out offscreen at a fixed size to be photographed into the 3D booklet */
+.rb-sheets {
+  position: fixed;
+  left: -20000px;
+  top: 0;
+  pointer-events: none;
+  font-family: var(--font-print);
+  color: var(--ink);
+}
+
+.rb-sheet {
   position: relative;
-  min-height: 0;
-  box-shadow: 3px 3px 0 #cdbb95, 6px 6px 0 #bfae88, 9px 9px 0 rgba(0, 0, 0, 0.35);
+  width: 528px;
+  height: 631px;
 }
 
-.rb-half-left {
-  box-shadow: -3px 3px 0 #cdbb95, -6px 6px 0 #bfae88, -9px 9px 0 rgba(0, 0, 0, 0.35);
+.rb-sheet .rb-page-face {
+  padding: 24px 30px 22px;
 }
 
 /* paper: warm stock with a dotted texture, foxing and the odd coffee ring */
@@ -2905,7 +2917,6 @@ button {
   /* the gutter: darker toward the spine */
   background-color: #ecdfc2;
   box-shadow: inset 26px 0 26px -22px rgba(40, 25, 10, 0.55);
-  overflow-y: auto;
 }
 
 .rb-left {
@@ -2942,18 +2953,6 @@ button {
   transform: scale(0.8, 1);
 }
 
-.rb-spine {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  margin-left: -1px;
-  background: rgba(40, 25, 10, 0.35);
-  pointer-events: none;
-  z-index: 3;
-}
-
 .rb-folio {
   position: absolute;
   bottom: 8px;
@@ -2967,14 +2966,6 @@ button {
 
 .rb-folio.right {
   right: 18px;
-}
-
-/* the drawings: inked by hand (displaced by a noise that boils) */
-.rb-art,
-.rb-ink,
-.rb-steps li::before,
-.rb-example {
-  filter: url(#rb-ink);
 }
 
 /* ballpoint notes left by a previous player */
@@ -2996,90 +2987,6 @@ button {
   left: -70px;
   top: 6px;
   color: #2a4b9e;
-  filter: url(#rb-ink);
-}
-
-/* a turning leaf: the page you are on rises over the spine, its back is the next page */
-.rb-leaf {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 50%;
-  transform-style: preserve-3d;
-  z-index: 4;
-}
-
-.rb-leaf.fwd {
-  left: 50%;
-  transform-origin: left center;
-  animation: rb-flip-fwd 0.76s cubic-bezier(0.45, 0.05, 0.3, 1) forwards;
-}
-
-.rb-leaf.back {
-  left: 0;
-  transform-origin: right center;
-  animation: rb-flip-back 0.76s cubic-bezier(0.45, 0.05, 0.3, 1) forwards;
-}
-
-.rb-leaf.opening {
-  animation-duration: 0.9s;
-  animation-delay: 0.25s;
-}
-
-@keyframes rb-flip-fwd {
-  0% {
-    transform: rotateY(0deg);
-  }
-  45% {
-    transform: rotateY(-80deg) skewY(-2deg) translateZ(12px);
-  }
-  100% {
-    transform: rotateY(-180deg);
-  }
-}
-
-@keyframes rb-flip-back {
-  0% {
-    transform: rotateY(0deg);
-  }
-  45% {
-    transform: rotateY(80deg) skewY(2deg) translateZ(12px);
-  }
-  100% {
-    transform: rotateY(180deg);
-  }
-}
-
-.rb-leaf-face {
-  position: absolute;
-  inset: 0;
-  backface-visibility: hidden;
-}
-
-.rb-leaf-face.back {
-  transform: rotateY(180deg);
-}
-
-/* light and shade sweep over the leaf as it turns */
-.rb-leaf-face::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0) 60%);
-  opacity: 0;
-  animation: rb-leaf-shade 0.76s ease-in-out forwards;
-}
-
-.rb-leaf.opening .rb-leaf-face::after {
-  animation-duration: 0.9s;
-  animation-delay: 0.25s;
-}
-
-@keyframes rb-leaf-shade {
-  50% {
-    opacity: 1;
-  }
 }
 
 /* the cover: oxblood board, gold frame */
@@ -3114,27 +3021,7 @@ button {
   opacity: 0.8;
 }
 
-.rb-inside-cover {
-  background: #4a1a12;
-}
-
-@media (max-width: 760px) {
-  .rb-book {
-    grid-template-columns: 1fr;
-    overflow-y: auto;
-  }
-
-  .rb-page-face {
-    position: relative;
-  }
-
-  .rb-leaf {
-    display: none;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .rb-leaf,
   .rulebook {
     animation-duration: 0.01s !important;
   }

@@ -1,19 +1,15 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { GiBookCover, GiCrossMark } from 'react-icons/gi';
 import { CHAPTERS, type Chapter, type Note } from './pages';
 import { uiSound } from '../../table3d/audio';
+import { BookScene } from './BookScene';
+import { PageTextures } from './pageTextures';
 
-// The rulebook as a little booklet (after Tunic's manual): it comes up over a blurred, scanlined
-// table, its cover opens, and every page is a leaf that turns over the spine in 3D (the next
-// page is printed on its back). The drawings go through an ink filter whose noise "boils" a
-// few times a second, like hand-drawn lines; a previous player left ballpoint notes in the margins.
-
-const TURN_MS = 760;
-const OPEN_MS = 900;
-const BOIL_MS = 140;
-
-type Turn = { from: number; to: number; dir: 1 | -1 };
+// The rulebook as a little booklet (after Tunic's manual) lying under the lamp, over a blurred,
+// scanlined table. The booklet itself is 3D (BookScene): its cover opens and its pages are turned
+// by hand. The pages are still written as DOM: they are laid out offscreen and photographed into
+// the 3D pages; a hidden copy of the open spread keeps the text readable by screen readers.
 
 function Notes({ notes, side }: { notes?: Note[]; side: 'left' | 'right' }) {
   return (
@@ -83,38 +79,32 @@ function Cover() {
 
 export function Rulebook({ onClose, start = 0 }: { onClose: () => void; start?: number }) {
   const [page, setPage] = useState(start);
-  const [turn, setTurn] = useState<Turn | null>(null);
-  const [opening, setOpening] = useState(true);
-  const turnRef = useRef<Turn | null>(null);
-  const noise = useRef<SVGFETurbulenceElement>(null);
-  turnRef.current = turn;
+  const host = useRef<HTMLDivElement>(null);
+  const sheets = useRef<HTMLDivElement>(null);
+  const book = useRef<BookScene | null>(null);
 
-  const go = (to: number) => {
-    const target = Math.min(CHAPTERS.length - 1, Math.max(0, to));
-    if (turnRef.current || opening || target === page) return;
-    const t: Turn = { from: page, to: target, dir: target > page ? 1 : -1 };
-    uiSound('page');
-    setTurn(t);
-    window.setTimeout(() => {
-      setPage(target);
-      setTurn(null);
-    }, TURN_MS);
-  };
-
-  // the cover opens once, when the booklet comes up
   useEffect(() => {
     uiSound('book');
-    const t = window.setTimeout(() => setOpening(false), OPEN_MS + 250);
-    return () => window.clearTimeout(t);
-  }, []);
+    const scene: { current: BookScene | null } = { current: null };
+    const pages = new PageTextures(sheets.current!, () => scene.current?.refresh(), 8);
+    scene.current = new BookScene(host.current!, {
+      count: CHAPTERS.length,
+      start,
+      pages,
+      onPage: setPage,
+      onTurnStart: () => uiSound('page'),
+      reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+    });
+    book.current = scene.current;
+    if (new URLSearchParams(location.search).has("debug")) Object.assign(window, { __book: scene.current, __bookPages: pages });
+    return () => {
+      scene.current?.dispose();
+      pages.dispose();
+      book.current = null;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // boiling ink: the displacement noise changes seed a few times a second (not with reduced motion)
-  useEffect(() => {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    let k = 0;
-    const id = window.setInterval(() => noise.current?.setAttribute('seed', String((k = (k + 1) % 3) + 1)), BOIL_MS);
-    return () => window.clearInterval(id);
-  }, []);
+  const go = (to: number) => book.current?.go(to);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -127,73 +117,38 @@ export function Rulebook({ onClose, start = 0 }: { onClose: () => void; start?: 
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const ch = (i: number) => CHAPTERS[i];
-  let left: ReactNode;
-  let right: ReactNode;
-  let leaf: ReactNode = null;
-  if (opening) {
-    left = <div className="rb-page-face rb-inside-cover" />;
-    right = <RightPage ch={ch(page)} n={page} />;
-    leaf = (
-      <div className="rb-leaf fwd opening">
-        <div className="rb-leaf-face front"><Cover /></div>
-        <div className="rb-leaf-face back"><LeftPage ch={ch(page)} n={page} /></div>
-      </div>
-    );
-  } else if (turn && turn.dir > 0) {
-    left = <LeftPage ch={ch(turn.from)} n={turn.from} />;
-    right = <RightPage ch={ch(turn.to)} n={turn.to} />;
-    leaf = (
-      <div className="rb-leaf fwd">
-        <div className="rb-leaf-face front"><RightPage ch={ch(turn.from)} n={turn.from} /></div>
-        <div className="rb-leaf-face back"><LeftPage ch={ch(turn.to)} n={turn.to} /></div>
-      </div>
-    );
-  } else if (turn) {
-    left = <LeftPage ch={ch(turn.to)} n={turn.to} />;
-    right = <RightPage ch={ch(turn.from)} n={turn.from} />;
-    leaf = (
-      <div className="rb-leaf back">
-        <div className="rb-leaf-face front"><LeftPage ch={ch(turn.from)} n={turn.from} /></div>
-        <div className="rb-leaf-face back"><RightPage ch={ch(turn.to)} n={turn.to} /></div>
-      </div>
-    );
-  } else {
-    left = <LeftPage ch={ch(page)} n={page} />;
-    right = <RightPage ch={ch(page)} n={page} />;
-  }
-  const shown = turn ? turn.to : page;
-
   // portaled to <body>: menus create their own stacking contexts, the booklet must cover them all
   return createPortal(
     <div className="rb-veil" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <svg width={0} height={0} style={{ position: 'absolute' }} aria-hidden>
-        <filter id="rb-ink" x="-5%" y="-5%" width="110%" height="110%">
-          <feTurbulence ref={noise} type="fractalNoise" baseFrequency="0.035" numOctaves={2} seed={1} result="noise" />
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale={3.2} xChannelSelector="R" yChannelSelector="G" />
-        </filter>
-      </svg>
       <section className="rulebook" role="dialog" aria-modal="true" aria-label="Manual de La Base">
         <nav className="rb-tabs" aria-label="Capítulos">
           {CHAPTERS.map((c, i) => (
-            <button key={c.id} type="button" className={`rb-tab${i === shown ? ' on' : ''}`} onClick={() => go(i)} aria-current={i === shown}>
+            <button key={c.id} type="button" className={`rb-tab${i === page ? ' on' : ''}`} onClick={() => go(i)} aria-current={i === page}>
               {c.tab}
             </button>
           ))}
         </nav>
-        <div className="rb-book">
-          <div className="rb-half rb-half-left">{left}</div>
-          <div className="rb-half rb-half-right">{right}</div>
-          {leaf}
-          <div className="rb-spine" aria-hidden />
+        <div className="rb-book" ref={host} />
+        <div className="sr-only" aria-live="polite">
+          <RightPage ch={CHAPTERS[page]} n={page} />
         </div>
         <footer className="rb-nav">
           <button type="button" className="rb-turn" onClick={() => go(page - 1)} disabled={page === 0}>← {page > 0 ? CHAPTERS[page - 1].tab : ''}</button>
-          <span className="rb-hint">← → para pasar de página · Esc para cerrar</span>
+          <span className="rb-hint">agarrá una hoja y arrastrala, o hacé clic · ← → · Esc para cerrar</span>
           <button type="button" className="rb-turn" onClick={() => go(page + 1)} disabled={page === CHAPTERS.length - 1}>{page < CHAPTERS.length - 1 ? CHAPTERS[page + 1].tab : ''} →</button>
         </footer>
         <button type="button" className="rb-close" onClick={onClose} aria-label="Cerrar el manual"><GiCrossMark aria-hidden /></button>
       </section>
+      {/* the pages, laid out offscreen to be photographed into the 3D booklet */}
+      <div className="rb-sheets" ref={sheets} aria-hidden>
+        <div className="rb-sheet" data-key="cover"><Cover /></div>
+        {CHAPTERS.map((c, i) => (
+          <Fragment key={c.id}>
+            <div className="rb-sheet" data-key={`L${i}`}><LeftPage ch={c} n={i} /></div>
+            <div className="rb-sheet" data-key={`R${i}`}><RightPage ch={c} n={i} /></div>
+          </Fragment>
+        ))}
+      </div>
     </div>,
     document.body,
   );
