@@ -81,6 +81,7 @@ export function chooseCard(
   // bases our partners should still win with the cards they hold after this base (from their
   // señas, or an average hand): `cardsLeft` is what each partner keeps once this base is over
   partnersExpect: (cardsLeft: (partnerId: string) => number) => number = () => 0,
+  tableSize = 4,
 ): number {
   const byRank = hand.map((c, i) => ({ c, i })).sort((a, b) => cardRank(a.c) - cardRank(b.c));
   const lowest = byRank[0].i;
@@ -115,15 +116,22 @@ export function chooseCard(
     // leading: open strong if the team still counts on my cards, otherwise with the weakest
     return mine > 0 ? highest : lowest;
   }
+  const lastToPlay = played.length === tableSize - 1; // nothing can change after my card
+  if (teammateWinning && (need > 0 || lastToPlay)) {
+    // the base is ours whatever I play (or it's ours and we want it): the free moment to get rid
+    // of my highest spare card, even over my partner's — it stays ours, and that card would
+    // otherwise win a base we don't want later
+    return spare.length ? spare[spare.length - 1].i : lowest;
+  }
   if (need > 0) {
-    // our side takes it anyway: don't overtake the partner, use the turn to shed a spare card
-    if (teammateWinning || partnerWillWin) return shed();
+    // the partner will take it (signed ancho, still to play): shed under it
+    if (partnerWillWin) return shed();
     const winner = byRank.find(({ c }) => winsWith(c));
     if (winner) return winner.i; // the cheapest card that takes it
     return shed(); // can't win this one: get rid of a high card we won't need
   }
-  // bid met: shed the highest card that still loses; if every card wins, win with the highest
-  // (we take this base anyway, and that card would only win more later)
+  // bid met and rivals still to play: shed the highest card that doesn't take it (leave it for a
+  // rival); if every card wins, win with the highest (that card would only win more later)
   const losers = byRank.filter(({ c }) => !winsWith(c));
   return losers.length ? losers[losers.length - 1].i : highest;
 }
@@ -320,7 +328,7 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
       } else if (st.phase === 'playing' && st.currentTurnPlayerId === me && hand.length) {
         await sleep(900);
         const myTeam = (roster.find((p) => p.id === me)?.team ?? 'nosotros') as AssignedTeam;
-        const k = chooseCard(hand, st, me, myTeam, (id) => roster.find((p) => p.id === id)?.team, partnerHolds, partnersExpect);
+        const k = chooseCard(hand, st, me, myTeam, (id) => roster.find((p) => p.id === id)?.team, partnerHolds, partnersExpect, roster.length);
         const card = hand[k];
         const feint = Math.random() < 0.35;
         for (let i = 0; i <= 14; i++) {

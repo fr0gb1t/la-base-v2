@@ -120,3 +120,31 @@ test("a partner's 'sí' promises at least one base; a 'no' tells nothing", () =>
   assert.ok(chooseBid(hand, st3, 2, 4, [['si']]) >= 1, 'with a sí the team asks at least one');
   assert.equal(chooseBid(hand, st3, 2, 4, [['no']]), chooseBid(hand, st3, 2, 4), "a 'no' is like no answer");
 });
+
+test('the partner is taking the base we need and I play last: my rey goes now, over the partner (real game, round 3)', () => {
+  // the team asked 1, won 0. Caro (rival) 3 de bastos, the partner sota de oros, Ana (rival) 7 de
+  // oros; I'm last. The base is ours whatever I play: keeping the rey made us win one too many later
+  const hand: Card[] = [{ suit: 'espadas', value: 4 }, { suit: 'bastos', value: 12 }, { suit: 'copas', value: 5 }];
+  const st = state({
+    phase: 'playing',
+    bids: [{ team: 'nosotros', value: 1 }] as GameState['bids'],
+    basesWon: { nosotros: 0, ellos: 2 },
+    currentBaseCards: [
+      { playerId: 'rival', card: { suit: 'bastos', value: 3 }, order: 0 },
+      { playerId: 'mate', card: { suit: 'oros', value: 10 }, order: 1 },
+      { playerId: 'rival2', card: { suit: 'oros', value: 7 }, order: 2 },
+    ],
+  });
+  assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf2, () => null, averagePartner, 4), 1);
+});
+
+test('bid met, the partner is taking it and rivals still play: shed under it, leave it to a rival', () => {
+  const hand: Card[] = [{ suit: 'espadas', value: 4 }, { suit: 'bastos', value: 12 }];
+  const st = state({
+    phase: 'playing',
+    bids: [{ team: 'nosotros', value: 1 }] as GameState['bids'],
+    basesWon: { nosotros: 1, ellos: 0 },
+    currentBaseCards: [{ playerId: 'mate', card: { suit: 'oros', value: 10 }, order: 0 }],
+  });
+  assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf2, () => null, averagePartner, 4), 0);
+});
