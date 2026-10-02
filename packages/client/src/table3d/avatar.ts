@@ -98,6 +98,7 @@ function mask() {
   teeth.position.set(0, -0.053, -0.136)
   const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.035, 0.05), mat(PALETTE.bone, 0.55))
   jaw.position.set(0, -0.085, -0.1)
+  jaw.visible = false // it poked out under the mouth at rest like a little tooth: only the 'porno' seña drops it
   head.add(hood, face, mouth, lips, teeth, jaw)
   head.traverse((o) => (o.castShadow = true))
 
@@ -115,6 +116,7 @@ function mask() {
     mouth.scale.set(MOUTH.x, MOUTH.y, 1)
     lips.visible = teeth.visible = false
     jaw.position.y = -0.085
+    jaw.visible = false
     if (s === 'ancho-espada') eyes.forEach((e) => (e.brow.position.y = 0.07 + 0.034 * k))
     if (s === 'ancho-basto') {
       eyes[1].lid.scale.y = Math.max(0.01, k)
@@ -147,6 +149,7 @@ function mask() {
       mouth.scale.set(THREE.MathUtils.lerp(MOUTH.x, 0.028, k), THREE.MathUtils.lerp(MOUTH.y, 0.016, k), 1)
       mouth.position.y = -0.05 - 0.006 * k
       jaw.position.y = -0.085 - 0.014 * k
+      jaw.visible = k > 0.15
     }
     if (s === 'nada') eyes.forEach((e) => (e.lid.scale.y = Math.max(0.01, k)))
   }
@@ -177,7 +180,7 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false): A
   const root = new THREE.Group()
   root.position.copy(polar(CHAIR_R, a, 0))
   root.rotation.y = Math.PI / 2 - a // local -Z faces the table centre
-  const cuff = teamOf(seat) ? PALETTE.teal : PALETTE.rose
+  const cuff = teamOf(seat) ? PALETTE.rose : PALETTE.teal // teal = your team (seat 0 and your partners), as on the name tags
 
   const torso = new THREE.Group()
   root.add(torso)

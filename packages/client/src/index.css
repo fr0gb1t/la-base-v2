@@ -1631,20 +1631,32 @@ button {
 
 .poroto {
   display: inline-block;
-  width: 11px;
-  height: 8px;
-  border-radius: 55% 45% 50% 50% / 60% 60% 40% 40%;
-  border: 1.5px solid var(--ink);
-  transform: rotate(-12deg);
+  width: 15px;
+  height: 15px;
 }
 
-.poroto.on {
-  background: var(--ink);
+.poroto svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-.poroto.over {
-  background: #8e2a22;
-  border-color: #8e2a22;
+/* asked: an empty star; won: filled; beyond the bid: filled red */
+.poroto path {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+.poroto.on path {
+  fill: var(--ink);
+}
+
+.poroto.over path {
+  fill: #8e2a22;
+  stroke: #8e2a22;
 }
 
 .pad-foot {
@@ -2127,8 +2139,8 @@ button {
 }
 
 .poroto {
-  width: 13px;
-  height: 9px;
+  width: 17px;
+  height: 17px;
 }
 
 .hud-tab {
@@ -3091,4 +3103,81 @@ button {
   .ledger.settings {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---- settings: the chosen card back, big, in a pool of lamplight to the left of the ledger ---- */
+.back-stage {
+  position: relative;
+  flex: 0 0 300px;
+  height: min(440px, 80vh);
+  margin-right: 18px;
+}
+
+/* the lamp's cone, and the pool of light it leaves below */
+.back-stage::before {
+  content: '';
+  position: absolute;
+  inset: -40px 0 -10px;
+  background: linear-gradient(to bottom, rgba(255, 197, 138, 0.16), rgba(255, 197, 138, 0.03) 80%);
+  clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%);
+  pointer-events: none;
+}
+
+.back-stage canvas {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* the ledger gives way to the stage */
+@media (min-width: 1181px) {
+  .settings-veil .ledger.settings { max-width: calc(100vw - 380px); }
+}
+
+@media (max-width: 1180px) {
+  .back-stage { display: none; }
+}
+
+/* ---- settings: your señas ring order ---- */
+.sena-order {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.sena-order li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border-bottom: 1px dotted rgba(20, 14, 12, 0.25);
+  font-size: 0.78em;
+}
+
+.sena-order li span {
+  flex: 1;
+  min-width: 0;
+}
+
+.sena-order button,
+.setting-reset {
+  background: transparent;
+  border: 1px solid rgba(20, 14, 12, 0.35);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.7em;
+  line-height: 1.2;
+  padding: 0 6px;
+}
+
+.sena-order button:disabled,
+.setting-reset:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.setting-reset {
+  margin-top: 8px;
 }

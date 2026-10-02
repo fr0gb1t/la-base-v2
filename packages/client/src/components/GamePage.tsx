@@ -47,17 +47,27 @@ function dealerOf(gs: GameState | null, players: { id: string }[]) {
   return players[(i - 1 + players.length) % players.length].id;
 }
 
-/** Declared bases as beans (porotos) drawn in ink: filled = won, hollow = still owed, crossed red = won beyond the bid. */
+const STAR = 'M12 2.2l2.9 6.5 7.1.7-5.3 4.7 1.5 7-6.2-3.6-6.2 3.6 1.5-7L2 9.4l7.1-.7z';
+/** One star of the anotador: hollow = asked, filled = won, filled red = won beyond the bid. */
+function Star({ kind }: { kind: 'owed' | 'on' | 'over' }) {
+  return (
+    <i className={kind === 'owed' ? 'poroto' : `poroto ${kind}`}>
+      <svg viewBox="0 0 24 24" aria-hidden><path d={STAR} /></svg>
+    </i>
+  );
+}
+
+/** Asked bases as stars drawn in ink: hollow = still owed, filled = won, filled red = won beyond the bid. */
 function BidPips({ bid, won }: { bid?: Bid; won: number }) {
   if (!bid) return <span className="porotos empty">—</span>;
   const extra = Math.max(0, won - bid.value);
   return (
     <span className="porotos" aria-label={`pidió ${bid.value}, lleva ${won}`}>
       {Array.from({ length: bid.value }, (_, i) => (
-        <i key={i} className={i < won ? 'poroto on' : 'poroto'} />
+        <Star key={i} kind={i < won ? 'on' : 'owed'} />
       ))}
       {Array.from({ length: extra }, (_, i) => (
-        <i key={`x${i}`} className="poroto over" />
+        <Star key={`x${i}`} kind="over" />
       ))}
       {bid.value === 0 && extra === 0 && <span className="cero">cero</span>}
     </span>

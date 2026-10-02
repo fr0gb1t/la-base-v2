@@ -1,4 +1,5 @@
 // View settings: persisted per browser, observable.
+import { SENAS } from '@la-base/shared'
 import { isBackDesign, type BackDesign } from '../table3d/backDesigns'
 
 export interface ViewSettings {
@@ -10,6 +11,8 @@ export interface ViewSettings {
   lookSensitivity: number // multiplier on how far the view turns per pixel dragged (0.25–3)
   fov: number // vertical field of view in degrees (FOV_MIN–FOV_MAX)
   cardBack: BackDesign // the design on the back of every card
+  handHeight: number // where the wheel left your fan (metres, camera space); 0 = resting
+  senaOrder: string // your señas ring, comma-separated ids in your order ('' = the default order)
 }
 
 export const SENS_MIN = 0.25
@@ -20,7 +23,7 @@ export const SENS_MAX = 3
 export const FOV_MIN = 50
 export const FOV_MAX = 80
 const KEY = 'laBase.view'
-const DEFAULTS: ViewSettings = { cameraReturn: false, reticle: true, invertLook: false, handResetOnTurn: true, guides: true, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja' }
+const DEFAULTS: ViewSettings = { cameraReturn: false, reticle: true, invertLook: false, handResetOnTurn: true, guides: true, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja', handHeight: 0, senaOrder: '' }
 
 function load(): ViewSettings {
   try {
@@ -32,11 +35,19 @@ function load(): ViewSettings {
     out.lookSensitivity = Math.min(SENS_MAX, Math.max(SENS_MIN, Number(out.lookSensitivity) || 1))
     out.fov = Math.min(FOV_MAX, Math.max(FOV_MIN, Number(out.fov) || DEFAULTS.fov))
     if (out.fov === 66) out.fov = DEFAULTS.fov // the previous default: move it along
+    out.handHeight = Math.min(0.04, Math.max(-0.2, Number(out.handHeight) || 0))
     if (!isBackDesign(out.cardBack)) out.cardBack = DEFAULTS.cardBack
     return out
   } catch {
     return { ...DEFAULTS }
   }
+}
+
+/** The señas in the player's own ring order (ids they never placed go last, in the default order). */
+export function orderedSenas(order: string): typeof SENAS {
+  const ids = order.split(',')
+  const rank = (id: string) => (ids.includes(id) ? ids.indexOf(id) : ids.length + SENAS.findIndex((x) => x.id === id))
+  return [...SENAS].sort((a, b) => rank(a.id) - rank(b.id))
 }
 
 let current = load()

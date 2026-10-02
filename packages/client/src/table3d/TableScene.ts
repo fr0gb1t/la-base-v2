@@ -11,7 +11,7 @@ import { makePost } from './post'
 import { schedule, tickJobs, wait } from './jobs'
 import { attachAudio, sfx, lampBuzz, toggleMute, uiSound } from './audio'
 import { PALETTE, hex, DUOTONES } from './look'
-import { getViewSettings, onViewSettings } from '../settings/viewSettings'
+import { getViewSettings, onViewSettings, setViewSettings } from '../settings/viewSettings'
 import { NameTag, TAG_Y, TAG_R_OFFSET } from './nameTags'
 import { TableTokens } from './tableTokens'
 import { TableChoices, type CopasChoice, type Direction } from './tableChoices'
@@ -168,8 +168,8 @@ export class TableScene {
   private lookDrag: { moved: number } | null = null
   private deckHint = false
   // your hand's height, set with the mouse wheel: 0 = resting, negative = lowered out of the view
-  private handOffset = 0
-  private handOffsetT = 0
+  private handOffset = getViewSettings().handHeight // where you left it last time
+  private handOffsetT = this.handOffset
   private hovered = -1
   private lastHoverSent = -2
 
@@ -1236,6 +1236,7 @@ export class TableScene {
         // wheel down lowers the hand, wheel up raises it (continuous, clamped)
         const step = Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 120) * HAND_WHEEL
         this.handOffsetT = THREE.MathUtils.clamp(this.handOffsetT - step, HAND_MIN, HAND_MAX)
+        setViewSettings({ handHeight: this.handOffsetT }) // remembered for next time
       },
       { passive: false },
     )

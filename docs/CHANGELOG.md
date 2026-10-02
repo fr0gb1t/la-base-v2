@@ -2,6 +2,18 @@
 
 ## Desde `a603e36`
 
+- **Ajustes:** al costado del panel hay una carta grande con el dorso elegido, colgada bajo una
+  lámpara que se mueve para que la luz la recorra desde distintos ángulos. El anillo de señas se
+  puede reordenar (flechas en Ajustes) y los números del teclado siguen tu orden. La altura de la
+  mano (ruedita) y el orden del anillo se guardan en el navegador junto con el resto de las
+  preferencias (cuando haya usuarios pasarán a la cuenta).
+- **Mesa y menús:** las cartas jugadas ya no se queman con la lámpara (del ~45 % de píxeles
+  quemados a ~1 %); los ases con poder del menú están inclinados hacia la luz; el menú de
+  configuración quedó centrado y más liviano (el reloj es un solo botón que cicla las opciones);
+  las mangas de los jugadores tienen el color de su equipo visto desde tu lugar (tu equipo, verde
+  azulado); se fue el "dientito" de las máscaras (la mandíbula solo aparece en la seña de la carta
+  porno). En el papelito las bases pedidas son estrellas vacías, las logradas llenas y las de más,
+  llenas y rojas.
 - **Pulgares hacia adentro y porotos más juntos:** en los guantes de los jugadores el pulgar de la
   mano derecha estaba hacia afuera; ahora los dos apuntan hacia adentro (hacia el cuerpo). Los
   porotos de cada base caen en un círculo más chico (media carta de ancho), así que no se dispersan.

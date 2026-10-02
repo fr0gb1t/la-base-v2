@@ -43,6 +43,7 @@ export const MENU_OPTIONS: Array<{ id: 'crear' | 'unirse' | 'reglas'; title: str
   { id: 'reglas', title: 'Reglamento', suit: 'espadas', rank: 12 },
 ]
 
+const ACE_TILT = 0.42 // radians the powered aces lean back toward the lamp
 const ACE_SUITS: Array<keyof AcePowers> = ['espadas', 'copas', 'oros']
 const ACE_HINTS: Record<keyof AcePowers, string> = {
   espadas: 'As de Espadas: mata al ancho de bastos si sale después · click para activar/apagar',
@@ -431,7 +432,10 @@ export class MenuScene {
       const rest = new THREE.Vector3(x, TABLE_Y + 0.03 + halfH, 0.14)
       const facing = Math.atan2(this.camera.position.x - x, this.camera.position.z - rest.z)
       a.view.root.position.copy(rest).add(new THREE.Vector3(0, bob + over, 0))
-      a.view.root.rotation.set(0, facing + (1 - a.flip) * Math.PI, 0, 'YXZ')
+      // leaning back so the lamp falls squarely on whichever side faces you (the back leans the
+      // other way once turned: the sign follows the flip)
+      const lean = -ACE_TILT * Math.cos((1 - a.flip) * Math.PI)
+      a.view.root.rotation.set(lean, facing + (1 - a.flip) * Math.PI, 0, 'YXZ')
       this.aceFeet[i].position.copy(a.view.root.position)
       this.aceFeet[i].rotation.y = facing
       this.aceHits[i].position.copy(rest) // hover tested at the rest pose: no flicker from the bob

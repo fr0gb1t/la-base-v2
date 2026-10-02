@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare, GiMouse, GiEyeTarget } from 'react-icons/gi';
-import { getViewSettings, onViewSettings, setViewSettings, SENS_MIN, SENS_MAX, FOV_MIN, FOV_MAX, type ViewSettings } from './viewSettings';
+import { getViewSettings, onViewSettings, setViewSettings, orderedSenas, SENS_MIN, SENS_MAX, FOV_MIN, FOV_MAX, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
 import { previewSound, audioReady, uiSound } from '../table3d/audio';
+import { SenaFace } from '../components/senas/SenaFace';
+import { BackStage } from './BackStage';
 import { BACK_DESIGNS, backPicture, drawBackDesign, type BackDesign } from '../table3d/cardBacks';
 import type { DrawnBack } from '../table3d/backDesigns';
 
@@ -90,9 +92,16 @@ export function SettingsHost() {
 
   if (!open) return null;
   const pct = Math.round(s.volume * 100);
+  const senaList = orderedSenas(view.senaOrder);
+  const moveSena = (i: number, by: -1 | 1) => {
+    const ids = senaList.map((x) => x.id);
+    [ids[i], ids[i + by]] = [ids[i + by], ids[i]];
+    setViewSettings({ senaOrder: ids.join(',') });
+  };
 
   return (
     <div className="settings-veil" onPointerDown={(e) => e.target === e.currentTarget && setOpen(false)}>
+      <BackStage />
       <section className="ledger settings" role="dialog" aria-modal="true" aria-label="Ajustes">
         <h2><GiCog aria-hidden /> Ajustes</h2>
 
@@ -194,6 +203,22 @@ export function SettingsHost() {
             hint={view.guides ? 'recuadros de tiza para las cartas y círculos para los porotos' : 'mesa limpia: sin recuadros ni círculos (los porotos quedan)'}
             onToggle={() => setViewSettings({ guides: !view.guides })}
           />
+        </fieldset>
+
+        <fieldset className="ledger-group">
+          <legend>Anillo de señas</legend>
+          <p className="ledger-note">Ordenalo a gusto (se guarda en este navegador).</p>
+          <ol className="sena-order">
+            {senaList.map((x, i) => (
+              <li key={x.id}>
+                <SenaFace sena={x.id} size={22} />
+                <span>{x.label}</span>
+                <button type="button" aria-label={`Subir ${x.label}`} disabled={i === 0} onClick={() => moveSena(i, -1)}>▲</button>
+                <button type="button" aria-label={`Bajar ${x.label}`} disabled={i === senaList.length - 1} onClick={() => moveSena(i, 1)}>▼</button>
+              </li>
+            ))}
+          </ol>
+          <button type="button" className="setting-reset" disabled={!view.senaOrder} onClick={() => setViewSettings({ senaOrder: '' })}>restablecer el orden</button>
         </fieldset>
         </div>
 

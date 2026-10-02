@@ -1,0 +1,15 @@
+// The settings panel with the big card back beside it. Usage: node e2e/settings.back.mjs <out-prefix> (vite on 5174)
+import puppeteer from 'puppeteer-core'
+const out = process.argv[2] ?? '/tmp/settingsback'
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const b = await puppeteer.launch({ executablePath: '/usr/bin/chromium', headless: 'new', args: ['--use-angle=vulkan', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'], defaultViewport: { width: 1366, height: 768 } })
+const p = await b.newPage()
+p.on('pageerror', (e) => console.log('PAGEERR', e.message))
+await p.goto('http://localhost:5174/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(1500)
+await p.evaluate(() => { localStorage.clear(); localStorage.setItem('guestName', 'Vos') })
+await p.reload({ waitUntil: 'domcontentloaded' }); await sleep(2500)
+await p.keyboard.press('o'); await sleep(1500)
+await p.screenshot({ path: `${out}-1.png` })
+await p.evaluate(() => document.querySelectorAll('.setting-back')[8]?.click()); await sleep(1800)
+await p.screenshot({ path: `${out}-2.png` })
+await b.close()
