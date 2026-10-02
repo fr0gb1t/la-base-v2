@@ -5,6 +5,7 @@
 import type { Server as SocketIOServer, Socket } from 'socket.io';
 import { roomManager } from './rooms.js';
 import { BOT_TOKEN, botNameFor, spawnBot } from './bots.js';
+import { SenaDelivery } from './senaDelivery.js';
 import type { RoomPlayer } from './rooms.js';
 import { cardRank, isSena, type GameState, type Card } from '@la-base/shared';
 import {
@@ -25,6 +26,8 @@ import {
 } from './game-logic.js';
 
 export function setupSocketHandlers(io: SocketIOServer) {
+  // señas go only to the players who can see them (see senaDelivery.ts)
+  const senaDelivery = new SenaDelivery((socketId, payload) => io.to(socketId).emit('sena:made', payload));
   io.on('connection', (socket: Socket) => {
     socket.onAny((_event: string, payload: unknown) => {
       const code = (payload as { roomCode?: unknown } | null)?.roomCode;
@@ -1175,7 +1178,12 @@ export function setupSocketHandlers(io: SocketIOServer) {
     socket.on('presence:look', (payload: any) => {
       const yaw = finite(payload?.yaw, -Math.PI, Math.PI);
       const pitch = finite(payload?.pitch, -1.6, 1.6);
-      relayPresence('look', payload, yaw === null || pitch === null ? null : { yaw, pitch });
+      if (yaw === null || pitch === null) return;
+      relayPresence('look', payload, { yaw, pitch });
+      // where they look decides which señas reach them
+      const room = typeof payload?.roomCode === 'string' ? roomManager.getRoom(payload.roomCode) : undefined;
+      const player = room?.players.find((p) => p.socketId === socket.id);
+      if (room?.gameState && player) senaDelivery.look(room, player.id, { yaw, pitch });
     });
     socket.on('presence:arm', (payload: any) => {
       const slot = finite(payload?.slot, -1, 5);
@@ -1190,8 +1198,8 @@ export function setupSocketHandlers(io: SocketIOServer) {
     });
 
     /**
-     * Señas: a facial signal relayed to everyone else at the table. Who actually SEES it is the
-     * client's call (teammates always; rivals only when looking straight at the signer's face).
+     * Señas: a facial signal. The server decides who receives it (partners always; a rival only
+     * while looking at the signer's face), so a seña never reaches a machine that can't see it.
      * Nothing checks that it matches the hand: bluffing is part of the game.
      */
     let lastSena = 0;
@@ -1207,8 +1215,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
       // made facing where the signer looks (head turn from their seat), when they say so
       const yaw = finite(payload?.yaw, -Math.PI, Math.PI);
       const pitch = finite(payload?.pitch, -1.6, 1.6);
-      const gaze = yaw !== null && pitch !== null ? { yaw, pitch } : {};
-      socket.to(room.roomCode).emit('sena:made', { playerId: player.id, sena: payload.sena, ...gaze });
+      senaDelivery.make(room, player.id, payload.sena, yaw !== null && pitch !== null ? { yaw, pitch } : undefined);
       callback?.({ success: true });
     });
 

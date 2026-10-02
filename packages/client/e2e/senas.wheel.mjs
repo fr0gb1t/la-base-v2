@@ -1,6 +1,7 @@
 // Middle-click seña wheel: hold, aim, release → the others receive it. Usage: node e2e/senas.wheel.mjs <out-prefix>
 import puppeteer from 'puppeteer-core'
 import { io } from 'socket.io-client'
+import { gazeToward } from '@la-base/shared'
 const out = process.argv[2] ?? '/tmp/wheel'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const host = io('http://localhost:3000', { transports: ['websocket'] })
@@ -28,6 +29,12 @@ for (let i = 0; i < 80; i++) {
   if (await p.evaluate(() => !!document.querySelector('.tally, .bid-dock') || /declar|turno|pide/.test(document.querySelector('.phase-line')?.textContent ?? ''))) break
 }
 await sleep(1000)
+// the host keeps looking at my face, so my señas reach them even if they are a rival
+const roster = await p.evaluate(() => window.__table.players.map((x) => x.id))
+const meId = await p.evaluate(() => window.__table.myId)
+const hostLook = gazeToward(roster.indexOf(host.id), roster.indexOf(meId), roster.length)
+const looking = setInterval(() => host.emit('presence:look', { roomCode: room, ...hostLook }), 200)
+await sleep(600)
 const results = {}
 // 1) hold the middle button, aim at the bottom item (index 4 = tres), release
 await p.mouse.move(640, 360)
@@ -50,5 +57,6 @@ results.status = await p.evaluate(() => document.querySelector('.phase-line')?.t
 results.received = got
 console.log(JSON.stringify(results, null, 1))
 const ok = results.closedAfterRelease && results.openedWithG && got[0] === 'tres' && got[1] === 'dos'
+clearInterval(looking)
 console.log(ok ? 'PASS' : 'FAIL')
 await b.close(); host.disconnect(); process.exit(ok ? 0 : 1)

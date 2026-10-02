@@ -15,3 +15,6 @@ export * from './engine.js';
 
 // Export señas
 export * from './senas.js';
+
+// Export table geometry (who can see whose face)
+export * from './tableGeometry.js';

@@ -163,7 +163,6 @@ export function GamePage() {
       status: (text) => setStatus(text),
       deckClick: () => drawRef.current(),
       faceAim: (id) => setAimFace(Boolean(id)),
-      senaSeen: (id, sena) => logRef.current(`Viste a ${nameNow(id)}: ${gestureOf(sena)}`, 'sena'),
     });
     sceneRef.current = scene;
     if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __table: scene, __store: useGameStore });
@@ -292,13 +291,16 @@ export function GamePage() {
     socket.on('game:baseResolved', onBaseResolved);
     socket.on('game:gateReleased', onGateReleased);
     socket.on('game:bidDeclared', onBid);
-    const onSena = (d: { playerId: string; sena: Sena; yaw?: number; pitch?: number }) => {
+    // the server only sends a seña you can see: your partners', or a rival's you caught
+    const onSena = (d: { playerId: string; sena: Sena; yaw?: number; pitch?: number; elapsed?: number }) => {
       const gaze = typeof d.yaw === 'number' && typeof d.pitch === 'number' ? { yaw: d.yaw, pitch: d.pitch } : undefined;
-      sceneRef.current?.sena(d.playerId, d.sena, gaze);
+      sceneRef.current?.sena(d.playerId, d.sena, gaze, d.elapsed ?? 0);
       const { roomPlayers: players, myId: me } = latest.current;
       const team = (id: string) => players.find((p) => p.id === id)?.team;
-      // a partner's seña is meant for you; a rival's only goes in the log if you caught it (senaSeen)
-      if (team(d.playerId) === team(me)) logRef.current(`${nameNow(d.playerId)} te hace la seña: ${gestureOf(d.sena)}`, 'sena');
+      logRef.current(
+        team(d.playerId) === team(me) ? `${nameNow(d.playerId)} te hace la seña: ${gestureOf(d.sena)}` : `Viste a ${nameNow(d.playerId)}: ${gestureOf(d.sena)}`,
+        'sena',
+      );
     };
     socket.on('sena:made', onSena);
     // knocking on the table is a hand gesture: everybody sees and hears it

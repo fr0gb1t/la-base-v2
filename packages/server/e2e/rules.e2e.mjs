@@ -137,16 +137,23 @@ const C = (value, suit) => ({ value, suit })
   t.close()
 }
 
-// ---------------------------------------------------------------- E. señas are relayed, validated and rate-limited
+// ---------------------------------------------------------------- E. señas: validated, rate-limited, and only sent to who can see them
 {
   const t = await table()
-  const got = []
-  t.ps[1].s.on('sena:made', (d) => got.push(d))
-  const ok = await t.ps[0].emit('sena:make', { roomCode: t.room, sena: 'tres' })
-  const bad = await t.ps[0].emit('sena:make', { roomCode: t.room, sena: 'falso' })
-  const fast = await t.ps[0].emit('sena:make', { roomCode: t.room, sena: 'dos' })
-  await sleep(200)
-  check('a seña reaches the other players with who made it', ok.success && got.length === 1 && got[0].playerId === t.ps[0].id && got[0].sena === 'tres', JSON.stringify(got))
+  const signer = t.ps[0]
+  const mate = t.ps.find((p) => p !== signer && t.teamOf(p.id) === t.teamOf(signer.id))
+  const rival = t.ps.find((p) => t.teamOf(p.id) !== t.teamOf(signer.id))
+  const got = new Map()
+  for (const p of t.ps) p.s.on('sena:made', (d) => got.set(p.id, [...(got.get(p.id) ?? []), d]))
+  rival.s.emit('presence:look', { roomCode: t.room, yaw: 0, pitch: -0.34 }) // eyes on the table
+  await sleep(250)
+  const ok = await signer.emit('sena:make', { roomCode: t.room, sena: 'tres' })
+  const bad = await signer.emit('sena:make', { roomCode: t.room, sena: 'falso' })
+  const fast = await signer.emit('sena:make', { roomCode: t.room, sena: 'dos' })
+  await sleep(300)
+  const m = got.get(mate.id) ?? []
+  check('a seña reaches the partner with who made it', ok.success && m.length === 1 && m[0].playerId === signer.id && m[0].sena === 'tres', JSON.stringify(m))
+  check('nothing at all reaches a rival who is not looking at the signer', !(got.get(rival.id) ?? []).length, JSON.stringify(got.get(rival.id)))
   check('unknown señas and floods are rejected', !bad.success && !fast.success)
   t.close()
 }
@@ -175,12 +182,15 @@ const C = (value, suit) => ({ value, suit })
   const myTeam = roster.find((p) => p.id === s.id)?.team
   const mate = roster.find((p) => p.id !== s.id && p.team === myTeam)
   await sleep(6000) // let the deal-time señas pass
+  // the partner holds a lone 3: nothing that wins, so its answer must be 'nada' (eyes closed)
+  await emit('test:rig', { roomCode: room, hands: { [mate.id]: [{ value: 3, suit: 'oros' }] } })
+  await sleep(300)
   const t0 = Date.now()
   const r = await emit('sena:ask', { roomCode: room })
   await sleep(3000)
   const answer = made.find((m) => m.playerId === mate.id && m.t >= t0)
   check('asking for señas is relayed', r.success)
-  check('the bot partner answers the knock with a seña', Boolean(answer), JSON.stringify(made.map((m) => m.sena)))
+  check("the bot partner answers the knock: 'nada' with nothing that wins", answer?.sena === 'nada', JSON.stringify(made.map((m) => m.sena)))
   // a bot whose turn comes to declare, without señas from its partner, knocks first
   for (let i = 0; i < 300 && !asked.length; i++) {
     if (state?.phase === 'bidding' && state.currentBidPlayerId === s.id) await emit('bid:declare', { roomCode: room, bidValue: 0 })
