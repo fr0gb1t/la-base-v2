@@ -11,6 +11,7 @@ import { ToastContainer } from './ToastContainer';
 import { TableScene, type TablePlayer } from '../table3d/TableScene';
 import { SettingsButton, useViewSettings } from '../settings/SettingsPanel';
 import { SenaWheel, type WheelOpen } from './senas/SenaWheel';
+import { Rulebook } from './rulebook/Rulebook';
 import { GiExitDoor, GiScrollUnfurled, GiBookCover } from 'react-icons/gi';
 
 // First-person 3D table (La Base v2). The table shows every card movement; the non-card phases
@@ -85,6 +86,7 @@ export function GamePage() {
   // ---- game log (history panel, hidden by default)
   const [log, setLog] = useState<Array<{ id: number; round: number; text: string; kind: string }>>([]);
   const [showLog, setShowLog] = useState(false);
+  const [showRules, setShowRules] = useState(false);
   const [wheel, setWheel] = useState<WheelOpen | null>(null);
   const [aimFace, setAimFace] = useState(false);
   const view = useViewSettings();
@@ -396,6 +398,7 @@ export function GamePage() {
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
       if (e.key === 'h' || e.key === 'H') cycleHud();
       if (e.key === 'j' || e.key === 'J') setShowLog((v) => !v);
+      if (e.key === 'r' || e.key === 'R') setShowRules(true);
       if ((e.key === 'p' || e.key === 'P') && inGame) askSenas();
       if (e.key === 'Escape' && tableAsk === 'copas') sceneRef.current?.chooseOnTable(null); // no jugarla
       if ((e.key === 'g' || e.key === 'G') && inGame) setWheel((w) => (w ? null : { x: window.innerWidth / 2, y: window.innerHeight / 2, held: false }));
@@ -592,6 +595,7 @@ export function GamePage() {
         <nav className="hud-tabs">
           <button className="hud-tab" onClick={cycleHud} title="Tecla H"><GiScrollUnfurled aria-hidden /> anotador: {hud === 'basico' ? 'básico' : hud === 'completo' ? 'completo' : 'oculto'}</button>
           <button className="hud-tab" onClick={() => setShowLog((v) => !v)} title="Tecla J"><GiBookCover aria-hidden /> historial</button>
+          <button className="hud-tab" onClick={() => setShowRules(true)} title="Tecla R"><GiScrollUnfurled aria-hidden /> reglas</button>
           <SettingsButton />
           <button className="hud-tab danger" onClick={handleLeaveGame}><GiExitDoor aria-hidden /> salir</button>
         </nav>
@@ -699,12 +703,14 @@ export function GamePage() {
         </nav>
       )}
 
+      {showRules && <Rulebook onClose={() => setShowRules(false)} />}
+
       {stamp && (
         <div key={`stamp-${stamp.key}`} className="stamp on">{stamp.text}</div>
       )}
 
       <div className="help-line">
-        H: anotador · J: historial · O: ajustes · clic del medio o G: señas · P: pedir señas · arrastrá sobre la mesa: mirar · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom
+        H: anotador · J: historial · R: reglas · O: ajustes · clic del medio o G: señas · P: pedir señas · arrastrá sobre la mesa: mirar · click en carta: jugar · mantené: mover el brazo y amagar · clic der: zoom
       </div>
 
       {gameState?.phase === 'bidding' && <BiddingPanel onAskSenas={askSenas} />}

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { GiCardPlay, GiDoorway, GiScrollUnfurled, GiExitDoor, GiReturnArrow } from 'react-icons/gi';
+import { GiCardPlay, GiDoorway, GiScrollUnfurled, GiExitDoor } from 'react-icons/gi';
 import { useMenuScene } from '../menu/MenuBackdrop';
 import { MENU_OPTIONS } from '../menu/MenuScene';
 import { TableMenu } from '../menu/TableMenu';
+import { Rulebook } from './rulebook/Rulebook';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 
@@ -122,12 +123,6 @@ export function Lobby() {
   }, [scene, mode, playerCount]);
 
   const icons = [GiCardPlay, GiDoorway, GiScrollUnfurled];
-  const back = (
-    <button type="button" className="text-btn" onClick={() => { setMode('home'); setError(''); }}>
-      <GiReturnArrow aria-hidden /> volver
-    </button>
-  );
-
   return (
     <main className="menu-screen lobby">
       <header className="menu-bar">
@@ -201,22 +196,7 @@ export function Lobby() {
         </>
       )}
 
-      {mode === 'rules' && (
-        <section className="rules-panel" aria-label="Reglamento">
-          <h2><GiScrollUnfurled aria-hidden /> Reglamento</h2>
-          <ol>
-            <li><b>Equipos.</b> Nosotros contra Ellos, sentados alternados. Se juegan rondas; en cada una se reparten tantas cartas como bases tiene.</li>
-            <li><b>Declaración.</b> Primero pide el equipo Mano cuántas bases va a ganar; después el Pie. La suma de los dos pedidos nunca puede ser igual a las bases de la ronda.</li>
-            <li><b>Bases.</b> Cada uno tira una carta; gana la más alta. Ancho de bastos &gt; reyes &gt; caballos &gt; sotas &gt; 7 … 2 &gt; ases. Empate: gana la que salió primero. Quien gana abre la siguiente.</li>
-            <li><b>Puntos.</b> Si cumplís lo pedido: 10 + las bases ganadas. Si no: perdés la diferencia.</li>
-            <li><b>Cuidado.</b> Si la Mano erra por 2 o más sin haber declarado kamikaze, pierde la partida.</li>
-            <li><b>Kamikaze.</b> Todo o nada: pedir 0 o todas las bases. Cada equipo tiene pocos.</li>
-            <li><b>Ases con poder</b> (si están activados). Espadas mata al ancho si sale después; Copas puede invertir el sentido de la ronda; Oros, si su equipo gana la base, elige quién abre la siguiente.</li>
-          </ol>
-          <p className="credits">Iconos: game-icons.net (CC BY 3.0) · Sonidos: Kenney (CC0)</p>
-          {back}
-        </section>
-      )}
+      {mode === 'rules' && <Rulebook onClose={() => setMode('home')} />}
     </main>
   );
 }
