@@ -82,6 +82,7 @@ export function chooseCard(
   // señas, or an average hand): `cardsLeft` is what each partner keeps once this base is over
   partnersExpect: (cardsLeft: (partnerId: string) => number) => number = () => 0,
   tableSize = 4,
+  rng: () => number = Math.random,
 ): number {
   const byRank = hand.map((c, i) => ({ c, i })).sort((a, b) => cardRank(a.c) - cardRank(b.c));
   const lowest = byRank[0].i;
@@ -123,6 +124,18 @@ export function chooseCard(
     // otherwise win a base we don't want later
     return spare.length ? spare[spare.length - 1].i : lowest;
   }
+  // a rival is winning with a low card (under a 7): they probably don't want this base and are
+  // saving their high cards. Letting it pass makes them take a base they didn't want — but only
+  // when it costs us nothing: after this base we still have enough bases and strength to make ours
+  const rivalLow = current !== null && !teammateWinning && cardRank(played.find((p) => p.playerId === current.playerId)!.card) < 7;
+  const basesAfter = hand.length - 1;
+  const strongAfter = byRank.filter(({ c }) => cardRank(c) >= 10).length; // figures and the ancho
+  // with room to spare: more strength than the bases we still need (exactly enough is a gamble)
+  const affordable = need <= 0 || (need <= basesAfter && strongAfter + theirs > need);
+  if (rivalLow && affordable && rng() < LET_IT_PASS) {
+    const under = byRank.filter(({ c }) => !winsWith(c));
+    if (under.length) return (spare.filter(({ c }) => !winsWith(c)).pop() ?? under[0]).i;
+  }
   if (need > 0) {
     // the partner will take it (signed ancho, still to play): shed under it
     if (partnerWillWin) return shed();
@@ -144,7 +157,8 @@ export const BOT_TOKEN = randomBytes(24).toString('hex');
 const SIGN_ON_DEAL = 0.75; // chance to sign right after the deal (else they wait to be asked)
 const ANSWER_ASK = 0.8; // chance to answer a partner's knock
 const WATCH_MS = 4000;
-const ASK_PATIENCE_MS = 20_000; // how long a bot waits for its partners to answer its knock // how long a bot stares at the answering rival's face
+const ASK_PATIENCE_MS = 20_000;
+const LET_IT_PASS = 0.75; // how often a bot lets a rival's low card take a base they didn't want // how long a bot waits for its partners to answer its knock // how long a bot stares at the answering rival's face
 
 const NAMES = ['Ana', 'Beto', 'Caro', 'Dani', 'Eli', 'Fede', 'Gabi', 'Hugo'];
 const bots = new Map<string, Socket[]>(); // roomCode → bot clients

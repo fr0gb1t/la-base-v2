@@ -148,3 +148,24 @@ test('bid met, the partner is taking it and rivals still play: shed under it, le
   });
   assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf2, () => null, averagePartner, 4), 0);
 });
+
+test("a rival's low card is let through (they're saving high cards) — when it costs us nothing", () => {
+  // asked 1, already made it; a rival leads a 5 and nobody has beaten it: the bot could take it
+  // with its caballo, but lets it pass with the 4 so the rival wins a base they didn't want
+  const hand: Card[] = [{ suit: 'oros', value: 11 }, { suit: 'copas', value: 4 }, { suit: 'espadas', value: 12 }];
+  const met = state({
+    phase: 'playing',
+    bids: [{ team: 'nosotros', value: 1 }, { team: 'ellos', value: 1 }] as GameState['bids'],
+    basesWon: { nosotros: 1, ellos: 1 },
+    currentBaseCards: [{ playerId: 'rival', card: { suit: 'bastos', value: 5 }, order: 0 }],
+  });
+  assert.equal(chooseCard(hand, met, 'me', 'nosotros', teamOf2, () => null, averagePartner, 4, () => 0), 1);
+  // we still need 2 of the 2 bases left after this one: no favours, take it
+  const short = state({
+    phase: 'playing',
+    bids: [{ team: 'nosotros', value: 3 }] as GameState['bids'],
+    basesWon: { nosotros: 0, ellos: 0 },
+    currentBaseCards: [{ playerId: 'rival', card: { suit: 'bastos', value: 5 }, order: 0 }],
+  });
+  assert.equal(chooseCard(hand, short, 'me', 'nosotros', teamOf2, () => null, averagePartner, 4, () => 0), 0, 'cheapest card that takes it');
+});
