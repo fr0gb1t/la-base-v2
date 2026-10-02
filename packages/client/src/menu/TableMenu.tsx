@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMenuScene } from './MenuBackdrop';
 import type { FloatItem } from './floating';
+import { uiSound } from '../table3d/audio';
 
 // Puts a screen's choices on the felt as floating buttons (and optionally a card you write on).
 // The DOM keeps an equivalent: visually-hidden real buttons and a real <input>, so keyboard,
@@ -73,6 +74,7 @@ export function TableMenu({ items, input, note }: { items: FloatItem[]; input?: 
       if (e.key.length === 1) {
         e.preventDefault();
         const next = (cur.value + (cur.mono ? e.key.toUpperCase() : e.key)).slice(0, cur.maxLength ?? 64);
+        uiSound('write');
         cur.onChange(next);
       } else if (e.key === 'Backspace') {
         e.preventDefault();
@@ -100,7 +102,10 @@ export function TableMenu({ items, input, note }: { items: FloatItem[]; input?: 
           value={input.value}
           maxLength={input.maxLength}
           autoComplete="off"
-          onChange={(e) => input.onChange(input.mono ? e.target.value.toUpperCase() : e.target.value)}
+          onChange={(e) => {
+            uiSound('write'); // chalk on the card, a scratch per letter
+            input.onChange(input.mono ? e.target.value.toUpperCase() : e.target.value);
+          }}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           onKeyDown={(e) => {

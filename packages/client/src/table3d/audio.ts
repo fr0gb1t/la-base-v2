@@ -268,3 +268,121 @@ export function previewSound() {
 }
 
 export const audioReady = () => Boolean(listener) && ctx?.state === 'running'
+
+// ------------------------------------------------------------------ interface sounds
+// The menus are part of the room too: paper, cards, chips and a pencil, quiet and dry-ish (a
+// little of the wooden room's reverb). Not positional: they happen under your hands.
+
+export type UiSound = 'hover' | 'pick' | 'stamp' | 'chip' | 'flip' | 'write' | 'page' | 'book' | 'paper'
+
+let noiseBuf: AudioBuffer | null = null
+function noise() {
+  if (noiseBuf) return noiseBuf
+  noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate)
+  const d = noiseBuf.getChannelData(0)
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
+  return noiseBuf
+}
+
+/** A short burst of filtered noise: the raw material of paper, pencil and clicks. */
+function burst(dur: number, filter: BiquadFilterType, freq: number, q: number, gain: number, sweepTo?: number, at = 0) {
+  const t = ctx.currentTime + at
+  const src = ctx.createBufferSource()
+  src.buffer = noise()
+  src.playbackRate.value = 0.8 + Math.random() * 0.4
+  const f = ctx.createBiquadFilter()
+  f.type = filter
+  f.frequency.setValueAtTime(freq, t)
+  if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + dur)
+  f.Q.value = q
+  const g = ctx.createGain()
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.exponentialRampToValueAtTime(gain, t + Math.min(0.012, dur / 4))
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+  src.connect(f).connect(g).connect(uiOut())
+  src.start(t, Math.random() * 0.5)
+  src.stop(t + dur + 0.02)
+}
+
+function sample(name: string, gain: number, rate: number) {
+  const buf = buffers.get(name)
+  if (!buf) return
+  const s = ctx.createBufferSource()
+  s.buffer = buf
+  s.playbackRate.value = rate * (0.95 + Math.random() * 0.1)
+  const g = ctx.createGain()
+  g.gain.value = gain
+  s.connect(g).connect(uiOut())
+  s.start()
+}
+
+let uiBus: GainNode | null = null
+function uiOut() {
+  if (uiBus) return uiBus
+  uiBus = ctx.createGain()
+  uiBus.gain.value = 1
+  uiBus.connect(sfxBus)
+  const send = ctx.createGain()
+  send.gain.value = 0.25 // a touch of the room
+  uiBus.connect(send).connect(wet)
+  return uiBus
+}
+
+let lastHover = 0
+export function uiSound(kind: UiSound) {
+  if (!listener || !graphReady || ctx.state !== 'running' || !getAudioSettings().effects) return
+  if (import.meta.env.DEV) {
+    // dev only: count what played (tests can't listen)
+    const w = window as unknown as { __uiSounds?: Record<string, number> }
+    w.__uiSounds = { ...w.__uiSounds, [kind]: (w.__uiSounds?.[kind] ?? 0) + 1 }
+  }
+  switch (kind) {
+    case 'hover': {
+      if (ctx.currentTime - lastHover < 0.06) return // a sweep across buttons doesn't rattle
+      lastHover = ctx.currentTime
+      burst(0.03, 'bandpass', 3400, 4, 0.05)
+      return
+    }
+    case 'pick':
+      return sample(`card-place-${1 + Math.floor(Math.random() * 4)}`, 0.55, 1.1)
+    case 'flip':
+      return sample(`card-slide-${1 + Math.floor(Math.random() * 3)}`, 0.5, 1.3)
+    case 'stamp': {
+      // an inked stamp pressed on paper: a soft thump and the paper's slap
+      const t = ctx.currentTime
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.frequency.setValueAtTime(150, t)
+      o.frequency.exponentialRampToValueAtTime(55, t + 0.12)
+      g.gain.setValueAtTime(0.0001, t)
+      g.gain.exponentialRampToValueAtTime(0.5, t + 0.006)
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18)
+      o.connect(g).connect(uiOut())
+      o.start(t)
+      o.stop(t + 0.2)
+      burst(0.08, 'highpass', 1800, 0.7, 0.12)
+      return
+    }
+    case 'chip': {
+      // two clay chips knocking: a bright resonant click, twice
+      burst(0.05, 'bandpass', 2600, 9, 0.35)
+      burst(0.04, 'bandpass', 3300, 10, 0.22, undefined, 0.045)
+      return
+    }
+    case 'write':
+      // pencil (or chalk) on card: a short grainy scratch
+      return burst(0.07 + Math.random() * 0.04, 'bandpass', 2600 + Math.random() * 1400, 1.4, 0.07)
+    case 'page':
+      // a leaf turning: a rustle that rises, then the flap settling
+      burst(0.42, 'bandpass', 700, 0.8, 0.16, 3200)
+      burst(0.12, 'lowpass', 900, 0.7, 0.1, undefined, 0.38)
+      return
+    case 'book':
+      // the booklet set down and opened: a dull thump, then the cover
+      sample('card-shove-2', 0.35, 0.55)
+      burst(0.3, 'bandpass', 600, 0.8, 0.12, 2200, 0.15)
+      return
+    case 'paper':
+      return burst(0.18, 'bandpass', 1200, 0.9, 0.1, 2600)
+  }
+}

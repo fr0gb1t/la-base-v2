@@ -1,4 +1,4 @@
-import { attachAudio } from '../table3d/audio'
+import { attachAudio, uiSound } from '../table3d/audio'
 import * as THREE from 'three'
 import { buildLamp, buildRoom } from '../table3d/table'
 import { TABLE_Y, TABLE_R, CARD_H, CARD_W, seatAngle, polar } from '../table3d/seats'
@@ -295,14 +295,28 @@ export class MenuScene {
     this.on(window, 'pointerdown', (e: PointerEvent) => {
       // only clicks that land on the canvas itself (not on the DOM panels above it)
       if (e.target !== this.renderer.domElement && !(e.target as HTMLElement)?.dataset?.menuPassthrough) return
-      if (this.floatHovered) return this.floating.pick(this.floatHovered)
-      if (this.inputHovered) return this.onInputClick()
-      if (this.station === 'config' && this.aceHovered >= 0) return this.onAcePick(ACE_SUITS[this.aceHovered])
-      if (this.station === 'lobby' && this.hovered >= 0) this.onPick(MENU_OPTIONS[this.hovered].id)
+      if (this.floatHovered) {
+        const kind = this.floating.kindOf(this.floatHovered)
+        uiSound(kind === 'stamp' ? 'stamp' : kind === 'chip' ? 'chip' : 'pick')
+        return this.floating.pick(this.floatHovered)
+      }
+      if (this.inputHovered) {
+        uiSound('pick')
+        return this.onInputClick()
+      }
+      if (this.station === 'config' && this.aceHovered >= 0) {
+        uiSound('flip')
+        return this.onAcePick(ACE_SUITS[this.aceHovered])
+      }
+      if (this.station === 'lobby' && this.hovered >= 0) {
+        uiSound('pick')
+        this.onPick(MENU_OPTIONS[this.hovered].id)
+      }
     })
   }
 
   private lastCaption: string | null = null
+  private lastOver: string | null = null
   private updateHover(time: number) {
     this.raycaster.setFromCamera(this.mouse, this.camera)
     this.floatHovered = this.floating.update(time, this.camera, this.raycaster, reduced())
@@ -321,6 +335,7 @@ export class MenuScene {
     if (this.station !== 'lobby') {
       if (this.hovered !== -1) this.onHover((this.hovered = -1))
       this.renderer.domElement.style.cursor = pointer ? 'pointer' : 'default'
+      this.tickOver(pointer)
       return
     }
     const targets: THREE.Object3D[] = this.options.map((o) => o.hit)
@@ -337,6 +352,15 @@ export class MenuScene {
       this.onHover(idx)
     }
     this.renderer.domElement.style.cursor = idx >= 0 || pointer ? 'pointer' : 'default'
+    this.tickOver(idx >= 0 || pointer)
+  }
+
+  /** A soft tick whenever the pointer arrives on something you can pick. */
+  private tickOver(pointer: boolean) {
+    const over = `${this.floatHovered}|${this.inputHovered}|${this.aceHovered}|${this.hovered}`
+    if (over === this.lastOver) return
+    if (pointer && this.lastOver !== null) uiSound('hover')
+    this.lastOver = over
   }
 
   // ------------------------------------------------------------------ frame

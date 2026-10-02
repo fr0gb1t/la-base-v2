@@ -280,6 +280,11 @@ export class FloatingItems {
     return this.live.get(id)?.mesh.getWorldPosition(new THREE.Vector3()) ?? null
   }
 
+  /** The kind of an item (to pick its sound). */
+  kindOf(id: string) {
+    return this.live.get(id)?.def.kind ?? 'tag'
+  }
+
   pick(id: string | null) {
     const l = id ? this.live.get(id) : null
     if (l && !l.def.disabled) l.def.onPick()

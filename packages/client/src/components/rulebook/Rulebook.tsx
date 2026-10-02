@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { GiBookCover, GiCrossMark } from 'react-icons/gi';
 import { CHAPTERS, type Chapter, type Note } from './pages';
+import { uiSound } from '../../table3d/audio';
 
 // The rulebook as a little booklet (after Tunic's manual): it comes up over a blurred, scanlined
 // table, its cover opens, and every page is a leaf that turns over the spine in 3D (the next
@@ -92,6 +93,7 @@ export function Rulebook({ onClose, start = 0 }: { onClose: () => void; start?: 
     const target = Math.min(CHAPTERS.length - 1, Math.max(0, to));
     if (turnRef.current || opening || target === page) return;
     const t: Turn = { from: page, to: target, dir: target > page ? 1 : -1 };
+    uiSound('page');
     setTurn(t);
     window.setTimeout(() => {
       setPage(target);
@@ -101,6 +103,7 @@ export function Rulebook({ onClose, start = 0 }: { onClose: () => void; start?: 
 
   // the cover opens once, when the booklet comes up
   useEffect(() => {
+    uiSound('book');
     const t = window.setTimeout(() => setOpening(false), OPEN_MS + 250);
     return () => window.clearTimeout(t);
   }, []);

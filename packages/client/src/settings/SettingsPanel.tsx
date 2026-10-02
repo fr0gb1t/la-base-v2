@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare, GiMouse, GiEyeTarget } from 'react-icons/gi';
 import { getViewSettings, onViewSettings, setViewSettings, SENS_MIN, SENS_MAX, FOV_MIN, FOV_MAX, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
-import { previewSound, audioReady } from '../table3d/audio';
+import { previewSound, audioReady, uiSound } from '../table3d/audio';
 import { BACK_DESIGNS, drawBackDesign, type BackDesign } from '../table3d/cardBacks';
 
 const previews = new Map<BackDesign, string>();
@@ -64,6 +64,12 @@ export function SettingsButton({ className = 'hud-tab' }: { className?: string }
 export function SettingsHost() {
   const [open, setOpen] = useState(false);
   const s = useAudioSettings();
+  // the ledger is paper: it rustles open and shut
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open !== wasOpen.current) uiSound('paper');
+    wasOpen.current = open;
+  }, [open]);
   const view = useViewSettings();
 
   useEffect(() => {
