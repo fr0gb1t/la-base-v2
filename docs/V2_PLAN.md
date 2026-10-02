@@ -46,9 +46,9 @@ Noted for the future (not started):
 - **Voice**: ask for microphone permission only to animate the speaking player's mask (audio is
   not transmitted at first: people use Discord). Later, optional voice chat for the table and a
   team-only channel.
-- **Señas anti-cheat**: today every client receives every seña and decides locally whether a
-  rival's shows (view centre on a face turned toward you). A modified client could read them all.
-  If that matters, the server would need each viewer's look direction and seat geometry to filter.
+- **Señas anti-cheat**: done — the server only sends a seña to who can see it (partners, or a
+  rival whose look rests on the signer's face). A client can still lie about where it looks, but
+  one gaze covers one face and must dwell on it.
 
 ## Verification
 - `pnpm -r build`, the shared tests (75 passing at import).
