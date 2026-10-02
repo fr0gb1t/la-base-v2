@@ -3,6 +3,14 @@ import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair
 import { getViewSettings, onViewSettings, setViewSettings, SENS_MIN, SENS_MAX, FOV_MIN, FOV_MAX, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
 import { previewSound, audioReady } from '../table3d/audio';
+import { BACK_DESIGNS, drawBackDesign, type BackDesign } from '../table3d/cardBacks';
+
+const previews = new Map<BackDesign, string>();
+/** A small picture of a card back for the chooser (drawn once). */
+function backPreview(d: BackDesign) {
+  if (!previews.has(d)) previews.set(d, drawBackDesign(d, 0.35).toDataURL());
+  return previews.get(d)!;
+}
 
 // Settings: a paper ledger like the rest of the menus. Opened from the in-game HUD, the menu bar,
 // or the O key; Esc or a click outside closes it.
@@ -140,6 +148,31 @@ export function SettingsHost() {
         </fieldset>
 
         <fieldset className="ledger-group">
+          <legend>Cartas</legend>
+          <div className="setting-backs" role="radiogroup" aria-label="Dorso de las cartas">
+            <span className="setting-backs-title"><b>Dorso</b> <small>(lo ves solo vos)</small></span>
+            <div className="setting-backs-row">
+              {BACK_DESIGNS.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={view.cardBack === d.id}
+                  className={`setting-back ${view.cardBack === d.id ? 'on' : ''}`}
+                  onClick={() => setViewSettings({ cardBack: d.id })}
+                  title={d.label}
+                >
+                  <img src={backPreview(d.id)} alt="" />
+                  <small>{d.label}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+        </fieldset>
+        </div>
+
+        <div className="ledger-col">
+        <fieldset className="ledger-group">
           <legend>Mesa</legend>
           <Switch
             on={view.handResetOnTurn}
@@ -158,6 +191,7 @@ export function SettingsHost() {
         </fieldset>
         </div>
 
+        <div className="ledger-col">
         <fieldset className="ledger-group">
           <legend>Cámara</legend>
           <label className="setting-volume">
@@ -216,6 +250,7 @@ export function SettingsHost() {
             onToggle={() => setViewSettings({ reticle: !view.reticle })}
           />
         </fieldset>
+        </div>
 
         <button type="button" className="stamp-btn" onClick={() => setOpen(false)}>listo</button>
         <p className="ledger-note">O abre y cierra este panel · Esc lo cierra</p>

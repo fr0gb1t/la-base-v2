@@ -4,7 +4,8 @@ import { buildLamp, buildRoom } from './table'
 import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, seatAngle, polar, playSlot } from './seats'
 import { makeAvatar, MAX_HAND, FAN_Y, type Avatar, type AvatarPose } from './avatar'
 import { makeCard, type CardView } from './cards'
-import { drawBack, drawFace, toTexture } from './cardFace'
+import { drawFace, toTexture } from './cardFace'
+import { backTexture } from './cardBacks'
 import { playPose, PLAY_DURATION } from './play'
 import { makePost } from './post'
 import { schedule, tickJobs, wait } from './jobs'
@@ -203,7 +204,7 @@ export class TableScene {
   private turnSeat = -1
   private winnerSeat = -1 // base resolved, waiting for everyone to confirm: the winning card glows
   private raycaster = new THREE.Raycaster()
-  private backTex = toTexture(drawBack())
+  private backTex = backTexture() // shared and live: the settings can change the design
 
   constructor(private container: HTMLElement, private cb: TableCallbacks) {
     this.renderer.setPixelRatio(1)

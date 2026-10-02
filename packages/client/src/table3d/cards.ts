@@ -1,9 +1,10 @@
 import * as THREE from 'three'
 import { CARD_W, CARD_H } from './seats'
-import { drawBack, drawFace, toTexture, type Rank, type Suit } from './cardFace'
+import { drawFace, toTexture, type Rank, type Suit } from './cardFace'
+import { backTexture } from './cardBacks'
 
 const geo = new THREE.PlaneGeometry(CARD_W, CARD_H)
-const backMat = new THREE.MeshStandardMaterial({ map: toTexture(drawBack()), roughness: 0.85 })
+const backMat = new THREE.MeshStandardMaterial({ map: backTexture(), roughness: 0.85 })
 const faceCache = new Map<string, THREE.MeshStandardMaterial>()
 
 function faceMat(suit: Suit, rank: Rank) {

@@ -3158,3 +3158,83 @@ button {
   border: 1px solid rgba(20, 14, 12, 0.3);
   margin-top: 10px;
 }
+
+/* card back chooser in the settings */
+.setting-backs {
+  margin-top: 8px;
+}
+
+.setting-backs-title {
+  display: block;
+  margin-bottom: 6px;
+  font-variant: small-caps;
+}
+
+.setting-backs-row {
+  display: flex;
+  gap: 8px;
+}
+
+.setting-back {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 4px;
+  background: transparent;
+  border: 2px solid transparent;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.setting-back img {
+  width: 44px;
+  height: 69px;
+  border-radius: 3px;
+  box-shadow: 1px 2px 0 rgba(20, 14, 12, 0.35);
+}
+
+.setting-back small {
+  font-size: 11px;
+}
+
+.setting-back.on {
+  border-color: var(--oxblood);
+  background: rgba(96, 34, 23, 0.08);
+}
+
+/* the ledger holds three sections now: a little tighter so it fits a 720 px screen */
+.ledger.settings .setting-row {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.ledger.settings .setting-text small {
+  line-height: 1.15;
+}
+
+.ledger.settings .ledger-group {
+  margin-bottom: 4px;
+}
+
+.setting-back img {
+  width: 36px;
+  height: 56px;
+}
+
+/* three sections side by side on wide screens: Sonido + Cartas | Mesa | Cámara */
+.ledger.settings {
+  width: min(1120px, 94vw);
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 1000px) {
+  .ledger.settings {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .ledger.settings {
+    grid-template-columns: 1fr;
+  }
+}

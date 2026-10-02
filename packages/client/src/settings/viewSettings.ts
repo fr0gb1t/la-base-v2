@@ -7,6 +7,7 @@ export interface ViewSettings {
   guides: boolean // chalk guides where things go: dotted card boxes, circles for the beans
   lookSensitivity: number // multiplier on how far the view turns per pixel dragged (0.25–3)
   fov: number // vertical field of view in degrees (FOV_MIN–FOV_MAX)
+  cardBack: 'rueda-roja' | 'rueda-azul' | 'abanico' | 'rombos' // the design on the back of every card
 }
 
 export const SENS_MIN = 0.25
@@ -15,7 +16,7 @@ export const SENS_MAX = 3
 export const FOV_MIN = 50
 export const FOV_MAX = 80
 const KEY = 'laBase.view'
-const DEFAULTS: ViewSettings = { cameraReturn: false, reticle: true, invertLook: false, handResetOnTurn: true, guides: true, lookSensitivity: 1, fov: 66 }
+const DEFAULTS: ViewSettings = { cameraReturn: false, reticle: true, invertLook: false, handResetOnTurn: true, guides: true, lookSensitivity: 1, fov: 66, cardBack: 'rueda-roja' }
 
 function load(): ViewSettings {
   try {
@@ -26,6 +27,7 @@ function load(): ViewSettings {
     }
     out.lookSensitivity = Math.min(SENS_MAX, Math.max(SENS_MIN, Number(out.lookSensitivity) || 1))
     out.fov = Math.min(FOV_MAX, Math.max(FOV_MIN, Number(out.fov) || DEFAULTS.fov))
+    if (!['rueda-roja', 'rueda-azul', 'abanico', 'rombos'].includes(out.cardBack)) out.cardBack = DEFAULTS.cardBack
     return out
   } catch {
     return { ...DEFAULTS }

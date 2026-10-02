@@ -166,30 +166,6 @@ export function drawFace(suit: Suit, rank: Rank): HTMLCanvasElement {
 }
 
 // ONE back for the whole deck, 180°-symmetric, no per-card wear → no marked cards.
-export function drawBack(): HTMLCanvasElement {
-  const cv = document.createElement('canvas')
-  cv.width = W * TEX_SCALE
-  cv.height = H * TEX_SCALE
-  const g = cv.getContext('2d')!
-  g.scale(TEX_SCALE, TEX_SCALE)
-  g.fillStyle = PALETTE.oxblood
-  g.fillRect(0, 0, W, H)
-  g.strokeStyle = 'rgba(20,14,12,0.55)'
-  g.lineWidth = 2
-  for (let i = -H; i < W + H; i += 14) {
-    g.beginPath(); g.moveTo(i, 0); g.lineTo(i + H, H); g.stroke()
-    g.beginPath(); g.moveTo(i, H); g.lineTo(i + H, 0); g.stroke()
-  }
-  g.strokeStyle = PALETTE.ink
-  g.lineWidth = 3
-  g.strokeRect(7, 7, W - 14, H - 14)
-  g.strokeStyle = PALETTE.bone
-  g.lineWidth = 1.5
-  g.strokeRect(12, 12, W - 24, H - 24)
-  sun(g, W / 2, H / 2, 30, SUIT_INK.oros)
-  return cv
-}
-
 export function toTexture(cv: HTMLCanvasElement) {
   const t = new THREE.CanvasTexture(cv)
   t.colorSpace = THREE.SRGBColorSpace
