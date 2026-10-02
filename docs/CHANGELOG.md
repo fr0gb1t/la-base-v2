@@ -7,8 +7,10 @@
   terminan de repartirse las cartas, elegís cuántas bases y tocás el reloj para pasarle el turno al
   rival; el segundo pedido lo frena para los dos hasta la ronda siguiente (que empieza el otro
   equipo, porque cambia la Mano). Si a un equipo se le acaba el tiempo mientras pide, pierde la
-  partida. Es un reloj de verdad en el centro de la mesa, delante del mazo, de frente para cada
-  jugador, con pantalla LED roja de segmentos ("tu equipo / rivales"; sin tiempo, "- / -"). `fb9d520`, `025d9f5`
+  partida. Es un reloj de ajedrez de torneo (caja de nogal, tapa negra basculante, pantalla LCD gris
+  con "tu equipo / rivales", botones) apoyado a tu derecha, inclinado hacia vos y fuera del paso de
+  las cartas, los porotos y las bases ganadas (con 8 jugadores, más chico y más cerca tuyo); sin
+  tiempo marca "-:--". `fb9d520`, `025d9f5`
 - **Manual sobre la mesa:** el librito está apoyado en la mesa del juego, bajo la misma lámpara y
   con el mismo aspecto que los menús; ocupa toda la pantalla (las hojas ya no se cortan) y las
   pestañas son papelitos que salen de las hojas: lo leído a la izquierda, lo que falta a la

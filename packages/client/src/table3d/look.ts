@@ -14,6 +14,8 @@ export const PALETTE = {
   led: '#7fd36b', // Buckshot LED green: diegetic counters only
   rose: '#b76d6e', // Sol Cesto / Buckshot dusty rose: team I cuffs, rare accent
   teal: '#5ea2b0', // Loop Hero teal: team II cuffs, envido duotone
+  walnut: '#4a2716', // Inscryption cabin wood: the chess clock's case
+  lcd: '#a7a58c', // an unlit LCD under amber light (bone, greyed): the chess clock's display
 } as const
 
 // Suit accents: one per suit, desaturated so they sit inside the palette.

@@ -241,6 +241,7 @@ export function GamePage() {
       theirs: c?.remainingMs[theirs] ?? 0,
       running: c?.running ? (c.running === mine ? 'mine' : 'theirs') : null,
       canPress: gameState?.phase === 'bidding' && gameState.currentBidPlayerId === myId,
+      seats: roomPlayers.length,
     });
   }, [gameState, roomPlayers, myId]);
 
