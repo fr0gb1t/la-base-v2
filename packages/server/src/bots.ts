@@ -149,6 +149,18 @@ export function chooseCard(
   return losers.length ? losers[losers.length - 1].i : highest;
 }
 
+/**
+ * A short answer to a partner's knock, some of the time: 'sí' when this hand can surely make a
+ * base, now and then a 'no' (not telling); null = answer with the card señas as usual.
+ */
+export function shortAnswer(hand: Card[], st: GameState | null, players: number, rng: () => number = Math.random): Sena | null {
+  const r = rng();
+  const expected = hand.reduce((sum, c) => sum + winChance(c, st?.acePowers.espadas ?? true, players), 0);
+  if (r < SAY_YES && expected >= 0.8) return 'si';
+  if (r >= SAY_YES && r < SAY_YES + SAY_NO) return 'no';
+  return null;
+}
+
 /** Secret proving a connection is one of our bots (only bots may flag themselves as bots). */
 export const BOT_TOKEN = randomBytes(24).toString('hex');
 
@@ -158,6 +170,8 @@ const SIGN_ON_DEAL = 0.75; // chance to sign right after the deal (else they wai
 const ANSWER_ASK = 0.8; // chance to answer a partner's knock
 const WATCH_MS = 4000;
 const ASK_PATIENCE_MS = 20_000;
+const SAY_YES = 0.25; // answering a knock: just 'sí' (when the hand can surely make a base)
+const SAY_NO = 0.1; // …or just 'no' (not telling)
 const LET_IT_PASS = 0.75; // how often a bot lets a rival's low card take a base they didn't want // how long a bot waits for its partners to answer its knock // how long a bot stares at the answering rival's face
 
 const NAMES = ['Ana', 'Beto', 'Caro', 'Dani', 'Eli', 'Fede', 'Gabi', 'Hugo'];
@@ -256,7 +270,9 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
   async function signHand(toward?: string) {
     const mates = teammates();
     if (!mates.length) return;
-    const list = senasForHand(hand, state?.acePowers).slice(0, 2);
+    // answering a knock, sometimes just a nod or a shake instead of the cards
+    const short = toward ? shortAnswer(hand, state, Math.max(4, roster.length)) : null;
+    const list = short ? [short] : senasForHand(hand, state?.acePowers).slice(0, 2);
     await untilDealt(); // no señas about cards nobody has seen yet
     for (const sena of list) {
       await sleep(toward ? 500 + Math.random() * 700 : 1500 + Math.random() * 3500);

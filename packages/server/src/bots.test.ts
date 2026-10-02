@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Card, GameState } from '@la-base/shared';
-import { AVERAGE_CARD, chooseBid, chooseCard, partnerWorth } from './bots.js';
+import { AVERAGE_CARD, chooseBid, chooseCard, partnerWorth, shortAnswer } from './bots.js';
 
 const state = (over: Partial<GameState> = {}): GameState =>
   ({
@@ -168,4 +168,14 @@ test("a rival's low card is let through (they're saving high cards) — when it 
     currentBaseCards: [{ playerId: 'rival', card: { suit: 'bastos', value: 5 }, order: 0 }],
   });
   assert.equal(chooseCard(hand, short, 'me', 'nosotros', teamOf2, () => null, averagePartner, 4, () => 0), 0, 'cheapest card that takes it');
+});
+
+test("answering a knock, a bot sometimes just nods 'sí' (only with a hand that makes a base) or shakes 'no'", () => {
+  const strong: Card[] = [{ suit: 'bastos', value: 1 }, { suit: 'oros', value: 12 }, { suit: 'copas', value: 4 }];
+  const weak: Card[] = [{ suit: 'bastos', value: 4 }, { suit: 'oros', value: 2 }, { suit: 'copas', value: 3 }];
+  const st = state();
+  assert.equal(shortAnswer(strong, st, 4, () => 0.1), 'si');
+  assert.equal(shortAnswer(weak, st, 4, () => 0.1), null, 'no false promises: card señas instead');
+  assert.equal(shortAnswer(weak, st, 4, () => 0.3), 'no');
+  assert.equal(shortAnswer(strong, st, 4, () => 0.9), null);
 });
