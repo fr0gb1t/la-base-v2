@@ -1196,13 +1196,9 @@ export class TableScene {
   }
 
   private endPeek() {
+    // the zoom eases back to exactly where you were looking before it (the head turn is never
+    // touched while zooming): not to the seat's default, not to where you aimed
     this.aimT = 0
-    // keep looking where you aimed, unless the view returns to its seat (setting)
-    if (this.peek && !getViewSettings().cameraReturn) {
-      const d = this.peek.target.clone().sub(this.eye)
-      this.yaw = this.yawT = this.clampYaw(Math.atan2(-d.x, -d.z) - this.baseYaw)
-      this.pitch = this.pitchT = this.clampPitch(Math.atan2(d.y, Math.hypot(d.x, d.z)))
-    }
     this.peek = null
   }
 
@@ -1405,6 +1401,9 @@ export class TableScene {
       wonStacks: this.wonStacks.length,
       handShown: this.vm.filter((v) => v.mesh.visible).length,
       hovered: this.hovered,
+      yaw: this.yaw,
+      pitch: this.pitch,
+      aim: this.aim,
       aimedFace: this.aimedFace,
       faces: this.faceShown.map((f, seat) => (f ? { seat, id: this.playerAt(seat), sena: f } : null)).filter(Boolean),
     }
@@ -1442,6 +1441,11 @@ export class TableScene {
   }
 
   /** Zoom onto a seat's face, like a right-click on it. */
+  /** Let go of the right-click zoom (tests). */
+  debugEndPeek() {
+    this.endPeek()
+  }
+
   debugPeekHead(seat: number, dy = 0) {
     this.peek = { target: this.avatars[seat].head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, dy, 0)), standing: false }
     this.aimT = 1
