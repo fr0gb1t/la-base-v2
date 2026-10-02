@@ -2,6 +2,9 @@
 
 ## Desde `a603e36`
 
+- **Pulgares hacia adentro y porotos más juntos:** en los guantes de los jugadores el pulgar de la
+  mano derecha estaba hacia afuera; ahora los dos apuntan hacia adentro (hacia el cuerpo). Los
+  porotos de cada base caen en un círculo más chico (media carta de ancho), así que no se dispersan.
 - **Reloj de pedidos (estilo ajedrez):** en la configuración se elige sin tiempo, 1, 2 o 5 min por
   equipo para toda la partida. Corre solo en los pedidos: arranca el equipo de la Mano cuando
   terminan de repartirse las cartas, elegís cuántas bases y tocás el reloj para pasarle el turno al

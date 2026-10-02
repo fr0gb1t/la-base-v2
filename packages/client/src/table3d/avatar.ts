@@ -34,7 +34,8 @@ function solveElbow(s: THREE.Vector3, t: THREE.Vector3, pole: THREE.Vector3) {
   return { elbow: s.clone().addScaledVector(dir, a).addScaledVector(bend, h), wrist: s.clone().addScaledVector(dir, d) }
 }
 
-function glove(cuff: string) {
+// `sx` is the arm's side (+1 right, −1 left): the thumb always points inward, toward the body's midline.
+function glove(cuff: string, sx: number) {
   const g = new THREE.Group()
   const bone = mat(PALETTE.bone, 0.7)
   const palm = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.025, 0.08), bone)
@@ -43,8 +44,8 @@ function glove(cuff: string) {
   fingers.position.set(0, -0.006, 0.11)
   fingers.rotation.x = 0.35
   const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.05), bone)
-  thumb.position.set(-0.045, -0.005, 0.05)
-  thumb.rotation.y = 0.5
+  thumb.position.set(sx * 0.045, -0.005, 0.05) // the glove's +x is the avatar's −x (it looks along −z)
+  thumb.rotation.y = -sx * 0.5
   const band = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.03, 10), mat(cuff))
   band.rotation.x = Math.PI / 2
   g.add(palm, fingers, thumb, band)
@@ -193,7 +194,7 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false): A
 
   const armMat = mat(PALETTE.soot, 1)
   const mk = () => new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.035, 1, 8), armMat)
-  const arms = [-1, 1].map((sx) => ({ sx, upper: mk(), fore: mk(), glove: glove(cuff) }))
+  const arms = [-1, 1].map((sx) => ({ sx, upper: mk(), fore: mk(), glove: glove(cuff, sx) }))
   arms.forEach((r) => {
     r.upper.scale.y = UPPER
     r.fore.scale.y = FORE

@@ -93,9 +93,9 @@ function bean(seed: number) {
   return m
 }
 
-const HEAP_R = CARD_W * 0.75 // radius of the circle the beans fall in (under a card's width)
+const HEAP_R = CARD_W * 0.5 // radius of the circle the beans fall in (half a card's width: a tight heap)
 const ASKED_SIZE = 0.085 // the chalked number of bases asked (big enough to read across the table)
-const BEAN_GAP = 0.02 // beans don't land on top of each other
+const BEAN_GAP = 0.017 // beans don't land on top of each other
 
 /** The bases asked, chalked on the felt: the number in a rough circle. */
 const askedTex = new Map<number, THREE.Texture>()
