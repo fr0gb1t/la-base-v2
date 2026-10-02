@@ -54,6 +54,8 @@ export function slashes(g: CanvasRenderingContext2D, top: [V, V], bottom: [V, V]
 
 // ------------------------------------------------------------------ Sota
 
+const HEAD_SHIFT = 3.5 // the sota's head group sat right of the neck line
+
 export function sota(g: CanvasRenderingContext2D, suit: Suit, pip: PipFn) {
   const c = SUIT_INK[suit]
   ground(g, 84, 26)
@@ -117,8 +119,12 @@ export function sota(g: CanvasRenderingContext2D, suit: Suit, pip: PipFn) {
   hand(g, wrist, dir, 8, SKIN, true)
 
   // neck, small ruff collar
-  limb(g, [v(86, 58), v(85, 66)], [9, 10], SKIN, { line: 0.8, shadow: 1.2 })
+  limb(g, [v(85, 58), v(85, 66)], [9, 10], SKIN, { line: 0.8, shadow: 1.2 })
   shape(g, [v(76, 62), v(81, 60), v(86, 62), v(91, 60), v(95, 63), v(92, 67), v(86, 66), v(80, 67)], WHITE, { line: 0.8, shadow: 1.2 })
+
+  // the head group, centred over the neck (it was drawn a few units to the right of the body)
+  g.save()
+  g.translate(-HEAD_SHIFT, 0)
 
   // head: hair mass (bob) behind, face, strands, cap with a long plume
   // hair: a mass behind the skull down to the jaw, then the face, then a fringe under the cap
@@ -130,6 +136,8 @@ export function sota(g: CanvasRenderingContext2D, suit: Suit, pip: PipFn) {
   fold(g, [v(100, 33), v(112, 22), v(124, 18)], 3.2, 0.6, WHITE)
   stroke(g, [v(100, 33), v(112, 22), v(124, 18)], 0.6)
   for (let i = 0; i < 7; i++) stroke(g, [v(104 + i * 2.6, 29 - i * 1.6), v(106 + i * 2.6, 32 - i * 1.4)], 0.45)
+
+  g.restore()
 
   if (suit === 'espadas') hold(g, pip, suit, wrist.x - 3, wrist.y + 30, 16, Math.PI)
   else if (suit === 'bastos') hold(g, pip, suit, wrist.x - 14, wrist.y - 22, 15, -0.55)
