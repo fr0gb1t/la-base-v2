@@ -1,5 +1,30 @@
 # Registro de cambios — La Base v2
 
+## Desde `a603e36`
+
+- **Manual en 3D:** el librito es una escena 3D bajo una lámpara; cada hoja levantada proyecta
+  sombra. Las hojas se agarran y se arrastran sobre el lomo: si la tomás de una esquina, se dobla
+  la esquina; del borde, se arquea entera; del medio, la parte de afuera cuelga por su peso; si la
+  pasás rápido, el borde queda atrás. Un clic la pasa sola, y una hoja que está pasando se puede
+  volver a agarrar. Ya no tiene la tinta que "hierve". `98149c4`
+- **Dorsos nuevos** (inspirados en Bicycle): rueda roja, rueda azul, abanico y rombos; se elige en
+  Ajustes → Cartas. `399787c`
+- **Reordenar la mano:** arrastrá una carta a lo largo del abanico para cambiarla de lugar; llevala
+  a la mesa para jugarla. `8e3b45f`
+- **Campo de visión más amplio** (66°), ajustable de 50° a 80° en Ajustes → Cámara. `bf64246`
+- **Bots y kamikaze:** la Mano lo pide (a cero) cuando su mano es muy floja, o al máximo cuando es
+  muy fuerte. `5a71c6a`
+- **Sonidos en los menús:** pasar el mouse, elegir, sellar, fichas, papel. `6bf4f6c`
+- **Arreglos:** los porotos ya no caen sobre las cartas ganadas `8c65187`; la cabeza de la sota
+  quedó sobre el cuello `37f5d37`; nombres mucho más chicos en la sala y la configuración
+  `a9229cd`.
+- Los e2e corren contra un servidor (3100) y un cliente (5174) propios `c7cb215`; ideas de
+  animaciones de los personajes en `docs/V2_PLAN.md` `c2f509c`.
+
+---
+
+## Hasta `a603e36`
+
 Cambios desde `e8ac8dc` (último push), agrupados por área. Cada punto describe **cómo funciona
 ahora**; cuando algo se rehízo después, se marca con *(reemplaza a …)* y el commit nuevo.
 Los hashes son los commits de `main`.
