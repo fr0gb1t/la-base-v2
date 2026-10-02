@@ -206,6 +206,8 @@ Se reparten todas las cartas necesarias al inicio de la ronda. Durante la ronda,
 
 Las cartas se juegan en **sentido antihorario**, comenzando por el jugador **Mano** (quien abre la base).
 
+> **Antihorario = el turno pasa a la derecha.** Sentado a la mesa, después de vos juega quien está a tu derecha. Visto desde arriba la ronda gira al revés de las agujas del reloj, que a simple vista parece "hacia la izquierda": por eso conviene pensarlo siempre desde la silla de cada jugador.
+
 > **Mano es siempre el primero en jugar cada base**, independientemente del sentido de juego.
 
 ### Cómo Jugar una Carta
@@ -525,8 +527,8 @@ Como no declararon Kamikaze y perdieron por 2 bases:
 | **Declaración** | La promesa de cuántas bases cree que ganará |
 | **Cumplir** | Ganar exactamente lo que prometiste |
 | **Fallar** | Ganar menos o más de lo que prometiste |
-| **Antihorario** | Sentido de juego normal (izquierda) |
-| **Horario** | Sentido de juego invertido (derecha) |
+| **Antihorario** | Sentido de juego normal: cada jugador le pasa el turno al de su **derecha** (visto desde arriba, la ronda gira al revés de las agujas del reloj) |
+| **Horario** | Sentido de juego invertido: cada jugador le pasa el turno al de su **izquierda** (visto desde arriba, gira como las agujas del reloj) |
 | **Kamikaze** | Declaración de "todo o nada" antes del bidding |
 | **Ancho de Bastos** | La carta más poderosa del juego (1♣) |
 | **Poder Especial** | Habilidad única de un As, activada antes de la partida |

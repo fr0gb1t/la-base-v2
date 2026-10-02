@@ -55,8 +55,8 @@ export class TableChoices {
   askDirection(current: Direction): Promise<CopasChoice | null> {
     const answer = this.ask(
       [
-        { id: 'mantener', label: 'Mantener', sub: current, at: [-0.16, 0.4], hint: `el sentido sigue ${current}` },
-        { id: 'invertir', label: 'Invertir', kind: 'stamp', sub: flip(current), at: [0.16, 0.4], hint: `el sentido pasa a ${flip(current)} hasta el fin de la ronda` },
+        { id: 'mantener', label: 'Mantener', sub: current, at: [-0.16, 0.4], hint: `el sentido sigue ${current}: ${side(current)}` },
+        { id: 'invertir', label: 'Invertir', kind: 'stamp', sub: flip(current), at: [0.16, 0.4], hint: `pasa a ${flip(current)} hasta el fin de la ronda: ${side(flip(current))}` },
         { id: 'no', label: 'no jugarla', at: [0, 0.54], hint: 'la carta vuelve a tu mano' },
       ],
       [],
@@ -156,3 +156,5 @@ export class TableChoices {
 }
 
 const flip = (d: Direction): Direction => (d === 'horario' ? 'antihorario' : 'horario')
+/** What a direction means from your chair (seen from above it turns the other way round). */
+const side = (d: Direction) => (d === 'antihorario' ? 'cada uno le pasa el turno al de su derecha' : 'cada uno le pasa el turno al de su izquierda')
