@@ -1,7 +1,7 @@
 import { attachAudio } from '../table3d/audio'
 import * as THREE from 'three'
 import { buildLamp, buildRoom, type SeatLabel } from '../table3d/table'
-import { TABLE_Y, CARD_H } from '../table3d/seats'
+import { TABLE_Y, CARD_H, CARD_W } from '../table3d/seats'
 import { makeAvatar, type Avatar } from '../table3d/avatar'
 import { makeCard, type CardView } from '../table3d/cards'
 import { drawFace, toTexture, type Rank, type Suit } from '../table3d/cardFace'
@@ -50,7 +50,6 @@ const ACE_HINTS: Record<keyof AcePowers, string> = {
 const FACE_UP = -Math.PI / 2
 const MENU_EXPOSURE = 0.95
 const OPTION_SCALE = 1.8 // cards are already 1.75x real size in the game
-const FACE_DOWN = Math.PI / 2
 const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** A big option card: a real deck figure with the option's name printed on a banner. */
@@ -102,6 +101,7 @@ export class MenuScene {
   private inputAt: [number, number] = [0, 0.18]
   private inputHovered = false
   private aceHovered = -1
+  private aceFeet: THREE.Mesh[] = []
   private aceHits: THREE.Mesh[] = []
   private floatHovered: string | null = null
   onInputClick: () => void = () => undefined
@@ -240,7 +240,21 @@ export class MenuScene {
       const view = makeCard()
       view.setIdentity(suit as Suit, 1)
       view.root.scale.setScalar(1.25)
+      view.root.traverse((o) => (o.castShadow = false)) // upright: its footprint casts instead
+      // the back faces you when the power is off: light it a little, like the menu's buttons
+      const back = view.root.children[1] as THREE.Mesh
+      const lit = (back.material as THREE.MeshStandardMaterial).clone()
+      lit.emissive = new THREE.Color(0xffffff)
+      lit.emissiveMap = lit.map
+      lit.emissiveIntensity = 0.35
+      back.material = lit
       this.scene.add(view.root)
+      // invisible footprint that only draws into the shadow map (same trick as the floating buttons)
+      const foot = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W * 1.25, CARD_H * 0.6), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide }))
+      foot.geometry.rotateX(-Math.PI / 2)
+      foot.castShadow = true
+      this.scene.add(foot)
+      this.aceFeet.push(foot)
       const hit = new THREE.Mesh((view.root.children[0] as THREE.Mesh).geometry, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }))
       hit.visible = false
       hit.scale.setScalar(1.25)
@@ -361,19 +375,25 @@ export class MenuScene {
       o.view.root.visible = showOptions
     })
 
-    // config aces: flip smoothly between face up (power on) and face down (off)
+    // config aces: they float upright like the menu's buttons, facing you, and spin round their
+    // vertical axis between face (power on) and back (off)
     const showAces = this.station === 'config'
     this.aces.forEach((a, i) => {
       a.flip += ((a.on ? 1 : 0) - a.flip) * k * 2
       a.view.root.visible = showAces
-      // it flips around its centre: rise by half its (rotated) height so no edge dips into the felt
+      this.aceFeet[i].visible = showAces
       const halfH = (CARD_H * 1.25) / 2
-      const over = i === this.aceHovered ? 0.012 : 0
+      const over = i === this.aceHovered ? 0.02 : 0
+      const bob = calm ? 0 : Math.sin(time * 1.4 + i * 2.1) * 0.004
       const x = (i - 1) * 0.22
-      a.view.root.position.set(x, TABLE_Y + 0.004 + Math.abs(Math.sin(a.flip * Math.PI)) * (halfH + 0.015) + over, 0.14)
-      a.view.root.rotation.set(THREE.MathUtils.lerp(FACE_DOWN, FACE_UP + Math.PI * 2, a.flip), (1 - i) * 0.08, 0, 'YXZ')
-      this.aceHits[i].position.set(x, TABLE_Y + 0.004, 0.14)
-      this.aceHits[i].rotation.set(FACE_UP, (1 - i) * 0.08, 0, 'YXZ')
+      const rest = new THREE.Vector3(x, TABLE_Y + 0.03 + halfH, 0.14)
+      const facing = Math.atan2(this.camera.position.x - x, this.camera.position.z - rest.z)
+      a.view.root.position.copy(rest).add(new THREE.Vector3(0, bob + over, 0))
+      a.view.root.rotation.set(0, facing + (1 - a.flip) * Math.PI, 0, 'YXZ')
+      this.aceFeet[i].position.copy(a.view.root.position)
+      this.aceFeet[i].rotation.y = facing
+      this.aceHits[i].position.copy(rest) // hover tested at the rest pose: no flicker from the bob
+      this.aceHits[i].rotation.set(0, facing, 0, 'YXZ')
       this.aceHits[i].updateMatrixWorld()
     })
 
