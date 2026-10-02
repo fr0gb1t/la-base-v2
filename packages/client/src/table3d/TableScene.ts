@@ -51,7 +51,7 @@ interface HeldPose { pos: THREE.Vector3; quat: THREE.Quaternion }
 // refCam: the camera frozen at grab time. With a free cursor the card goes where the cursor points
 // on the table (projected through refCam, so camera lean/follow can't drift it); pointer-locked uses
 // relative mouse motion instead.
-interface Drag { k: number; fwd: number; lat: number; from: HeldPose; t0: number; lastSound: THREE.Vector3 | null; view: CardView; refCam: THREE.PerspectiveCamera | null }
+interface Drag { k: number; fwd: number; lat: number; from: HeldPose; t0: number; lastSound: THREE.Vector3 | null; view: CardView; refCam: THREE.PerspectiveCamera | null; insert?: number }
 interface RemoteArm { slot: number; fwd: number; lat: number; holding: boolean; t: number; view: CardView | null; from: HeldPose | null; t0: number }
 
 const FACE_DOWN = Math.PI / 2
@@ -150,7 +150,7 @@ export class TableScene {
   private viewmodel = new THREE.Group()
   // `hit` is an invisible twin of each card that stays at the REST pose: hover is tested against it,
   // so the lift animation can't pull the card out from under the cursor (hover flicker)
-  private vm: Array<{ mesh: THREE.Mesh; hit: THREE.Mesh; mat: THREE.MeshStandardMaterial; lift: number; base: { x: number; y: number; z: number; rz: number } }> = []
+  private vm: Array<{ mesh: THREE.Mesh; hit: THREE.Mesh; mat: THREE.MeshStandardMaterial; lift: number; base: { x: number; y: number; z: number; rz: number }; at?: { x: number; y: number; z: number; rz: number } }> = []
   private hand: Card[] = []
   private canPlay = false
   private busy = false
@@ -282,7 +282,7 @@ export class TableScene {
 
   /** Your own cards (private). Rebuilds the fan unless a deal is revealing it card by card. */
   setHand(cards: Card[]) {
-    this.hand = cards
+    this.hand = this.applyOrder(cards)
     if (!this.dealing) this.layoutHand(cards.length)
   }
 
@@ -305,6 +305,7 @@ export class TableScene {
   /** New round: every player receives `perPlayer` cards from the dealer. */
   deal(dealerId: string | null, perPlayer: number, myHand: Card[]) {
     this.hand = myHand
+    this.handOrder = [] // a new hand: the server's order until you rearrange it
     this.dealing = true // your fan fills card by card, not before the cards arrive
     this.vm.forEach((v) => (v.mesh.visible = false))
     const dealtAt = now()
@@ -646,17 +647,75 @@ export class TableScene {
     return { pos: o.getWorldPosition(new THREE.Vector3()), quat: o.getWorldQuaternion(new THREE.Quaternion()) }
   }
 
+  /** Where slot `slot` of a fan of `c` cards sits (camera space). */
+  private fanBase(slot: number, c: number) {
+    // held in the LEFT hand, off to the side: your own play zone must stay visible
+    const off = slot - (c - 1) / 2
+    // height tuned for a 50° field of view (wider settings only show more around it): the whole
+    // card face stays on screen (at -0.25 its lower half fell below the frame and grabbing it
+    // failed near the edge)
+    return { x: -0.15 + off * 0.026, y: HAND_Y - Math.abs(off) * 0.004, z: -0.36 + slot * 0.002, rz: -0.04 - off * 0.14 }
+  }
+
   private layoutHand(count: number) {
     const c = Math.min(count, MAX_HAND)
     this.vm.forEach((v, k) => {
-      // held in the LEFT hand, off to the side: your own play zone must stay visible
-      const off = k - (c - 1) / 2
-      // height tuned for a 50° field of view (wider settings only show more around it): the whole card face stays on screen (at -0.25 its lower half
-      // fell below the frame and grabbing it failed near the edge)
-      v.base = { x: -0.15 + off * 0.026, y: HAND_Y - Math.abs(off) * 0.004, z: -0.36 + k * 0.002, rz: -0.04 - off * 0.14 }
+      v.base = this.fanBase(k, c)
       v.mesh.visible = k < c
       if (k < c) this.setVmFace(k, this.hand[k])
     })
+  }
+
+  /** The slot of the fan under the cursor (screen x nearest to a slot). */
+  private slotUnderCursor(c: number) {
+    let best = 0
+    let bestD = Infinity
+    for (let j = 0; j < c; j++) {
+      const b = this.fanBase(j, c)
+      const p = this.viewmodel.localToWorld(new THREE.Vector3(b.x, b.y, b.z)).project(this.camera)
+      const d = Math.abs(p.x - this.mouse.x)
+      if (d < bestD) [best, bestD] = [j, d]
+    }
+    return best
+  }
+
+  /** Is the cursor over the screen area your fan takes (with a little margin)? */
+  private cursorOverFan(c: number) {
+    let x0 = Infinity
+    let x1 = -Infinity
+    let y0 = Infinity
+    let y1 = -Infinity
+    for (let j = 0; j < c; j++) {
+      const b = this.fanBase(j, c)
+      for (const [dx, dy] of [[-CARD_W / 2, -CARD_H / 2], [CARD_W / 2, -CARD_H / 2], [-CARD_W / 2, CARD_H / 2], [CARD_W / 2, CARD_H / 2]]) {
+        const p = this.viewmodel.localToWorld(new THREE.Vector3(b.x + dx * Math.cos(b.rz), b.y + dy * Math.cos(0.35) + dx * Math.sin(b.rz), b.z)).project(this.camera)
+        x0 = Math.min(x0, p.x)
+        x1 = Math.max(x1, p.x)
+        y0 = Math.min(y0, p.y)
+        y1 = Math.max(y1, p.y)
+      }
+    }
+    return this.mouse.x > x0 - 0.04 && this.mouse.x < x1 + 0.04 && this.mouse.y > y0 - 0.2 && this.mouse.y < y1 + 0.02
+  }
+
+  /** While a dragged card hovers over the fan, the others part to make room at `insert`. */
+  private previewInsert(k: number, insert: number) {
+    const c = Math.min(this.hand.length, MAX_HAND)
+    const order = [...Array(c).keys()].filter((i) => i !== k)
+    order.splice(insert, 0, k)
+    order.forEach((idx, slot) => (this.vm[idx].base = this.fanBase(slot, c)))
+  }
+
+  /** Your preferred order, kept when the server sends the hand again (new cards go last). */
+  private handOrder: string[] = []
+  private keyOf = (c: Card) => `${c.suit}${c.value}`
+  private applyOrder(cards: Card[]) {
+    if (!this.handOrder.length) return cards
+    const rank = (c: Card) => {
+      const i = this.handOrder.indexOf(this.keyOf(c))
+      return i < 0 ? Infinity : i
+    }
+    return [...cards].sort((a, b) => rank(a) - rank(b))
   }
 
   private setVmFace(k: number, card: Card | undefined) {
@@ -988,6 +1047,20 @@ export class TableScene {
     this.drag = null
     this.cb.arm(d.k, d.fwd, d.lat, false)
     const pos = d.view.root.position.clone()
+    if (d.insert !== undefined) {
+      // let go over the fan: the card takes its new place among the others
+      const moved = [...this.hand]
+      const [card] = moved.splice(d.k, 1)
+      moved.splice(d.insert, 0, card)
+      this.hand = moved
+      this.handOrder = moved.map(this.keyOf)
+      const at = d.insert
+      this.layoutHand(this.hand.length)
+      this.vm[at].mesh.visible = false
+      this.busy = true
+      void this.returnToHand(d.view, at).then(() => (this.busy = false))
+      return
+    }
     if (this.localReady() && this.inZone(pos)) {
       void this.commitLocal(d.k, d.view, { pos, quat: d.view.root.quaternion.clone() })
       return
@@ -1006,6 +1079,22 @@ export class TableScene {
   private updateDrag() {
     const d = this.drag
     if (!d) return
+    // the cursor over your fan (on screen): rearrange instead of carrying the card to the table
+    const inHand = Math.min(this.hand.length, MAX_HAND)
+    if (inHand > 1 && this.cursorOverFan(inHand)) {
+      d.fwd = HOLD_FWD
+      d.lat = 0
+      const insert = this.slotUnderCursor(inHand)
+      if (insert !== d.insert) {
+        if (d.insert !== undefined) sfx('slide', this.heldPose(0, d.k).pos, 0.25)
+        d.insert = insert
+        this.previewInsert(d.k, insert)
+      }
+    } else if (d.insert !== undefined) {
+      d.insert = undefined
+      this.layoutHand(this.hand.length) // left the fan: everyone back in place
+      this.vm[d.k].mesh.visible = false
+    }
     const target = this.dragPose(d)
     const b = ease(THREE.MathUtils.clamp((now() - d.t0) / 0.15, 0, 1))
     const c = d.view.root
@@ -1439,12 +1528,20 @@ export class TableScene {
     this.updateHover(time, dt)
     this.vm.forEach((v, k) => {
       v.lift += ((k === this.hovered ? 1 : 0) - v.lift) * 0.25
-      v.mesh.position.set(v.base.x, v.base.y + v.lift * 0.02, v.base.z + v.lift * 0.02)
-      v.mesh.rotation.set(-0.35, 0, v.base.rz * (1 - v.lift * 0.6))
+      // glide to the slot (cards parting for a rearranged one move, they don't jump)
+      v.at = v.at ?? { ...v.base }
+      v.at.x += (v.base.x - v.at.x) * 0.3
+      v.at.y += (v.base.y - v.at.y) * 0.3
+      v.at.z += (v.base.z - v.at.z) * 0.3
+      v.at.rz += (v.base.rz - v.at.rz) * 0.3
+      v.mesh.position.set(v.at.x, v.at.y + v.lift * 0.02, v.at.z + v.lift * 0.02)
+      v.mesh.rotation.set(-0.35, 0, v.at.rz * (1 - v.lift * 0.6))
       v.hit.position.set(v.base.x, v.base.y, v.base.z)
       v.hit.rotation.set(-0.35, 0, v.base.rz)
     })
-    this.lowered += ((this.drag || this.busy || this.stand > 0.1 ? 1 : 0) - this.lowered) * 0.12
+    // the fan steps aside while you carry a card to the table, but not while you rearrange it
+    const rearranging = this.drag?.insert !== undefined
+    this.lowered += (((this.drag && !rearranging) || this.busy || this.stand > 0.1 ? 1 : 0) - this.lowered) * 0.12
     this.handOffset += (this.handOffsetT - this.handOffset) * 0.2
     this.viewmodel.position.set(Math.sin(time * 1.3) * 0.003 - 0.04 * this.lowered, Math.sin(time * 2.1) * 0.002 - 0.12 * this.aim - 0.09 * this.lowered + this.handOffset, 0)
 
