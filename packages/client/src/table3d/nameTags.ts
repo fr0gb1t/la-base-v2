@@ -20,7 +20,8 @@ export class NameTag {
   private key = ''
   private seatQuat = new THREE.Quaternion()
 
-  constructor() {
+  /** `height`: metres of text (smaller in the menus, where the room must breathe). */
+  constructor(private height = H) {
     this.cv.width = 512
     this.cv.height = 96
     this.tex = new THREE.CanvasTexture(this.cv)
@@ -55,7 +56,7 @@ export class NameTag {
     g.globalAlpha = 1
     this.tex.needsUpdate = true
     const aspect = (w + 40) / this.cv.height
-    this.mesh.scale.set(H * aspect * (this.cv.height / 64), H * (this.cv.height / 64), 1)
+    this.mesh.scale.set(this.height * aspect * (this.cv.height / 64), this.height * (this.cv.height / 64), 1)
     // crop the plane to the text width by adjusting UVs
     const u = (w + 40) / this.cv.width / 2
     const uv = this.mesh.geometry.attributes.uv as THREE.BufferAttribute

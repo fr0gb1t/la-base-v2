@@ -51,6 +51,7 @@ const ACE_HINTS: Record<keyof AcePowers, string> = {
 }
 const FACE_UP = -Math.PI / 2
 const MENU_EXPOSURE = 0.95
+const MENU_NAME_H = 0.032 // metres of name text in the menus (the table uses 0.07)
 const OPTION_SCALE = 1.8 // cards are already 1.75x real size in the game
 const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -188,7 +189,7 @@ export class MenuScene {
         const av = makeAvatar(i, n, i === 0) // seat 0 is you, the camera: only your arms
         av.setHandCount(0)
         this.scene.add(av.root)
-        const tag = new NameTag()
+        const tag = new NameTag(MENU_NAME_H) // small: the waiting room must not look crowded
         this.scene.add(tag.mesh)
         this.avatars[i] = { av, rise: 0, name: p.name, tag }
       }
