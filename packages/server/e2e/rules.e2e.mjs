@@ -1,10 +1,10 @@
 // Rules regression tests against a real server started with:
 //   LABASE_TEST=1 LABASE_ROOM_TTL_MS=1500 LABASE_CLEANUP_MS=300 node --import tsx src/index.ts
-// Usage: node e2e/rules.e2e.mjs [http://localhost:3000]
+// Usage: node e2e/rules.e2e.mjs [http://localhost:3100]
 import { io } from 'socket.io-client'
 import { dealAnimationMs, gazeToward } from '@la-base/shared'
 
-const SERVER = process.argv[2] ?? 'http://localhost:3000'
+const SERVER = process.argv[2] ?? 'http://localhost:3100'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 let failures = 0
 const check = (name, ok, extra = '') => {

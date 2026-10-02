@@ -8,7 +8,7 @@ const p = await b.newPage()
 const errors = []
 p.on('pageerror', (e) => errors.push(e.message))
 p.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
-await p.goto('http://localhost:5173/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(2000)
+await p.goto('http://localhost:5174/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(2000)
 await p.evaluate(() => { localStorage.clear(); localStorage.setItem('guestName', 'Vos') })
 await p.reload({ waitUntil: 'domcontentloaded' }); await sleep(2500)
 await p.evaluate(() => [...document.querySelectorAll('button')].find((e) => /reglas|reglamento/i.test(e.textContent))?.click()); await sleep(1500) // the cover opens

@@ -8,14 +8,14 @@ const p = await b.newPage()
 const errors = []
 p.on('pageerror', (e) => errors.push(e.message))
 const state = () => p.evaluate(() => window.__audioState?.())
-await p.goto('http://localhost:5173/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(2500)
+await p.goto('http://localhost:5174/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(2500)
 await p.evaluate(() => localStorage.clear())
 await p.reload({ waitUntil: 'domcontentloaded' }); await sleep(2500)
 const r = { onLoad: await state() }
 await p.keyboard.type('Fede', { delay: 60 }); await sleep(600)
 r.afterTyping = await state()
 // into a game: a host socket makes the room, we sit, two bots, start
-const host = io('http://localhost:3000', { transports: ['websocket'] })
+const host = io('http://localhost:3100', { transports: ['websocket'] })
 await new Promise((res) => host.on('connect', res))
 const emit = (ev, pl) => new Promise((res) => host.emit(ev, pl, res))
 const room = (await emit('room:create', { playerName: 'Host', playerCount: 4 })).roomCode

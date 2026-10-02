@@ -7,7 +7,7 @@ import { gazeToward } from '@la-base/shared'
 const out = process.argv[2] ?? '/tmp/vis'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const sock = async () => {
-  const s = io('http://localhost:3000', { transports: ['websocket'], forceNew: true })
+  const s = io('http://localhost:3100', { transports: ['websocket'], forceNew: true })
   await new Promise((r) => s.on('connect', r))
   return { s, emit: (ev, p) => new Promise((r) => s.emit(ev, p, r)) }
 }
@@ -19,7 +19,7 @@ for (const c of [host, p2]) c.s.on('game:state', async (st) => { if (st.phase ==
 const b = await puppeteer.launch({ executablePath: '/usr/bin/chromium', headless: 'new', args: ['--use-angle=vulkan', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'], defaultViewport: { width: 1280, height: 720 } })
 const p = await b.newPage()
 p.on('pageerror', (e) => console.log('PAGEERR', e.message))
-await p.goto('http://localhost:5173/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(2000)
+await p.goto('http://localhost:5174/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(2000)
 await p.evaluate(() => { localStorage.clear(); localStorage.setItem('guestName', 'Vos') })
 await p.reload({ waitUntil: 'domcontentloaded' }); await sleep(2500)
 const click = (t) => p.evaluate((t) => { const x = [...document.querySelectorAll('button')].find((e) => e.textContent.trim().toLowerCase().startsWith(t) && !e.disabled); x?.click(); return !!x }, t)

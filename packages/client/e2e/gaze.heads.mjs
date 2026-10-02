@@ -3,7 +3,7 @@
 import puppeteer from 'puppeteer-core'
 import { io } from 'socket.io-client'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const host = io('http://localhost:3000', { transports: ['websocket'] })
+const host = io('http://localhost:3100', { transports: ['websocket'] })
 await new Promise((r) => host.on('connect', r))
 const emit = (ev, p) => new Promise((r) => host.emit(ev, p, r))
 const room = (await emit('room:create', { playerName: 'Host', playerCount: 4 })).roomCode
@@ -12,7 +12,7 @@ const b = await puppeteer.launch({ executablePath: '/usr/bin/chromium', headless
 const join = async (name) => {
   const ctx = await b.createBrowserContext()
   const p = await ctx.newPage()
-  await p.goto('http://localhost:5173/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(1500)
+  await p.goto('http://localhost:5174/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(1500)
   await p.evaluate((n) => { localStorage.clear(); localStorage.setItem('guestName', n) }, name)
   await p.reload({ waitUntil: 'domcontentloaded' }); await sleep(2500)
   const click = (t) => p.evaluate((t) => { const x = [...document.querySelectorAll('button')].find((e) => e.textContent.trim().toLowerCase().startsWith(t) && !e.disabled); x?.click(); return !!x }, t)

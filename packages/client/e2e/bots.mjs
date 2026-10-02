@@ -1,8 +1,8 @@
 // Fill a room with bots that play for real (declare, play, feint with the arm, look around).
-// Usage: node e2e/bots.mjs <ROOM_CODE> [count=3] [server=http://localhost:3000]
+// Usage: node e2e/bots.mjs <ROOM_CODE> [count=3] [server=http://localhost:3100]
 import { io } from 'socket.io-client'
 
-const [, , code, countArg = '3', server = 'http://localhost:3000'] = process.argv
+const [, , code, countArg = '3', server = 'http://localhost:3100'] = process.argv
 if (!code) {
   console.error('Uso: node e2e/bots.mjs <CODIGO_DE_SALA> [cantidad=3]')
   process.exit(1)

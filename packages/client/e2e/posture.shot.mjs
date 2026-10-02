@@ -4,13 +4,13 @@ import { io } from 'socket.io-client'
 const out = process.argv[2] ?? '/tmp/sena'
 const SENAS = ['ancho-espada', 'ancho-basto', 'ancho-copa', 'ancho-oro', 'tres', 'dos', 'porno', 'nada']
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const host = io('http://localhost:3000', { transports: ['websocket'] })
+const host = io('http://localhost:3100', { transports: ['websocket'] })
 await new Promise((r) => host.on('connect', r))
 const emit = (ev, p) => new Promise((r) => host.emit(ev, p, r))
 const room = (await emit('room:create', { playerName: 'Host', playerCount: 4 })).roomCode
 const b = await puppeteer.launch({ executablePath: '/usr/bin/chromium', headless: 'new', args: ['--use-angle=vulkan', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'], defaultViewport: { width: 1280, height: 720 } })
 const p = await b.newPage()
-await p.goto('http://localhost:5173/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(2000)
+await p.goto('http://localhost:5174/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(2000)
 await p.evaluate(() => { localStorage.clear(); localStorage.setItem('guestName', 'Vos') })
 await p.reload({ waitUntil: 'domcontentloaded' }); await sleep(2500)
 const click = (t) => p.evaluate((t) => { const x = [...document.querySelectorAll('button')].find((e) => e.textContent.trim().toLowerCase().startsWith(t) && !e.disabled); x?.click(); return !!x }, t)

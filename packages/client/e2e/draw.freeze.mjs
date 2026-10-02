@@ -9,7 +9,7 @@ const p = await b.newPage()
 const errors = []
 p.on('pageerror', (e) => errors.push(`PAGEERR ${e.message}\n${e.stack ?? ''}`.slice(0, 900)))
 p.on('console', (m) => (m.type() === 'error' || m.type() === 'warn') && errors.push(`${m.type()} ${m.text()}`.slice(0, 400)))
-await p.goto('http://localhost:5173/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(2000)
+await p.goto('http://localhost:5174/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(2000)
 await p.evaluate(() => { localStorage.clear(); localStorage.setItem('guestName', 'Fede') })
 await p.reload({ waitUntil: 'domcontentloaded' }); await sleep(2500)
 const click = (t) => p.evaluate((t) => { const x = [...document.querySelectorAll('button')].find((e) => e.textContent.trim().toLowerCase().startsWith(t) && !e.disabled); x?.click(); return !!x }, t)

@@ -5,8 +5,8 @@ import puppeteer from 'puppeteer-core'
 import { io } from 'socket.io-client'
 
 const [, , out = '/tmp/labase', secsArg = '150'] = process.argv
-const SERVER = 'http://localhost:3000'
-const CLIENT = 'http://localhost:5173/?debug=1'
+const SERVER = 'http://localhost:3100'
+const CLIENT = 'http://localhost:5174/?debug=1'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a)
 
