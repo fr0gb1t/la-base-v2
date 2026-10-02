@@ -2,6 +2,17 @@
 
 ## Desde `a603e36`
 
+- **Reloj de pedidos (estilo ajedrez):** en la configuración se elige sin tiempo, 1, 2 o 5 min por
+  equipo para toda la partida. Corre solo en los pedidos: arranca el equipo de la Mano cuando
+  terminan de repartirse las cartas, elegís cuántas bases y tocás el reloj para pasarle el turno al
+  rival; el segundo pedido lo frena para los dos hasta la ronda siguiente (que empieza el otro
+  equipo, porque cambia la Mano). Si a un equipo se le acaba el tiempo mientras pide, pierde la
+  partida. Es un reloj de verdad en el centro de la mesa, delante del mazo, de frente para cada
+  jugador, con pantalla LED roja de segmentos ("tu equipo / rivales"; sin tiempo, "- / -").
+- **Manual sobre la mesa:** el librito está apoyado en la mesa del juego, bajo la misma lámpara y
+  con el mismo aspecto que los menús; ocupa toda la pantalla (las hojas ya no se cortan) y las
+  pestañas son papelitos que salen de las hojas: lo leído a la izquierda, lo que falta a la
+  derecha. `dd4700d`
 - **34 dorsos ilustrados** recortados de los diseños de referencia (además de los 4 dibujados);
   el selector de Ajustes es una grilla con el nombre del elegido. `f4ddbb0`
 - **La mano se ve igual con cualquier campo visual** (antes, al ampliarlo, las cartas quedaban

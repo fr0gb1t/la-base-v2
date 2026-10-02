@@ -3,6 +3,9 @@ import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 import { GiDynamite, GiKnockout } from 'react-icons/gi';
 
+/** Pressing the bidding clock on the table confirms your bid (set while it's your turn). */
+export const pressBidClock: { current: (() => void) | null } = { current: null };
+
 export function BiddingPanel({ onAskSenas }: { onAskSenas?: () => void }) {
   const socket = useSocket();
   const { gameState, roomCode, currentPlayer, roomPlayers } = useGameStore();
@@ -114,6 +117,19 @@ export function BiddingPanel({ onAskSenas }: { onAskSenas?: () => void }) {
   };
 
   const isOpen = gameState?.phase === 'bidding';
+  const hasClock = Boolean(gameState?.bidClock);
+
+  // the clock on the table is the real way to confirm: select, then press it (kept current on
+  // every render, so a press never lands between an old and a new registration)
+  pressBidClock.current = isOpen && isMyBidTurn
+    ? () => {
+        if (!loading && !(isPie && !isValidPieBid)) handleBid();
+      }
+    : null;
+  useEffect(() => () => {
+    pressBidClock.current = null;
+  }, []);
+
   // Only the player who has to act sees it. It never covers the table: a compact tally sheet in
   // the bottom-right corner (your cards are on the left), no backdrop, the 3D view stays usable
   // behind it so you can keep looking at your partner's face.
@@ -194,6 +210,7 @@ export function BiddingPanel({ onAskSenas }: { onAskSenas?: () => void }) {
       >
         {loading ? 'anotando…' : `pedir ${bidValue}${isMano && isKamikaze ? ' · kamikaze' : ''}`}
       </button>
+      <p className="tally-line dim">pedir = tocar el reloj del centro{hasClock ? ': le pasa el turno al rival' : ''}</p>
     </aside>
   );
 }

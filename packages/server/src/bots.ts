@@ -368,6 +368,8 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
     const me = s.id;
     if (!st || busy || !me) return;
     busy = true;
+    // a refused move (a stale view of the table) is tried again: no new state may ever come
+    let retry: string | null = null;
     try {
       if (st.readyGate && !st.readyGate.readyPlayerIds.includes(me)) {
         await sleep(1500 + Math.random() * 1500);
@@ -397,7 +399,8 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
         const value = kamikaze ?? chooseBid(hand, st, teamSize, players, signedBy(), caughtFromRivals());
         s.emit('bid:bidValueChanged', { roomCode, bidValue: value, playerId: me });
         await sleep(800);
-        await emit('bid:declare', { roomCode, bidValue: value, isKamikaze: kamikaze !== null });
+        const res = await emit<{ success: boolean; error?: string }>('bid:declare', { roomCode, bidValue: value, isKamikaze: kamikaze !== null });
+        if (!res?.success) retry = `bid: ${res?.error}`;
       } else if (st.phase === 'playing' && st.currentTurnPlayerId === me && hand.length) {
         await sleep(900);
         const myTeam = (roster.find((p) => p.id === me)?.team ?? 'nosotros') as AssignedTeam;
@@ -414,7 +417,8 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
           await sleep(900);
         }
         const copasDirection = card.suit === 'copas' && card.value === 1 ? (Math.random() < 0.5 ? 'invertir' : 'mantener') : undefined;
-        await emit('card:play', { roomCode, card, copasDirection });
+        const res = await emit<{ success: boolean; error?: string }>('card:play', { roomCode, card, copasDirection });
+        if (!res?.success) retry = `play ${card.value} ${card.suit}: ${res?.error}`;
         if (!feint) s.emit('presence:arm', { roomCode, slot: k, fwd: 0.24, lat: 0, holding: false });
       } else if (st.pendingOrosChoice?.chooserPlayerId === me) {
         await sleep(900);
@@ -424,6 +428,11 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
       console.error(`[bot ${name}]`, err);
     } finally {
       busy = false;
+    }
+    if (retry) {
+      console.warn(`[bot ${name}] refused, trying again: ${retry}`);
+      setTimeout(() => void act(), 1000);
+      return;
     }
     if (state !== st) void act();
   }

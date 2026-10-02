@@ -9,12 +9,13 @@ import { backTexture } from './cardBacks'
 import { playPose, PLAY_DURATION } from './play'
 import { makePost } from './post'
 import { schedule, tickJobs, wait } from './jobs'
-import { attachAudio, sfx, lampBuzz, toggleMute } from './audio'
+import { attachAudio, sfx, lampBuzz, toggleMute, uiSound } from './audio'
 import { PALETTE, hex, DUOTONES } from './look'
 import { getViewSettings, onViewSettings } from '../settings/viewSettings'
 import { NameTag, TAG_Y, TAG_R_OFFSET } from './nameTags'
 import { TableTokens } from './tableTokens'
 import { TableChoices, type CopasChoice, type Direction } from './tableChoices'
+import { ChessClock, type ClockView } from './chessClock'
 
 // ---------------------------------------------------------------------------------------------
 // The 3D table, driven by real game events. Seats follow the server's turn order with the local
@@ -39,6 +40,8 @@ export interface TableCallbacks {
   status(text: string): void
   /** short click on the deck in the middle of the table (initial draw) */
   deckClick?(): void
+  /** a click on the bidding clock while it's your turn to bid: confirm the bid */
+  clockPress?(): void
   /** something broke inside the table (a frame, the WebGL context): report it */
   error?(message: string, stack?: string): void
   /** the centre of your view moved onto (playerId) or off (null) someone's face */
@@ -146,6 +149,8 @@ export class TableScene {
   private wonBy: number[] = []
   private drawn: CardView[] = [] // initial draw cards
   private centerDeck: THREE.Mesh
+  private clock = new ChessClock()
+  private clockView: ClockView | null = null
   private queue: Promise<void> = Promise.resolve()
   private queued = 0
 
@@ -217,7 +222,7 @@ export class TableScene {
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera)
     this.detachAudio = attachAudio(this.camera) // you hear the room from your seat
-    this.scene.add(this.tokens.group)
+    this.scene.add(this.tokens.group, this.clock.group)
     this.tokens.setGuides(this.guides)
     this.scene.add(this.choices.group)
     this.scene.add(this.roomGroup)
@@ -315,14 +320,14 @@ export class TableScene {
     this.enqueue(async () => {
       await this.animateDeal(dealerId ? this.seatOf(dealerId) : this.n - 1, perPlayer)
       this.dealTimes.push({ cards: perPlayer, players: this.n, ms: Math.round((now() - dealtAt) * 1000) }) // tests
-    })
+    }, 'deal')
   }
 
   cardPlayed(playerId: string, card: Card) {
     if (playerId === this.myId) return // already animated by your own arm
     const s = this.seatOf(playerId)
     if (s < 0) return
-    this.enqueue(() => this.animateRemotePlay(s, card))
+    this.enqueue(() => this.animateRemotePlay(s, card), `play ${s}`)
   }
 
   /** Highlight the winning card while the table waits for everyone to confirm (null = clear). */
@@ -336,12 +341,12 @@ export class TableScene {
     this.enqueue(async () => {
       await wait(0.7)
       await this.animateCollect(w)
-    })
+    }, 'collect')
   }
 
   /** Round over: the won stacks go back to the dealer before the next deal. */
   clearRound(dealerId: string | null) {
-    this.enqueue(() => this.animateSweep(dealerId ? this.seatOf(dealerId) : 0))
+    this.enqueue(() => this.animateSweep(dealerId ? this.seatOf(dealerId) : 0), 'sweep')
   }
 
   initialDraw(drawn: Array<{ playerId: string; card: Card }>, done: boolean) {
@@ -351,7 +356,7 @@ export class TableScene {
       const card = drawn[i].card
       const view = this.take()
       this.drawn.push(view)
-      this.enqueue(() => this.animateDraw(view, s, card))
+      this.enqueue(() => this.animateDraw(view, s, card), 'draw')
     }
   }
 
@@ -364,7 +369,7 @@ export class TableScene {
       await Promise.all(views.map((v, i) => this.flyTo(v, new THREE.Vector3(0, TABLE_Y + 0.03, 0), quatOf(FACE_DOWN, 0), 0.4, i * 0.06, false)))
       views.forEach((v) => this.give(v))
       this.centerDeck.visible = false
-    })
+    }, 'clearDraw')
   }
 
   /**
@@ -508,6 +513,7 @@ export class TableScene {
   private detachAudio: () => void = () => undefined
 
   dispose() {
+    this.clock.dispose()
     this.detachAudio()
     this.offView()
     this.disposed = true
@@ -639,9 +645,19 @@ export class TableScene {
     this.pool.push(v)
   }
 
-  private enqueue(fn: () => Promise<void>) {
+  private running: { what: string; t0: number } | null = null // the job being played (diagnostics)
+  private enqueue(fn: () => Promise<void>, what = 'job') {
     this.queued++
-    this.queue = this.queue.then(fn).catch((err) => this.reportError(err)).finally(() => this.queued--)
+    this.queue = this.queue
+      .then(() => {
+        this.running = { what, t0: now() }
+        return fn()
+      })
+      .catch((err) => this.reportError(err))
+      .finally(() => {
+        this.queued--
+        this.running = null
+      })
   }
 
   private heldPose(s: number, k: number): HeldPose {
@@ -1282,6 +1298,22 @@ export class TableScene {
     this.deckHint = on
   }
 
+  /** The bidding clock: both teams' time, whose is running, and whether you can press it. */
+  setClock(view: ClockView) {
+    const prev = this.clockView
+    // a press, by anyone: the plastic clack of a chess clock
+    if (prev && !view.off && prev.running !== view.running && (prev.running || view.running === null)) uiSound('clock')
+    this.clockView = view
+    this.clock.set(view)
+  }
+
+  /** Screen position of the bidding clock (tests). */
+  clockScreen() {
+    const p = this.clock.hit.getWorldPosition(new THREE.Vector3()).project(this.camera)
+    const r = this.renderer.domElement.getBoundingClientRect()
+    return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
+  }
+
   /** Screen position of the centre deck (tests). */
   deckScreen() {
     const p = this.centerDeck.getWorldPosition(new THREE.Vector3()).project(this.camera)
@@ -1297,6 +1329,14 @@ export class TableScene {
 
   /** A click (no drag) on the table: the deck in the middle draws during the initial draw. */
   private tableClick() {
+    if (this.clockView?.canPress && this.cb.clockPress) {
+      this.raycaster.setFromCamera(this.mouse, this.camera)
+      if (this.raycaster.intersectObject(this.clock.hit, false).length) {
+        this.clock.hovered = false
+        this.cb.clockPress()
+        return
+      }
+    }
     if (!this.centerDeck.visible || !this.cb.deckClick) return
     this.raycaster.setFromCamera(this.mouse, this.camera)
     if (this.raycaster.intersectObject(this.centerDeck, false).length) this.cb.deckClick()
@@ -1321,7 +1361,9 @@ export class TableScene {
     this.tokens.hoverAt(felt && felt.clone().setY(0).length() < TABLE_R ? felt : null)
     // an open question on the table (As de Copas / Oros) takes the pointer before your cards
     const choice = this.choices.update(time, dt, this.camera, this.raycaster)
-    this.renderer.domElement.style.cursor = choice ? 'pointer' : this.lookDrag ? 'grabbing' : 'crosshair'
+    // the bidding clock, when it's yours to press
+    this.clock.hovered = Boolean(this.clockView?.canPress && !this.drag && !this.peek && this.raycaster.intersectObject(this.clock.hit, false).length)
+    this.renderer.domElement.style.cursor = choice || this.clock.hovered ? 'pointer' : this.lookDrag ? 'grabbing' : 'crosshair'
     if (choice || this.choices.active) {
       this.hovered = -1
       const hint = this.choices.hint() ?? ''
@@ -1429,6 +1471,7 @@ export class TableScene {
     this.poses[0].rightWrist = this.restWrist(0)
     this.focus = null
     tickJobs(time)
+    this.clock.update(dt)
     this.updatePending()
     this.updateDrag()
     this.updateRemoteArms()
@@ -1605,6 +1648,7 @@ export class TableScene {
     return {
       seats: this.n,
       queued: this.queued,
+      running: this.running ? `${this.running.what} for ${(now() - this.running.t0).toFixed(1)} s` : null,
       busy: this.busy,
       canPlay: this.canPlay,
       dragging: !!this.drag,

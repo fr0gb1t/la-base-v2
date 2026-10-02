@@ -4,7 +4,7 @@ import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 import { useGameEvents } from '../hooks/useGameEvents';
 import { useToast } from '../hooks/useToast';
-import { BiddingPanel } from './BiddingPanel';
+import { BiddingPanel, pressBidClock } from './BiddingPanel';
 import { RoundScoringPanel } from './RoundScoringPanel';
 import { LiveBidDisplay } from './LiveBidDisplay';
 import { ToastContainer } from './ToastContainer';
@@ -180,6 +180,7 @@ export function GamePage() {
       },
       status: (text) => setStatus(text),
       deckClick: () => drawRef.current(),
+      clockPress: () => pressBidClock.current?.(),
       error: (message, stack) => {
         const code = latest.current.roomCode;
         socket?.emit('client:error', { roomCode: code, message, stack: stack?.slice(0, 2000), where: 'table3d', ua: navigator.userAgent });
@@ -226,6 +227,22 @@ export function GamePage() {
   useEffect(() => {
     sceneRef.current?.setHand(playerHand);
   }, [playerHand]);
+
+  // ---- the bidding clock in the middle of the table (from your side: your team / rivals)
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const c = gameState?.bidClock;
+    const mine = (roomPlayers.find((p) => p.id === myId)?.team ?? 'nosotros') as 'nosotros' | 'ellos';
+    const theirs = mine === 'nosotros' ? 'ellos' : 'nosotros';
+    scene.setClock({
+      off: !c,
+      mine: c?.remainingMs[mine] ?? 0,
+      theirs: c?.remainingMs[theirs] ?? 0,
+      running: c?.running ? (c.running === mine ? 'mine' : 'theirs') : null,
+      canPress: gameState?.phase === 'bidding' && gameState.currentBidPlayerId === myId,
+    });
+  }, [gameState, roomPlayers, myId]);
 
   // ---- tokens on the felt: dealer, who asks, asked bases with beans, kamikaze planes
   useEffect(() => {

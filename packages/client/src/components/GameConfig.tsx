@@ -5,7 +5,10 @@ import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 
 // rows of the config form on the felt (table z, toward you); the aces lie at z 0.14
-const ROW = { aces: 0.14, structure: 0.4, kamikazes: 0.58, actions: 0.76 } as const;
+const ROW = { aces: 0.14, structure: 0.36, kamikazes: 0.51, clock: 0.64, actions: 0.8 } as const;
+// the bidding clock: total per team for the whole game (0 = no clock)
+const CLOCK_OPTIONS = [0, 60_000, 120_000, 300_000] as const;
+const clockName = (ms: number) => (ms === 0 ? 'sin tiempo' : `${ms / 60_000} min`);
 
 export function GameConfig() {
   const socket = useSocket();
@@ -20,6 +23,7 @@ export function GameConfig() {
     oros: true,
   });
   const [kamikazesPerTeam, setKamikazesPerTeam] = useState(2);
+  const [bidClockMs, setBidClockMs] = useState<number>(0);
 
   const handleTogglePower = (power: 'espadas' | 'copas' | 'oros') => {
     setAcePowers((prev) => ({
@@ -39,6 +43,7 @@ export function GameConfig() {
       structure,
       acePowers,
       kamikazesPerTeam,
+      bidClockMs,
     }, (response: any) => {
       if (!response.success) {
           console.error('Error de configuración:', response.error);
@@ -120,6 +125,17 @@ export function GameConfig() {
                 ? `quitar uno: ${k - 1 === 0 ? 'sin kamikazes' : `${k - 1} por equipo`}`
                 : `${k} kamikaze${k === 1 ? '' : 's'} por equipo (todo o nada: 0 o todas las bases)`,
             onPick: () => setKamikazesPerTeam(kamikazesPerTeam === k ? k - 1 : k),
+          })),
+          { id: 't-reloj', label: 'Reloj', kind: 'label', at: [-0.56, ROW.clock], raise: 0, onPick: () => undefined },
+          ...CLOCK_OPTIONS.map((ms, i) => ({
+            id: `reloj-${ms}`,
+            label: clockName(ms),
+            at: [-0.33 + i * 0.19, ROW.clock] as [number, number],
+            selected: bidClockMs === ms,
+            hint: ms === 0
+              ? 'Sin reloj: se pide sin apuro'
+              : `Cada equipo tiene ${clockName(ms)} para pedir en toda la partida (corre solo mientras le toca pedir; si se le acaba, pierde)`,
+            onPick: () => setBidClockMs(ms),
           })),
           { id: 'volver', label: 'Volver', at: [-0.36, ROW.actions], onPick: handleBack },
           { id: 'iniciar', label: loading ? 'Iniciando…' : 'Iniciar partida', kind: 'stamp', at: [0.24, ROW.actions], disabled: loading, hint: `Mesa ${roomCode}`, onPick: handleStartGame },
