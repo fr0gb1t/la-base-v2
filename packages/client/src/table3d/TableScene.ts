@@ -71,29 +71,20 @@ const seg = (t: number, a: number, b: number) => THREE.MathUtils.clamp((t - a) /
 const quatOf = (rx: number, yaw: number, roll = 0) => new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, yaw, roll, 'YXZ'))
 const now = () => performance.now() / 1000
 
-// Your play zone: chalk dashes (guides on) or a soft glow with no edges (guides off).
-const zoneTextures: Partial<Record<'dash' | 'glow', THREE.Texture>> = {}
-function zoneTexture(guides: boolean) {
-  const k = guides ? 'dash' : 'glow'
-  if (zoneTextures[k]) return zoneTextures[k]
+// Your play zone: a dashed chalk outline where the card must land.
+let zoneTex: THREE.Texture | null = null
+function zoneTexture() {
+  if (zoneTex) return zoneTex
   const cv = document.createElement('canvas')
   cv.width = 128
   cv.height = 192
   const g = cv.getContext('2d')!
-  if (guides) {
-    g.strokeStyle = '#fff'
-    g.lineWidth = 6
-    g.setLineDash([14, 10])
-    g.strokeRect(6, 6, 116, 180)
-  } else {
-    // a card-shaped pool of light, blurred so it reads as a glow, not as a marking
-    g.filter = 'blur(14px)'
-    g.fillStyle = '#fff'
-    g.fillRect(30, 34, 68, 124)
-  }
-  const t = new THREE.CanvasTexture(cv)
-  zoneTextures[k] = t
-  return t
+  g.strokeStyle = '#fff'
+  g.lineWidth = 6
+  g.setLineDash([14, 10])
+  g.strokeRect(6, 6, 116, 180)
+  zoneTex = new THREE.CanvasTexture(cv)
+  return zoneTex
 }
 const ASK_DUR = 0.9 // s: two knocks on the table to ask for señas
 const SENA_HOLD = 1.6 // s a seña stays on the face
@@ -550,7 +541,7 @@ export class TableScene {
   private makeZoneFx(s: number) {
     const m = new THREE.Mesh(
       new THREE.PlaneGeometry(CARD_W + 0.06, CARD_H + 0.1),
-      new THREE.MeshBasicMaterial({ map: zoneTexture(this.guides), color: new THREE.Color(hex(PALETTE.chalk)).multiplyScalar(1.6), transparent: true, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ map: zoneTexture(), color: new THREE.Color(hex(PALETTE.chalk)).multiplyScalar(1.6), transparent: true, depthWrite: false }),
     )
     m.position.copy(playSlot(s, this.n).pos).setY(TABLE_Y + 0.002)
     m.quaternion.copy(quatOf(-Math.PI / 2, this.yawOf(s)))
@@ -1262,18 +1253,11 @@ export class TableScene {
       if (card && card.root.position.y > CARD_Y_REST + 0.001) card.root.position.y = CARD_Y_REST
       mat.color.set(hex(PALETTE.chalk)).multiplyScalar(1.6)
       const mine = s === 0 && ready
-      const tex = zoneTexture(this.guides)
-      if (mat.map !== tex) {
-        mat.map = tex
-        mat.blending = this.guides ? THREE.NormalBlending : THREE.AdditiveBlending
-        mat.needsUpdate = true
-      }
-      // without guides there are no chalk boxes: your spot only glows when it's your turn, and
-      // brightens while you carry a card toward it (the card lands only if you let go there)
+      // without guides the felt has no boxes painted, but your own spot is still chalked in on
+      // your turn (dashed, pulsing; brighter under the card) so you know where to let go
       z.visible = this.guides ? mine || (s === this.turnSeat && s !== 0) : mine
       const over = mine && this.drag && this.inZone(this.drag.view.root.position)
-      if (this.guides) mat.opacity = over ? 1 : mine ? 0.25 + 0.15 * Math.sin(time * 4) : 0.18
-      else mat.opacity = over ? 0.9 : this.drag ? 0.45 + 0.1 * Math.sin(time * 6) : 0.12 + 0.06 * Math.sin(time * 3)
+      mat.opacity = over ? 1 : mine ? 0.25 + 0.15 * Math.sin(time * 4) : 0.18
     })
 
     const ts = Math.floor(time * 15) / 15
