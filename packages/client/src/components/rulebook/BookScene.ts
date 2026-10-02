@@ -1,9 +1,13 @@
 import * as THREE from 'three';
 import { SEG_U, SEG_V, angleFor, gutter, shapeLeaf, type LeafFrame, type LeafShape } from './leafShape';
 import type { PageTextures } from './pageTextures';
+import { buildLamp, buildRoom } from '../../table3d/table';
+import { makePost } from '../../table3d/post';
+import { TABLE_Y } from '../../table3d/seats';
 
-// The rulebook as a real little booklet on a desk: two stacks of paper on cover boards, lit by a
-// lamp that makes every lifted leaf cast a shadow. Pages are turned by hand: grab a page anywhere
+// The rulebook as a real little booklet lying on the game table, under the same hanging lamp and
+// through the same post-processing as the menus: two stacks of paper on cover boards, every lifted
+// leaf casting its shadow, index tabs sticking out of the leaves. Pages are turned by hand: grab a page anywhere
 // and drag it over the spine (where you hold it decides how it bends, see leafShape.ts), or click
 // it and it turns by itself; a page turning by itself can be caught and dragged again.
 // Page pictures come from PageTextures: 'cover', 'L<n>' / 'R<n>' = left / right page of spread n.
@@ -17,6 +21,12 @@ const CLICK_PX = 6;
 const TOP_SEG_V = 4;
 const PAPER = '#ecdfc2';
 const BOARD = '#3a1d16';
+const SCALE = 0.19; // a page is 19 cm wide on the table
+const TAB_OUT = 0.15; // how far an index tab sticks out of its leaf (× page width)
+const TAB_IN = 0.02; // and how much of it is tucked under the leaf
+const EXPOSURE = 0.95; // as the menus: paper right under the lamp stays paper-coloured
+const ALBEDO = 0.5; // the lamp is strong at arm's length: paper this bright reads as paper, not as a light
+const CAM_IN = 0.7; // s for the camera to come down to the booklet
 
 type Side = 'left' | 'right';
 
@@ -43,6 +53,7 @@ interface Turn {
 
 export interface BookOptions {
   count: number;
+  tabs: string[]; // the label of each chapter's index tab
   start: number;
   pages: PageTextures;
   onPage: (page: number) => void;
@@ -152,6 +163,28 @@ function leafGeometry(): THREE.BufferGeometry {
   return geo;
 }
 
+/** An index tab: a slip of card with the chapter's name (the open chapter's in oxblood). */
+function tabTexture(label: string, on: boolean) {
+  const c = document.createElement('canvas');
+  c.width = 288;
+  c.height = 112;
+  const g = c.getContext('2d')!;
+  g.fillStyle = on ? '#602217' : '#dccaa4';
+  g.fillRect(0, 0, c.width, c.height);
+  g.strokeStyle = 'rgba(20, 14, 12, 0.55)';
+  g.lineWidth = 4;
+  g.strokeRect(2, 2, c.width - 4, c.height - 4);
+  g.fillStyle = on ? '#ecdfc2' : '#2a1d16';
+  g.font = '44px "IM Fell English SC", Georgia, serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(label, c.width / 2, c.height / 2 + 3, c.width - 24);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
 const hermite = (p0: number, v0: number, p1: number, t: number) => {
   const t2 = t * t;
   const t3 = t2 * t;
@@ -159,9 +192,18 @@ const hermite = (p0: number, v0: number, p1: number, t: number) => {
 };
 
 export class BookScene {
-  private renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  private renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
   private scene = new THREE.Scene();
-  private camera = new THREE.PerspectiveCamera(26, 1, 0.1, 40);
+  private camera = new THREE.PerspectiveCamera(34, 1, 0.03, 30);
+  private post = makePost(this.renderer, 1080);
+  private lamp: ReturnType<typeof buildLamp>;
+  private book = new THREE.Group(); // page-width units inside, scaled to the table
+  private tabs: Array<{ mesh: THREE.Mesh; on: boolean; hover: number }> = [];
+  private hoverTab = -1;
+  private opened = performance.now();
+  private camFrom = new THREE.Vector3();
+  private camTo = new THREE.Vector3();
+  private lookAt = new THREE.Vector3();
   private paper = solid(PAPER);
   private edge = edgeTexture();
   private mats = {
@@ -183,7 +225,6 @@ export class BookScene {
   private page: number; // the open spread; -1 = closed
   private turn: Turn | null = null;
   private queued: number | null = null;
-  private dirty = true;
   private raf = 0;
   private last = performance.now();
   private resize: ResizeObserver;
@@ -193,41 +234,31 @@ export class BookScene {
     private o: BookOptions,
   ) {
     const r = this.renderer;
-    r.setPixelRatio(Math.min(devicePixelRatio, 2));
+    r.setPixelRatio(1); // the post-processing sets the resolution, as in the menus
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFShadowMap;
     r.domElement.className = 'rb-canvas';
     host.appendChild(r.domElement);
+    this.post.uniforms.uExposure.value = EXPOSURE;
 
-    // the lamp: up front and to the left, so a lifted leaf throws its shadow over the right page
-    const lamp = new THREE.DirectionalLight('#fff4e0', 2.0);
-    lamp.position.set(-1.1, 3.2, 1.5);
-    lamp.castShadow = true;
-    lamp.shadow.mapSize.set(2048, 2048);
-    const sc = lamp.shadow.camera;
-    sc.left = -1.6;
-    sc.right = 1.6;
-    sc.top = 1.6;
-    sc.bottom = -1.6;
-    sc.near = 0.5;
-    sc.far = 8;
-    lamp.shadow.bias = -0.0004;
-    lamp.shadow.normalBias = 0.012;
-    lamp.shadow.radius = 4;
-    this.scene.add(lamp, new THREE.AmbientLight('#fff1dc', 1.4));
-
-    // where the booklet rests: only its shadow shows, over the blurred table
-    const desk = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.ShadowMaterial({ opacity: 0.45 }));
-    desk.rotation.x = -Math.PI / 2;
-    desk.position.y = -BOARD_T;
-    desk.receiveShadow = true;
-    this.scene.add(desk);
+    // the room of the game: the table (an empty one, no chalk), the chairs in the dark, the lamp
+    buildRoom(this.scene, 4, [], false);
+    this.lamp = buildLamp(this.scene);
+    this.scene.traverse((o) => {
+      // a sharper shadow map: the leaves are thin and close to the page under them
+      if (o instanceof THREE.SpotLight) o.shadow.mapSize.set(2048, 2048);
+    });
+    this.book.scale.setScalar(SCALE);
+    this.book.position.set(0, TABLE_Y + BOARD_T * SCALE, 0.4); // in front of your seat
+    this.book.rotation.y = -0.03; // set down by hand, not squared to the table
+    this.scene.add(this.book);
+    for (const m of Object.values(this.mats)) if (m !== this.mats.board) m.color.setScalar(ALBEDO);
 
     const board = (side: Side) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(W * 1.035, BOARD_T, H * 1.05), this.mats.board);
       m.position.set(side === 'right' ? W * 0.5175 : -W * 0.5175, -BOARD_T / 2, 0);
       m.castShadow = m.receiveShadow = true;
-      this.scene.add(m);
+      this.book.add(m);
       return m;
     };
     this.boards = { left: board('left'), right: board('right') };
@@ -235,7 +266,7 @@ export class BookScene {
     const stack = (side: Side) => {
       const m = new THREE.Mesh(stackGeometry(side === 'right' ? 1 : -1, 0.001), [this.mats[side], this.mats.edge]);
       m.castShadow = m.receiveShadow = true;
-      this.scene.add(m);
+      this.book.add(m);
       return m;
     };
     this.stacks = { left: stack('left'), right: stack('right') };
@@ -246,7 +277,25 @@ export class BookScene {
     this.leaf.castShadow = this.leaf.receiveShadow = true;
     this.leaf.frustumCulled = false;
     this.leaf.visible = false;
-    this.scene.add(this.leaf);
+    this.book.add(this.leaf);
+
+    // the index tabs: one per chapter, staggered down the outer edge of the leaves
+    void document.fonts.load('44px "IM Fell English SC"').catch(() => undefined).then(() => {
+      if (this.tabs.length) return;
+      this.tabs = o.tabs.map((label, i) => {
+        const mesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(TAB_OUT + TAB_IN, Math.min(0.11, H / o.tabs.length - 0.006)),
+          new THREE.MeshLambertMaterial({ map: tabTexture(label, false), color: new THREE.Color().setScalar(ALBEDO) }),
+        );
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.castShadow = mesh.receiveShadow = true;
+        mesh.userData.label = label;
+        mesh.userData.chapter = i;
+        this.book.add(mesh);
+        return { mesh, on: false, hover: 0 };
+      });
+      this.placeTabs();
+    });
 
     this.page = -1;
     this.heights = { left: 0, right: this.rightCount(o.start) * LEAF_T };
@@ -274,36 +323,44 @@ export class BookScene {
     const { clientWidth: w, clientHeight: h } = this.host;
     if (!w || !h) return;
     this.renderer.setSize(w, h, false);
+    this.post.resize(w, h);
     const cam = this.camera;
     cam.aspect = w / h;
-    const tilt = 0.36; // from straight above, toward you
-    // as close as it can be with the whole booklet (boards included) in view
-    const corners = [-1, 1].flatMap((x) => [-1, 1].map((z) => new THREE.Vector3(x * W * 1.04, 0, z * H * 0.53)));
+    cam.updateProjectionMatrix();
+    this.book.updateMatrixWorld(true);
+    const centre = this.book.localToWorld(new THREE.Vector3(0, 0, 0.04));
+    const tilt = 0.5; // from your seat, leaning over the booklet: the table and the lamp's pool beyond
+    // as close as it can be with the booklet, its tabs, and a leaf standing up all in view
+    const pts = [
+      ...[-1, 1].flatMap((x) => [-1, 1].map((z) => new THREE.Vector3(x * (W + TAB_OUT), 0, z * H * 0.55))),
+      new THREE.Vector3(0, W * 0.45, -H / 2),
+    ].map((p) => this.book.localToWorld(p));
     const place = (d: number) => {
-      cam.position.set(0, Math.cos(tilt) * d, Math.sin(tilt) * d + 0.06);
-      cam.lookAt(0, 0, 0.06);
+      cam.position.set(centre.x, centre.y + Math.cos(tilt) * d, centre.z + Math.sin(tilt) * d);
+      cam.lookAt(centre);
       cam.updateMatrixWorld();
-      cam.updateProjectionMatrix();
     };
-    let lo = 1;
-    let hi = 12;
+    let lo = 0.1;
+    let hi = 4;
     for (let k = 0; k < 24; k++) {
       const d = (lo + hi) / 2;
       place(d);
-      const fits = corners.every((c) => {
+      const fits = pts.every((c) => {
         const p = c.clone().project(cam);
-        return Math.abs(p.x) < 0.97 && Math.abs(p.y) < 0.95;
+        return Math.abs(p.x) < 0.94 && Math.abs(p.y) < 0.86;
       });
       if (fits) hi = d;
       else lo = d;
     }
     place(hi);
-    cam.updateProjectionMatrix();
-    this.dirty = true;
+    this.camTo.copy(cam.position);
+    this.lookAt.copy(centre);
+    // it comes down onto the table from higher up, as if you leaned over the booklet
+    this.camFrom.set(centre.x, centre.y + hi * 1.7, centre.z + hi * 0.9);
     // page pictures about as sharp as the page on screen (sharper only blurs when minified)
     const a = this.screenOf('right', 0, 0.5);
     const b = this.screenOf('right', 1, 0.5);
-    this.o.pages.ratio = Math.min(2.5, Math.max(1, (Math.abs(b.x - a.x) * Math.min(devicePixelRatio, 2) * 1.15) / 528));
+    this.o.pages.ratio = Math.min(2.5, Math.max(1, (Math.abs(b.x - a.x) * 1.15) / 528));
   }
 
   private leftCount(p: number) {
@@ -312,6 +369,28 @@ export class BookScene {
 
   private rightCount(p: number) {
     return this.o.count - Math.max(0, p);
+  }
+
+  /** Each chapter's tab sticks out of its leaf: on the left once read, on the right ahead. */
+  private placeTabs() {
+    const n = this.tabs.length;
+    const shown = this.turn ? this.turn.from : this.page;
+    this.tabs.forEach((t, i) => {
+      const left = shown >= 0 && i < shown;
+      const depth = left ? shown - 1 - i : i - Math.max(0, shown); // leaves above it on that side
+      const top = left ? this.heights.left : this.heights.right;
+      const y = Math.max(0.0008, top - depth * LEAF_T - LEAF_T * 0.5) + t.hover * 0.004;
+      const x = (left ? -1 : 1) * (W + (TAB_OUT - TAB_IN) / 2);
+      t.mesh.position.set(x + (left ? -1 : 1) * t.hover * 0.012, y, -H / 2 + ((i + 0.5) * H) / n);
+      const on = i === shown;
+      if (on !== t.on) {
+        t.on = on;
+        const mat = t.mesh.material as THREE.MeshLambertMaterial;
+        mat.map?.dispose();
+        mat.map = tabTexture(t.mesh.userData.label as string, on);
+        mat.needsUpdate = true;
+      }
+    });
   }
 
   // ---- what each surface shows --------------------------------------------------------------
@@ -361,7 +440,6 @@ export class BookScene {
         this.mats.back.needsUpdate = true;
       }
     }
-    this.dirty = true;
   }
 
   // ---- turning ------------------------------------------------------------------------------
@@ -427,6 +505,7 @@ export class BookScene {
       this.o.onPage(t.to);
     } else if (t.from >= 0) this.page = t.from;
     this.refresh();
+    this.placeTabs();
     const p = Math.max(0, this.page);
     this.o.pages.want([p + 1, p - 1].filter((n) => n >= 0 && n < this.o.count).flatMap((n) => [`R${n}`, `L${n}`]));
     if (this.page < 0) this.startTurn(-1, this.o.start, { u: 0.92, v: 0.82 }, 'auto', 0.4);
@@ -462,6 +541,12 @@ export class BookScene {
     return null;
   }
 
+  /** The index tab under the pointer (-1: none). */
+  private pickTab() {
+    const hit = this.raycaster.intersectObjects(this.tabs.map((t) => t.mesh), false)[0];
+    return hit ? (hit.object.userData.chapter as number) : -1;
+  }
+
   private grabbable(hit: ReturnType<BookScene['pick']>) {
     if (!hit) return false;
     if (hit.what === 'leaf') return true;
@@ -472,6 +557,11 @@ export class BookScene {
   private onDown = (e: PointerEvent) => {
     if (e.button !== 0) return;
     this.aim(e);
+    const tab = this.turn ? -1 : this.pickTab();
+    if (tab >= 0) {
+      this.go(tab); // an index tab: straight to its chapter
+      return;
+    }
     const hit = this.pick();
     if (!hit || !this.grabbable(hit)) return;
     if (hit.what === 'leaf') {
@@ -499,12 +589,14 @@ export class BookScene {
     const t = this.turn;
     if (t && t.mode === 'drag' && e.pointerId === t.pointer) {
       if (Math.hypot(e.clientX - t.downX, e.clientY - t.downY) > CLICK_PX) t.moved = true;
-      const p = this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.heights.right), new THREE.Vector3());
+      // the pointer on the booklet's plane, in the booklet's own units
+      const ray = this.raycaster.ray.clone().applyMatrix4(this.book.matrixWorld.clone().invert());
+      const p = ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.heights.right), new THREE.Vector3());
       if (p) this.dragX = p.x;
-      this.dirty = true;
       return;
     }
-    this.renderer.domElement.style.cursor = this.grabbable(this.pick()) ? 'grab' : '';
+    this.hoverTab = this.pickTab();
+    this.renderer.domElement.style.cursor = this.hoverTab >= 0 ? 'pointer' : this.grabbable(this.pick()) ? 'grab' : '';
   };
 
   private onUp = (e: PointerEvent) => {
@@ -544,8 +636,8 @@ export class BookScene {
       const m = this.stacks[side];
       m.geometry.dispose();
       m.geometry = stackGeometry(side === 'right' ? 1 : -1, Math.max(0.001, this.heights[side]));
-      this.dirty = true;
-    }
+      this.placeTabs();
+      }
     if (!t) return;
 
     const s = t.shape;
@@ -560,8 +652,7 @@ export class BookScene {
     } else {
       const now = performance.now();
       if (now < t.t0) {
-        this.dirty = true;
-        return;
+            return;
       }
       const u = Math.min(1, (now - t.t0) / 1000 / t.dur);
       s.angle = Math.max(0, Math.min(Math.PI, hermite(t.a0, t.v0 * t.dur, t.target, u)));
@@ -575,7 +666,6 @@ export class BookScene {
     this.leafPos.needsUpdate = true;
     this.leaf.geometry.computeVertexNormals();
     this.leaf.geometry.computeBoundingSphere();
-    this.dirty = true;
   }
 
   private loop = () => {
@@ -584,9 +674,22 @@ export class BookScene {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.step(dt);
-    if (!this.dirty) return;
-    this.dirty = false;
-    this.renderer.render(this.scene, this.camera);
+    // tabs lean out a little under the pointer
+    let moved = false;
+    this.tabs.forEach((t, i) => {
+      const goal = i === this.hoverTab && !this.turn ? 1 : 0;
+      if (Math.abs(goal - t.hover) < 0.01) return;
+      t.hover += (goal - t.hover) * Math.min(1, dt * 14);
+      moved = true;
+    });
+    if (moved) this.placeTabs();
+    // you lean over the booklet as it comes up
+    const u = Math.min(1, (now - this.opened) / 1000 / CAM_IN);
+    const k = this.o.reducedMotion ? 1 : 1 - (1 - u) ** 3;
+    this.camera.position.copy(this.camFrom).lerp(this.camTo, k);
+    this.camera.lookAt(this.lookAt);
+    this.lamp.update(now / 1000);
+    this.post.render(this.scene, this.camera, now / 1000);
   };
 
   /** For tests: where things are. */
@@ -595,10 +698,20 @@ export class BookScene {
     return { page: this.page, turning: t ? { from: t.from, to: t.to, mode: t.mode, angle: t.shape.angle } : null };
   }
 
+  /** For tests: the screen point of a chapter's index tab (null until the tabs are made). */
+  tabScreen(i: number) {
+    const t = this.tabs[i];
+    if (!t) return null;
+    const p = t.mesh.getWorldPosition(new THREE.Vector3()).project(this.camera);
+    const r = this.renderer.domElement.getBoundingClientRect();
+    return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height };
+  }
+
   /** For tests: the screen point (px, relative to the canvas) of a page point. */
   screenOf(side: Side, u: number, v: number) {
     const x = side === 'right' ? u * W : -u * W;
-    const p = new THREE.Vector3(x, this.heights[side], (v - 0.5) * H).project(this.camera);
+    this.book.updateMatrixWorld(true);
+    const p = this.book.localToWorld(new THREE.Vector3(x, this.heights[side], (v - 0.5) * H)).project(this.camera);
     const r = this.renderer.domElement.getBoundingClientRect();
     return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height };
   }
@@ -615,6 +728,11 @@ export class BookScene {
       if (o instanceof THREE.Mesh) o.geometry.dispose();
     });
     for (const m of Object.values(this.mats)) m.dispose();
+    for (const t of this.tabs) {
+      const mat = t.mesh.material as THREE.MeshLambertMaterial;
+      mat.map?.dispose();
+      mat.dispose();
+    }
     this.paper.dispose();
     this.edge.dispose();
     this.backMap?.dispose();

@@ -6,9 +6,9 @@ import { uiSound } from '../../table3d/audio';
 import { BookScene } from './BookScene';
 import { PageTextures } from './pageTextures';
 
-// The rulebook as a little booklet (after Tunic's manual) lying under the lamp, over a blurred,
-// scanlined table. The booklet itself is 3D (BookScene): its cover opens and its pages are turned
-// by hand. The pages are still written as DOM: they are laid out offscreen and photographed into
+// The rulebook as a little booklet (after Tunic's manual) lying on the game table, under the lamp.
+// The booklet is 3D (BookScene): its cover opens, its pages are turned by hand, its index tabs
+// are part of it. The pages are still written as DOM: they are laid out offscreen and photographed into
 // the 3D pages; a hidden copy of the open spread keeps the text readable by screen readers.
 
 function Notes({ notes, side }: { notes?: Note[]; side: 'left' | 'right' }) {
@@ -89,6 +89,7 @@ export function Rulebook({ onClose, start = 0 }: { onClose: () => void; start?: 
     const pages = new PageTextures(sheets.current!, () => scene.current?.refresh(), 8);
     scene.current = new BookScene(host.current!, {
       count: CHAPTERS.length,
+      tabs: CHAPTERS.map((c) => c.tab),
       start,
       pages,
       onPage: setPage,
@@ -121,7 +122,7 @@ export function Rulebook({ onClose, start = 0 }: { onClose: () => void; start?: 
   return createPortal(
     <div className="rb-veil" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <section className="rulebook" role="dialog" aria-modal="true" aria-label="Manual de La Base">
-        <nav className="rb-tabs" aria-label="Capítulos">
+        <nav className="sr-only" aria-label="Capítulos">
           {CHAPTERS.map((c, i) => (
             <button key={c.id} type="button" className={`rb-tab${i === page ? ' on' : ''}`} onClick={() => go(i)} aria-current={i === page}>
               {c.tab}

@@ -2368,37 +2368,8 @@ button {
 }
 
 
-.rb-tabs {
-  position: absolute;
-  right: -2px;
-  top: 18px;
-  bottom: 18px;
-  width: 62px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  overflow-y: auto;
-}
 
-.rb-tab {
-  writing-mode: vertical-rl;
-  padding: 8px 4px;
-  font-family: var(--font-sc, var(--font-print));
-  font-size: 14px;
-  color: var(--ink);
-  background: rgba(20, 14, 12, 0.06);
-  border: 1px solid rgba(20, 14, 12, 0.35);
-  border-right: 0;
-  cursor: pointer;
-  flex: 1 1 auto;
-  min-height: 40px;
-}
 
-.rb-tab.on {
-  background: var(--oxblood);
-  color: var(--bone);
-  border-color: var(--oxblood);
-}
 
 
 
@@ -2834,11 +2805,9 @@ button {
 
 /* ==== the booklet (after Tunic's manual) ==== */
 .rb-veil {
-  /* the table behind goes soft and scanlined while the booklet is in focus */
-  background:
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px),
-    rgba(5, 4, 3, 0.55);
-  backdrop-filter: blur(5px) saturate(0.6) contrast(1.1);
+  /* the booklet's own view of the room covers everything (it is the same table, under the lamp) */
+  padding: 0;
+  background: #050403;
   animation: rb-veil-in 0.35s ease-out;
 }
 
@@ -2849,27 +2818,37 @@ button {
 }
 
 .rulebook {
-  position: relative;
-  width: min(1120px, 100%);
-  height: min(700px, calc(100vh - 32px));
-  display: grid;
-  grid-template-rows: 1fr auto;
-  padding-right: 64px; /* the index tabs */
+  position: absolute;
+  inset: 0;
   font-family: var(--font-print);
   color: var(--ink);
-  animation: rb-rise 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.15);
-}
-
-@keyframes rb-rise {
-  from {
-    transform: translateY(40px) rotate(-3deg) scale(0.92);
-    opacity: 0;
-  }
 }
 
 .rb-book {
-  position: relative;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
+}
+
+/* the few controls left outside the booklet: paper slips over the dark of the room */
+.rulebook .rb-nav {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  gap: 18px;
+  padding: 6px 14px;
+  border: 0;
+  background: #dccaa4;
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.45);
+}
+
+.rulebook .rb-close {
+  top: 14px;
+  right: 14px;
+  padding: 6px 8px;
+  background: #dccaa4;
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.45);
+  line-height: 0;
 }
 
 .rb-canvas {
@@ -3027,18 +3006,7 @@ button {
   }
 }
 
-/* index tabs: paper slips sticking out of the booklet's edge */
-.rb-tab {
-  background: #dccaa4;
-  border: 1px solid rgba(20, 14, 12, 0.5);
-  border-left: 0;
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
-  border-radius: 0 6px 6px 0;
-}
 
-.rb-tab:hover:not(.on) {
-  background: #eadbb8;
-}
 
 .rb-nav {
   background: rgba(236, 223, 194, 0.92);
