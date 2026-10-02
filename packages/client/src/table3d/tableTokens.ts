@@ -208,9 +208,9 @@ export class TableTokens {
       m.rotation.y = Math.PI / 2 - a
     }
     this.dealer.visible = s.dealerSeat >= 0
-    if (s.dealerSeat >= 0) place(this.dealer, s.dealerSeat, 0.7, -0.17)
+    if (s.dealerSeat >= 0) place(this.dealer, s.dealerSeat, 0.76, -0.21)
     this.bidder.visible = s.bidderSeat >= 0
-    if (s.bidderSeat >= 0) place(this.bidder, s.bidderSeat, s.bidderSeat === s.dealerSeat ? 0.6 : 0.7, -0.17)
+    if (s.bidderSeat >= 0) place(this.bidder, s.bidderSeat, s.bidderSeat === s.dealerSeat ? 0.67 : 0.76, -0.21)
 
     this.dynamic.clear()
     this.marks = []
@@ -236,14 +236,15 @@ export class TableTokens {
         this.dynamic.add(bn)
       })
     }
-    // kamikaze planes, in front of whoever called each one, lined up along the edge
+    // kamikaze planes, beside the card of whoever called each one (on its left, the beans go on
+    // its right), one behind the other toward the caller
     const perSeat = new Map<number, number>()
     for (const seat of s.kamikazeSeats) {
       const i = perSeat.get(seat) ?? 0
       perSeat.set(seat, i + 1)
       const plane = metalPlane()
       const a = seatAngle(seat, s.n)
-      plane.position.copy(polar(0.5, a, TABLE_Y + 0.013)).addScaledVector(right(a), -0.15 + i * 0.1)
+      plane.position.copy(polar(PLAY_R - 0.03 + i * 0.085, a, TABLE_Y + 0.013)).addScaledVector(right(a), -(CARD_W / 2 + 0.06))
       plane.rotation.y = Math.PI / 2 - a + Math.PI // nose to the centre
       this.dynamic.add(plane)
     }

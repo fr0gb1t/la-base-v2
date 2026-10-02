@@ -8,9 +8,11 @@ export const EYE_R = TABLE_R + 0.36 // seated, leaning in
 export const EYE_Y = 1.34 // high: flat cards across the table stay readable without zoom
 export const SHOULDER_R = TABLE_R + 0.34
 export const SHOULDER_Y = 1.05
-// Play ring: baza 1 lands at PLAY_R, later bazas step toward the centre and overlap.
-// Max reach from the shoulder stays ≤ 0.75 m (seated reach with a lean) — see reachOk().
-export const PLAY_R = 0.66
+export const LEAN_REACH = 0.16 // how far a full lean over the table brings the shoulders forward
+// Play ring: well inside the table so every played card shows from every seat (the one across
+// read too small out at 0.66), and just outside the centre circle (r 0.3) even with 8 players.
+// Reaching it takes a real lean over the table — see reachOk().
+export const PLAY_R = 0.5
 export const BAZA_STEP = 0.05
 // Cards are "hero props": 1.75× real size so they read from across the table without zoom.
 export const CARD_W = 0.061 * 1.75
@@ -38,5 +40,5 @@ export function playSlot(i: number, n: PlayerCount, baza = 0) {
 
 export function reachOk(i: number, n: PlayerCount, baza: number) {
   const a = seatAngle(i, n)
-  return polar(SHOULDER_R, a, SHOULDER_Y).distanceTo(playSlot(i, n, baza).pos) <= 0.75
+  return polar(SHOULDER_R - LEAN_REACH, a, SHOULDER_Y).distanceTo(playSlot(i, n, baza).pos) <= 0.8
 }

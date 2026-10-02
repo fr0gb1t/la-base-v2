@@ -69,7 +69,7 @@ export class TableChoices {
   /** As de Oros: pick who of your team opens the next base (a tag over their spot, or their face). */
   askOpener(options: Array<{ id: string; name: string; seat: number; head: THREE.Object3D }>, n: number): Promise<string> {
     const items = options.map((o) => {
-      const p = polar(PLAY_R - 0.2, seatAngle(o.seat, n), 0)
+      const p = polar(PLAY_R + 0.15, seatAngle(o.seat, n), 0) // between their card and them
       // across the table a tag would be tiny: grow it with the distance from your seat
       const far = Math.hypot(p.x, p.z - TABLE_R)
       return { id: o.id, label: o.name, sub: 'abre la próxima base', at: [p.x, p.z] as [number, number], scale: Math.min(2.4, Math.max(1, far / 0.55)), hint: `${o.name} abre la próxima base` }

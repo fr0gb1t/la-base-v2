@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { FACE_AIM_RADIUS, FACE_BACK_DOT, isHeadSena, type Card, type Sena } from '@la-base/shared'
 import { buildLamp, buildRoom } from './table'
-import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, seatAngle, polar, playSlot } from './seats'
+import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, PLAY_R, seatAngle, polar, playSlot } from './seats'
 import { makeAvatar, MAX_HAND, FAN_Y, type Avatar, type AvatarPose } from './avatar'
 import { makeCard, type CardView } from './cards'
 import { drawFace, toTexture } from './cardFace'
@@ -58,7 +58,8 @@ interface RemoteArm { slot: number; fwd: number; lat: number; holding: boolean; 
 const FACE_DOWN = Math.PI / 2
 const CARD_T = 0.0009
 const HOLD_FWD = -0.35
-const REACH = 0.78
+const REACH = 0.88
+const REACH_FWD = TABLE_R - PLAY_R // how far in from the edge the play ring is: a full lean there
 const HOVER_Y = TABLE_Y + 0.025
 const LOOK_SENS = 0.0012
 const EDGE_PX = 28 // a cursor this close to the side of the table counts as pinned there
@@ -1129,7 +1130,7 @@ export class TableScene {
     c.quaternion.copy(d.from.quat).slerp(target.quat, b)
     this.poses[0].rightWrist =
       d.fwd > -0.15 ? c.position.clone().addScaledVector(this.outOf(0), 0.075).add(new THREE.Vector3(0, 0.03, 0)) : c.position.clone().add(new THREE.Vector3(0, -0.06, 0))
-    this.poses[0].lean = THREE.MathUtils.clamp(d.fwd / 0.55, 0, 1) * (d.refCam ? 0.35 : 0.9) // small lean: the view barely moves under a free cursor
+    this.poses[0].lean = THREE.MathUtils.clamp(d.fwd / REACH_FWD, 0, 1) * 0.9 // the arm needs it to reach the play ring (the view moves only a few cm)
     this.focus = c.position
     if (d.fwd >= 0) {
       if (!d.lastSound || d.lastSound.distanceTo(c.position) > 0.09) {
@@ -1157,7 +1158,7 @@ export class TableScene {
         arm.view.root.position.copy(arm.from!.pos).lerp(pose.pos, b)
         arm.view.root.quaternion.copy(arm.from!.quat).slerp(pose.quat, b)
         this.poses[s].rightWrist = arm.view.root.position.clone().addScaledVector(this.outOf(s), 0.075).add(new THREE.Vector3(0, 0.03, 0))
-        this.poses[s].lean = THREE.MathUtils.clamp(arm.fwd / 0.55, 0, 1) * 0.9
+        this.poses[s].lean = THREE.MathUtils.clamp(arm.fwd / REACH_FWD, 0, 1) * 0.9
         this.focus = arm.view.root.position
       } else if (arm.view) {
         // they let go without playing: the card goes back to their hand
@@ -1696,6 +1697,16 @@ export class TableScene {
     const p = playSlot(seat, this.n).pos.clone().project(this.camera)
     const r = this.renderer.domElement.getBoundingClientRect()
     return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
+  }
+
+  /** How tall (px on screen) the card a seat has on the table shows (tests). */
+  cardHeightPx(seat: number) {
+    const v = this.onTable.get(seat)
+    if (!v) return 0
+    const r = this.renderer.domElement.getBoundingClientRect()
+    const a = v.root.localToWorld(new THREE.Vector3(0, CARD_H / 2, 0)).project(this.camera)
+    const b = v.root.localToWorld(new THREE.Vector3(0, -CARD_H / 2, 0)).project(this.camera)
+    return (Math.hypot(a.x - b.x, a.y - b.y) / 2) * r.height
   }
 
   vmScreen(k: number) {
