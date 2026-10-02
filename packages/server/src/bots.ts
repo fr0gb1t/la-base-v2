@@ -7,7 +7,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { io as connect, type Socket } from 'socket.io-client';
-import { cardRank, resolveBase, senaForCard, senasForHand, type AssignedTeam, type Card, type GameState, type PlayedCard, type Sena } from '@la-base/shared';
+import { cardRank, gazeToward, resolveBase, senaForCard, senasForHand, type AssignedTeam, type Gaze, type Card, type GameState, type PlayedCard, type Sena } from '@la-base/shared';
 
 // ---------------------------------------------------------------- strategy
 // Not an expert, but it plays La Base on purpose: bids from hand strength, tries to win exactly
@@ -42,12 +42,23 @@ export function partnerWorth(senas: Sena[] | undefined, handSize: number): numbe
   return signed + Math.max(0, handSize - senas.length) * 0.15; // the cards they didn't sign
 }
 
-export function chooseBid(hand: Card[], st: GameState, teamSize: number, players: number, partnerSenas: Sena[][] = []): number {
+export function chooseBid(
+  hand: Card[],
+  st: GameState,
+  teamSize: number,
+  players: number,
+  partnerSenas: Sena[][] = [],
+  rivalSenas: Sena[][] = [], // señas caught on rival faces (one list per rival seen)
+): number {
   const max = st.structureSequence[st.roundIndex];
   const own = hand.reduce((sum, c) => sum + winChance(c, st.acePowers.espadas, players), 0);
   // teammates hold cards too: what their señas say, or roughly what an average hand adds
-  const mates = Array.from({ length: teamSize - 1 }, (_, i) => partnerWorth(partnerSenas[i], hand.length) ?? max * 0.18);
-  const estimate = own + mates.reduce((a, b) => a + b, 0);
+  const average = max * 0.18;
+  const mates = Array.from({ length: teamSize - 1 }, (_, i) => partnerWorth(partnerSenas[i], hand.length) ?? average);
+  // bases are (nearly) zero-sum: a rival caught signing strength takes what we'd otherwise get,
+  // one caught signing 'nada' leaves bases on the table (difference from an average hand)
+  const rivalShift = rivalSenas.reduce((sum, l) => sum + ((partnerWorth(l, hand.length) ?? average) - average), 0);
+  const estimate = Math.max(0, own + mates.reduce((a, b) => a + b, 0) - rivalShift);
   const options = Array.from({ length: max + 1 }, (_, v) => v).filter((v) => st.bids.length === 0 || st.bids[0].value + v !== max);
   return options.reduce((best, v) => (Math.abs(v - estimate) < Math.abs(best - estimate) ? v : best), options[0]);
 }
@@ -91,15 +102,11 @@ export function chooseCard(
 /** Secret proving a connection is one of our bots (only bots may flag themselves as bots). */
 export const BOT_TOKEN = randomBytes(24).toString('hex');
 
-/**
- * Head yaw (client convention: 0 = toward the table centre, + = to the left) that faces the player
- * `k` seats after you in seating order, around a table of `n`.
- */
-export function yawToward(k: number, n: number): number {
-  const phi = (((k % n) + n) % n) * ((Math.PI * 2) / n); // central angle, counted to the left
-  if (phi === 0) return 0;
-  return phi <= Math.PI ? (Math.PI - phi) / 2 : -(Math.PI - (Math.PI * 2 - phi)) / 2;
-}
+// Señas, played like people do: sometimes distracted, answering a knock most of the time, and
+// watching the face of whoever has to answer a rival's knock.
+const SIGN_ON_DEAL = 0.75; // chance to sign right after the deal (else they wait to be asked)
+const ANSWER_ASK = 0.8; // chance to answer a partner's knock
+const WATCH_MS = 4000; // how long a bot stares at the answering rival's face
 
 const NAMES = ['Ana', 'Beto', 'Caro', 'Dani', 'Eli', 'Fede', 'Gabi', 'Hugo'];
 const bots = new Map<string, Socket[]>(); // roomCode → bot clients
@@ -123,8 +130,9 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
   let busy = false;
   let yaw = 0;
   let leaving = false;
-  let signing = false; // facing a partner to make a seña: the idle look waits
+  let lookHeldUntil = 0; // facing someone on purpose (signing, or watching a face): the idle look waits
   const partnerSenas = new Map<string, Set<Sena>>(); // teammate → señas they made this round
+  const rivalSenas = new Map<string, Set<Sena>>(); // rival → señas caught on their face this round
   const emit = <T = { success: boolean; error?: string }>(ev: string, payload: unknown) =>
     new Promise<T>((resolve) => s.emit(ev, payload, (res: T) => resolve(res)));
 
@@ -135,7 +143,7 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
   };
 
   const lookTimer = setInterval(() => {
-    if (signing) return;
+    if (Date.now() < lookHeldUntil) return;
     yaw = Math.max(-0.9, Math.min(0.9, yaw + (Math.random() - 0.5) * 0.4));
     s.emit('presence:look', { roomCode, yaw, pitch: -0.2 + Math.random() * 0.2 });
   }, 300);
@@ -149,18 +157,36 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
     hand = d.hand;
     if (dealt) {
       partnerSenas.clear();
+      rivalSenas.clear();
       askedThisRound = false;
-      sign();
+      if (Math.random() < SIGN_ON_DEAL) sign(); // sometimes distracted: forgets until asked
     }
   });
+  // the server only sends a seña we can see: a partner's, or a rival's caught on their face
   s.on('sena:made', (d: { playerId: string; sena: Sena }) => {
-    if (!teammates().some((p) => p.id === d.playerId)) return; // rivals keep a poker face
-    partnerSenas.set(d.playerId, (partnerSenas.get(d.playerId) ?? new Set()).add(d.sena));
+    const seen = teammates().some((p) => p.id === d.playerId) ? partnerSenas : rivalSenas;
+    seen.set(d.playerId, (seen.get(d.playerId) ?? new Set()).add(d.sena));
   });
   s.on('game:cardPlayed', (d: { playerId: string; card: Card }) => {
     const sena = senaForCard(d.card);
-    if (sena) partnerSenas.get(d.playerId)?.delete(sena); // that card is gone
+    partnerSenas.get(d.playerId)?.delete(sena); // that card is gone
+    rivalSenas.get(d.playerId)?.delete(sena);
   });
+
+  /** Seat index of a player and the table size (seating order = roster order). */
+  const gazeAt = (id: string): Gaze => {
+    const order = roster.map((p) => p.id);
+    return gazeToward(order.indexOf(s.id ?? ''), order.indexOf(id), order.length);
+  };
+  /** Keep looking at someone's face for a while (the look stream tells the server where). */
+  async function holdLook(g: Gaze, ms: number) {
+    lookHeldUntil = Date.now() + ms;
+    yaw = g.yaw;
+    while (Date.now() < lookHeldUntil && !leaving) {
+      s.emit('presence:look', { roomCode, yaw: g.yaw, pitch: g.pitch });
+      await sleep(200);
+    }
+  }
 
   /** Tell the partner(s) what we hold: turn to face them, make the seña, look away. */
   /**
@@ -175,20 +201,11 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
       await sleep(toward ? 500 + Math.random() * 700 : 1500 + Math.random() * 3500);
       if (!state || (state.phase !== 'bidding' && state.phase !== 'playing') || leaving) return;
       const mate = mates.find((p) => p.id === toward) ?? mates[Math.floor(Math.random() * mates.length)];
-      const order = roster.map((p) => p.id);
-      const k = order.indexOf(mate.id) - order.indexOf(s.id ?? '');
-      signing = true;
-      yaw = yawToward(k, order.length);
-      for (let i = 0; i < 4; i++) {
-        s.emit('presence:look', { roomCode, yaw, pitch: -0.05 });
-        await sleep(110);
-      }
-      s.emit('sena:make', { roomCode, sena, yaw, pitch: -0.05 });
-      for (let i = 0; i < 6; i++) {
-        s.emit('presence:look', { roomCode, yaw, pitch: -0.05 });
-        await sleep(250);
-      }
-      signing = false;
+      const g = gazeAt(mate.id);
+      const facing = holdLook(g, 2000); // turn to them, make it, keep facing them a moment
+      await sleep(450);
+      s.emit('sena:make', { roomCode, sena, yaw: g.yaw, pitch: g.pitch });
+      await facing;
     }
   }
   let signing$ = Promise.resolve(); // one seña at a time
@@ -197,9 +214,21 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
   };
   let askedThisRound = false;
   s.on('sena:asked', (d: { playerId: string }) => {
-    if (teammates().some((p) => p.id === d.playerId)) sign(d.playerId);
+    const asker = roster.find((p) => p.id === d.playerId);
+    if (!asker) return;
+    // a partner knocks: answer, unless distracted (it's a reminder, not an order)
+    if (teammates().some((p) => p.id === asker.id)) {
+      if (Math.random() < ANSWER_ASK) sign(asker.id);
+      return;
+    }
+    // a rival knocks: their partner is about to sign — watch that face
+    const answerers = roster.filter((p) => p.team === asker.team && p.id !== asker.id);
+    if (!answerers.length || Date.now() < lookHeldUntil) return;
+    const target = answerers[Math.floor(Math.random() * answerers.length)];
+    void holdLook(gazeAt(target.id), WATCH_MS);
   });
   const signedBy = () => teammates().map((p) => [...(partnerSenas.get(p.id) ?? [])]);
+  const caughtFromRivals = () => [...rivalSenas.values()].map((set) => [...set]).filter((l) => l.length);
   const partnerHolds = (sena: Sena) => teammates().find((p) => partnerSenas.get(p.id)?.has(sena))?.id ?? null;
   s.on('room:kicked', stop);
   s.on('game:gameOver', () => setTimeout(stop, 60_000));
@@ -241,7 +270,7 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
         }
         const myTeam = roster.find((p) => p.id === me)?.team;
         const teamSize = Math.max(1, roster.filter((p) => p.team === myTeam).length);
-        const value = chooseBid(hand, st, teamSize, Math.max(4, roster.length), signedBy());
+        const value = chooseBid(hand, st, teamSize, Math.max(4, roster.length), signedBy(), caughtFromRivals());
         s.emit('bid:bidValueChanged', { roomCode, bidValue: value, playerId: me });
         await sleep(800);
         await emit('bid:declare', { roomCode, bidValue: value, isKamikaze: false });

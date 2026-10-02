@@ -2,6 +2,7 @@
 //   LABASE_TEST=1 LABASE_ROOM_TTL_MS=1500 LABASE_CLEANUP_MS=300 node --import tsx src/index.ts
 // Usage: node e2e/rules.e2e.mjs [http://localhost:3000]
 import { io } from 'socket.io-client'
+import { gazeToward } from '@la-base/shared'
 
 const SERVER = process.argv[2] ?? 'http://localhost:3000'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -158,7 +159,7 @@ const C = (value, suit) => ({ value, suit })
   t.close()
 }
 
-// ---------------------------------------------------------------- F. asking for señas: bots answer, and ask before bidding
+// ---------------------------------------------------------------- F. asking for señas: rival bots watch the answer; bots ask before bidding
 {
   const s = io(SERVER, { transports: ['websocket'], forceNew: true })
   await new Promise((r) => s.on('connect', r))
@@ -171,6 +172,8 @@ const C = (value, suit) => ({ value, suit })
   s.on('game:state', (st) => (state = st))
   s.on('sena:made', (d) => made.push({ ...d, t: Date.now() }))
   s.on('sena:asked', (d) => asked.push(d.playerId))
+  const looks = new Map()
+  s.on('presence:look', (d) => looks.set(d.playerId, d))
   let hand = []
   s.on('player:hand', (d) => (hand = d.hand))
   const room = (await emit('room:create', { playerName: 'Host', playerCount: 4 })).roomCode
@@ -183,14 +186,20 @@ const C = (value, suit) => ({ value, suit })
   }
   const myTeam = roster.find((p) => p.id === s.id)?.team
   const mate = roster.find((p) => p.id !== s.id && p.team === myTeam)
-  await sleep(6000) // let the deal-time señas pass
-  const t0 = Date.now()
+  await sleep(12000) // let the deal-time señas pass (bots are busy facing partners meanwhile)
   const r = await emit('sena:ask', { roomCode: room })
-  await sleep(3000)
-  const answer = made.find((m) => m.playerId === mate.id && m.t >= t0)
+  await sleep(1200)
   check('asking for señas is relayed', r.success)
-  // whatever it was dealt (deals are random), every hand has a seña: the partner always answers
-  check('the bot partner answers the knock with a seña', Boolean(answer), JSON.stringify(made.map((m) => m.sena)))
+  // answering is up to the partner (bots can be distracted); the rivals, though, turn to watch
+  // the face of whoever has to answer
+  const order = roster.map((p) => p.id)
+  const rivals = roster.filter((p) => p.team !== myTeam)
+  const watching = rivals.filter((p) => {
+    const l = looks.get(p.id)
+    const g = gazeToward(order.indexOf(p.id), order.indexOf(mate.id), order.length)
+    return l && Math.abs(l.yaw - g.yaw) < 0.02 && Math.abs(l.pitch - g.pitch) < 0.02
+  })
+  check('after a knock, rival bots watch the face of the partner who must answer', watching.length > 0, `${watching.length}/${rivals.length}`)
   // the host never signs: when declaring for the team falls to its bot partner, the bot knocks first
   let mateDeclared = false
   for (let i = 0; i < 1200 && !asked.includes(mate.id); i++) {

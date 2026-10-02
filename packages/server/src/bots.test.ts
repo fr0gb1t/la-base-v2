@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Card, GameState } from '@la-base/shared';
-import { chooseBid, chooseCard, partnerWorth, yawToward } from './bots.js';
+import { chooseBid, chooseCard, partnerWorth } from './bots.js';
 
 const state = (over: Partial<GameState> = {}): GameState =>
   ({
@@ -15,13 +15,6 @@ const state = (over: Partial<GameState> = {}): GameState =>
     currentBaseCards: [],
     ...over,
   }) as unknown as GameState;
-
-test('yawToward faces the opposite seat straight and neighbours at 45° on a table of 4', () => {
-  assert.equal(yawToward(2, 4), 0);
-  assert.ok(Math.abs(yawToward(1, 4) - Math.PI / 4) < 1e-9); // next seat: to the left
-  assert.ok(Math.abs(yawToward(-1, 4) + Math.PI / 4) < 1e-9); // previous seat: to the right
-  assert.ok(Math.abs(yawToward(3, 4) + Math.PI / 4) < 1e-9);
-});
 
 test('partnerWorth reads señas: nothing signed → unknown, ancho de bastos → strong, nada → weak', () => {
   assert.equal(partnerWorth(undefined, 5), null);
@@ -47,4 +40,13 @@ test('the bot ducks when its partner signed the ancho de bastos and has yet to p
   const teamOf = (id: string) => (id === 'mate' || id === 'me' ? 'nosotros' : 'ellos');
   assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf), 0); // alone: takes it with the king
   assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf, (s) => (s === 'ancho-basto' ? 'mate' : null)), 1); // partner will
+});
+
+test('what a bot caught on rival faces moves its bid: strong rivals down, empty-handed rivals up', () => {
+  const hand: Card[] = [{ suit: 'oros', value: 12 }, { suit: 'copas', value: 11 }, { suit: 'oros', value: 6 }, { suit: 'copas', value: 10 }, { suit: 'oros', value: 4 }];
+  const blind = chooseBid(hand, state(), 2, 4);
+  const strongRivals = chooseBid(hand, state(), 2, 4, [], [['ancho-basto', 'ancho-espada'], ['figuras']]);
+  const weakRivals = chooseBid(hand, state(), 2, 4, [], [['nada'], ['nada']]);
+  assert.ok(strongRivals < blind, `blind ${blind} strong ${strongRivals}`);
+  assert.ok(weakRivals >= blind, `blind ${blind} weak ${weakRivals}`);
 });
