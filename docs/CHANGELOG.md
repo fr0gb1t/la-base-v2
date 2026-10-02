@@ -157,6 +157,11 @@ Sonido | Mesa | Cámara (`0443d38`, reordenado en `e16b87e`):
   los navegadores); botón "activar sonido" si entrás directo a una partida. `822ed37`
 - **Sombras suaves** de la lámpara, en la mesa y en los menús. `380d3a4`
 
+## Build y deploy
+
+- **El build del cliente compila antes `@la-base/shared`.** El cliente ahora usa valores del paquete
+  compartido (señas, geometría de la mesa), no solo tipos, y en Vercel no existía su `dist`.
+
 ## Tests y herramientas
 
 - `packages/server/e2e/rules.e2e.mjs`: reglas (kamikaze, As de Copas, As de Oros, reparto, salas,
