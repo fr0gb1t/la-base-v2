@@ -11,6 +11,7 @@ import { ToastContainer } from './ToastContainer';
 import { TableScene, type TablePlayer } from '../table3d/TableScene';
 import { SettingsButton, useViewSettings } from '../settings/SettingsPanel';
 import { SenaWheel, type WheelOpen } from './senas/SenaWheel';
+import { SenaEcho, type Echo } from './senas/SenaEcho';
 import { Rulebook } from './rulebook/Rulebook';
 import { audioState, onAudioState, resumeAudio } from '../table3d/audio';
 import { GiSpeakerOff } from 'react-icons/gi';
@@ -93,6 +94,14 @@ export function GamePage() {
   const [soundOn, setSoundOn] = useState(audioState() === 'running');
   useEffect(() => onAudioState((st) => setSoundOn(st === 'running')), []);
   const [wheel, setWheel] = useState<WheelOpen | null>(null);
+  const [echo, setEcho] = useState<Echo | null>(null);
+  useEffect(() => {
+    if (!echo) return;
+    const t = window.setTimeout(() => setEcho(null), 2100);
+    return () => window.clearTimeout(t);
+  }, [echo]);
+  const wheelAt = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  if (wheel) wheelAt.current = { x: wheel.x, y: wheel.y };
   const [aimFace, setAimFace] = useState(false);
   const view = useViewSettings();
   const nameNow = (id: string) => latest.current.roomPlayers.find((p) => p.id === id)?.name ?? '—';
@@ -401,6 +410,7 @@ export function GamePage() {
         if (!res?.success) return setStatus(res?.error === 'Too fast' ? 'más despacio con las señas' : res?.error || 'No se pudo hacer la seña');
         const label = gestureOf(sena);
         setStatus(`hacés la seña: ${label}`);
+        setEcho({ sena, ...wheelAt.current, key: Date.now() }); // your own face, where the wheel was
         logRef.current(`Hacés la seña: ${label}`, 'sena');
       });
     },
@@ -580,6 +590,7 @@ export function GamePage() {
   return (
     <div className="table-page" onPointerDown={onMiddleDown} onMouseDown={onMiddleDown}>
       {view.reticle && <div className={`reticle${aimFace ? ' on-face' : ''}`} aria-hidden />}
+      {echo && <SenaEcho echo={echo} />}
       {wheel && inGame && <SenaWheel open={wheel} onPick={makeSena} onAsk={askSenas} onClose={closeWheel} />}
       <div ref={mountRef} className="table-canvas" />
 

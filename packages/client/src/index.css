@@ -2787,3 +2787,101 @@ button {
   border: 2px solid var(--ink);
   cursor: pointer;
 }
+
+/* your own seña, played where the wheel was (you can't see your face) */
+.sena-echo {
+  position: fixed;
+  z-index: 61;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: sena-echo-life 2.1s ease-out forwards;
+}
+
+.sena-echo-face {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(10, 7, 6, 0.75) 0 60%, rgba(10, 7, 6, 0) 72%);
+}
+
+.sena-echo-face > span {
+  position: absolute;
+  inset: 0;
+}
+
+.sena-echo .rest {
+  animation: sena-echo-out 2.1s steps(1, end) forwards;
+}
+
+.sena-echo .made {
+  opacity: 0;
+  animation: sena-echo-in 2.1s forwards;
+}
+
+.sena-echo.nod .made {
+  animation: sena-echo-in 2.1s forwards, sena-echo-nod 0.45s ease-in-out 0.3s 3;
+}
+
+.sena-echo.shake .made {
+  animation: sena-echo-in 2.1s forwards, sena-echo-shake 0.45s ease-in-out 0.3s 3;
+}
+
+@keyframes sena-echo-life {
+  0% {
+    opacity: 0;
+    scale: 0.6;
+  }
+  12% {
+    opacity: 1;
+    scale: 1.08;
+  }
+  20% {
+    scale: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.9;
+  }
+}
+
+@keyframes sena-echo-out {
+  0% {
+    opacity: 1;
+  }
+  14% {
+    opacity: 0; /* the face changes into the seña: stop-motion, like the masks */
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes sena-echo-in {
+  0%,
+  13% {
+    opacity: 0;
+  }
+  14%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes sena-echo-nod {
+  50% {
+    transform: translateY(9px) rotateX(18deg);
+  }
+}
+
+@keyframes sena-echo-shake {
+  25% {
+    transform: translateX(-9px) rotate(-6deg);
+  }
+  75% {
+    transform: translateX(9px) rotate(6deg);
+  }
+}
