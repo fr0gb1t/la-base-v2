@@ -37,12 +37,22 @@ const to = await p.evaluate(() => window.__table.vmScreen(2))
 await p.mouse.move(from.x, from.y); await sleep(150); await p.mouse.down(); await sleep(300)
 await p.mouse.move(to.x + 6, from.y, { steps: 14 }); await sleep(500)
 await p.screenshot({ path: `${out}-dragging.png` })
+// the card you move is one of your hand's, visible and under the cursor (not a dark copy behind)
+const held = await p.evaluate(() => ({ vis: window.__table.vm[0].mesh.visible, x: window.__table.vmScreen(0).x }))
+r.heldVisible = held.vis
+r.heldNearCursor = Math.abs(held.x - (to.x + 6)) < 70
+// up off the fan: it becomes the card you carry to the table; back over the cards: rearranging again
+await p.mouse.move(to.x, from.y - 260, { steps: 10 }); await sleep(500)
+r.carried = await p.evaluate(() => !window.__table.vm[0].mesh.visible && window.__table.drag?.insert === undefined)
+await p.screenshot({ path: `${out}-carry.png` })
+await p.mouse.move(to.x + 6, from.y + 10, { steps: 10 }); await sleep(500)
+r.backOverFan = await p.evaluate(() => window.__table.drag?.insert !== undefined)
 await p.mouse.up(); await sleep(900)
 r.after = await order()
 await emit('test:rig', { roomCode: room, hands: { [meId]: mine } }) // the server sends its order again
 await sleep(900)
 r.afterResend = await order()
 console.log(JSON.stringify(r))
-const ok = r.before === '12o 4c 7e' && r.after === '4c 7e 12o' && r.afterResend === '4c 7e 12o'
+const ok = r.before === '12o 4c 7e' && r.after === '4c 7e 12o' && r.afterResend === '4c 7e 12o' && r.heldVisible && r.heldNearCursor && r.carried && r.backOverFan
 console.log(ok ? 'PASS' : 'FAIL')
 await b.close(); host.disconnect(); process.exit(ok ? 0 : 1)
