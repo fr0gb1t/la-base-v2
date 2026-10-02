@@ -38,6 +38,8 @@ export interface TableCallbacks {
   status(text: string): void
   /** short click on the deck in the middle of the table (initial draw) */
   deckClick?(): void
+  /** something broke inside the table (a frame, the WebGL context): report it */
+  error?(message: string, stack?: string): void
   /** the centre of your view moved onto (playerId) or off (null) someone's face */
   faceAim?(playerId: string | null): void
 }
@@ -243,7 +245,23 @@ export class TableScene {
     this.resize()
     this.renderer.setAnimationLoop((t) => {
       this.timer.update(t)
-      this.frame(this.timer.getElapsed(), this.timer.getDelta())
+      // a frame that throws must not stop the table: three.js would never ask for the next one
+      // and the 3D view would freeze while the rest of the page carries on
+      try {
+        this.frame(this.timer.getElapsed(), this.timer.getDelta())
+      } catch (err) {
+        this.reportError(err)
+      }
+    })
+    const canvas = this.renderer.domElement
+    canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault() // lets the browser restore it
+      this.reportError(new Error('WebGL context lost'))
+      this.cb.status('se perdió el contexto gráfico; intentando recuperarlo…')
+    })
+    canvas.addEventListener('webglcontextrestored', () => {
+      this.reportError(new Error('WebGL context restored'))
+      this.cb.status('')
     })
   }
 
@@ -373,6 +391,16 @@ export class TableScene {
 
   cancelTableChoice() {
     this.choices.cancel()
+  }
+
+  private reported = new Set<string>()
+  /** Log a table error once per message and hand it to the page (which forwards it to the server). */
+  private reportError(err: unknown) {
+    const e = err instanceof Error ? err : new Error(String(err))
+    if (this.reported.has(e.message)) return
+    this.reported.add(e.message)
+    console.error('[table3d]', e)
+    this.cb.error?.(e.message, e.stack)
   }
 
   /** A player asks their partners for señas: two knocks on the table with the right hand. */
@@ -593,7 +621,7 @@ export class TableScene {
 
   private enqueue(fn: () => Promise<void>) {
     this.queued++
-    this.queue = this.queue.then(fn).catch((err) => console.error('[table3d]', err)).finally(() => this.queued--)
+    this.queue = this.queue.then(fn).catch((err) => this.reportError(err)).finally(() => this.queued--)
   }
 
   private heldPose(s: number, k: number): HeldPose {

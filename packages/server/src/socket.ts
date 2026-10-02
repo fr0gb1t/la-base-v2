@@ -1192,6 +1192,21 @@ export function setupSocketHandlers(io: SocketIOServer) {
       const valid = slot !== null && fwd !== null && lat !== null;
       relayPresence('arm', payload, valid ? { slot: Math.round(slot), fwd, lat, holding: payload?.holding === true } : null);
     });
+    /**
+     * Client-side errors (a 3D frame that threw, a lost WebGL context, uncaught errors) logged here
+     * so problems seen only in a player's browser can be diagnosed. Rate-limited, size-capped.
+     */
+    let clientErrors = 0;
+    const clientErrorWindow = setInterval(() => (clientErrors = 0), 60_000);
+    socket.on('disconnect', () => clearInterval(clientErrorWindow));
+    socket.on('client:error', (payload: any) => {
+      if (++clientErrors > 20) return;
+      const str = (v: unknown, n: number) => (typeof v === 'string' ? v.slice(0, n) : '');
+      const room = typeof payload?.roomCode === 'string' ? roomManager.getRoom(payload.roomCode) : undefined;
+      const who = room?.players.find((p) => p.socketId === socket.id)?.name ?? socket.id;
+      console.error(`[client-error] ${who} (${str(payload?.where, 20)}): ${str(payload?.message, 300)}\n  ua: ${str(payload?.ua, 200)}\n${str(payload?.stack, 2000)}`);
+    });
+
     socket.on('presence:hover', (payload: any) => {
       const slot = finite(payload?.slot, -1, 5);
       relayPresence('hover', payload, slot === null ? null : { slot: Math.round(slot) });

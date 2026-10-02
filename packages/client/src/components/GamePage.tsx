@@ -166,6 +166,10 @@ export function GamePage() {
       },
       status: (text) => setStatus(text),
       deckClick: () => drawRef.current(),
+      error: (message, stack) => {
+        const code = latest.current.roomCode;
+        socket?.emit('client:error', { roomCode: code, message, stack: stack?.slice(0, 2000), where: 'table3d', ua: navigator.userAgent });
+      },
       faceAim: (id) => setAimFace(Boolean(id)),
     });
     sceneRef.current = scene;
@@ -173,6 +177,21 @@ export function GamePage() {
     return () => {
       scene.dispose();
       sceneRef.current = null;
+    };
+  }, [socket]);
+
+  // any uncaught error on this page goes to the server log too (so freezes can be diagnosed)
+  useEffect(() => {
+    if (!socket) return;
+    const send = (message: string, stack?: string) =>
+      socket.emit('client:error', { roomCode: latest.current.roomCode, message, stack: stack?.slice(0, 2000), where: 'window', ua: navigator.userAgent });
+    const onError = (e: ErrorEvent) => send(e.message, e.error instanceof Error ? e.error.stack : undefined);
+    const onRejection = (e: PromiseRejectionEvent) => send(String(e.reason?.message ?? e.reason), e.reason instanceof Error ? e.reason.stack : undefined);
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection);
     };
   }, [socket]);
 
