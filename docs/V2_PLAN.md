@@ -41,6 +41,9 @@ Fully diegetic phases: declare with beans/tokens on the table, choose direction 
 object, point at a teammate with the hand.
 
 Noted for the future (not started):
+- **Idle animations for the characters** (random, to make the room feel alive): lighting a
+  cigarette (with smoke), a comic speech bubble with a curse, slapping a neighbour, a little
+  dance, etc. Not during reveals or the decisive moments.
 - **Game modules**: turn the table into a platform where each card game is a selectable module
   (La Base is the first). Potentially community modules through the Steam Workshop.
 - **Voice**: ask for microphone permission only to animate the speaking player's mask (audio is
