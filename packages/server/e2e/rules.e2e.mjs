@@ -244,6 +244,20 @@ const C = (value, suit) => ({ value, suit })
     await sleep(100)
   }
   check('a bot knocks for señas before declaring when its partner signed nothing', asked.includes(mate.id), `mate declared: ${mateDeclared}; phase ${state?.phase} round ${state?.roundIndex} bidder ${state?.currentBidPlayerId === mate.id ? 'mate' : state?.currentBidPlayerId === s.id ? 'host' : 'rival'} turn ${state?.currentTurnPlayerId === s.id ? 'host' : '-'} gate ${state?.readyGate?.kind ?? '-'}`)
+  // and it waits for the answer: the host nods 'sí' 1.5 s later; the bot declares only after that
+  if (asked.includes(mate.id)) {
+    const askAt = Date.now()
+    const round = state.roundIndex
+    await sleep(1500)
+    const answerAt = Date.now()
+    await emit('sena:make', { roomCode: room, sena: 'si' })
+    let bidAt = 0
+    for (let i = 0; i < 100 && !bidAt; i++) {
+      if (state?.roundIndex === round && state.bids.some((b) => b.team === myTeam)) bidAt = Date.now()
+      await sleep(100)
+    }
+    check('the bot waits for the answer to its knock, then declares', bidAt >= answerAt && bidAt - answerAt < 3000 && bidAt - askAt >= 1500, `answered after ${answerAt - askAt} ms, declared ${bidAt ? bidAt - answerAt : 'never'} ms later`)
+  }
   s.disconnect()
 }
 

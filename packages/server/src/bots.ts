@@ -35,14 +35,19 @@ const SENA_WORTH: Record<Sena, number> = {
   tres: 0.03,
   dos: 0.02,
   nada: 0.03, // per card: nothing that wins
+  si: 1, // 'ask at least one, I can make one'
+  no: 0, // 'not telling': no information at all
 };
 
 /** What a teammate's hand is worth, from their señas (null: they haven't signed anything). */
 export function partnerWorth(senas: Sena[] | undefined, handSize: number): number | null {
-  if (!senas?.length) return null;
-  if (senas.includes('nada')) return handSize * SENA_WORTH.nada;
-  const signed = senas.reduce((sum, s) => sum + SENA_WORTH[s], 0);
-  return signed + Math.max(0, handSize - senas.length) * 0.15; // the cards they didn't sign
+  const cards = (senas ?? []).filter((s) => s !== 'si' && s !== 'no'); // señas about cards
+  const yes = senas?.includes('si') ?? false;
+  if (!cards.length) return yes ? SENA_WORTH.si : null; // 'no' alone tells nothing
+  const worth = cards.includes('nada')
+    ? handSize * SENA_WORTH.nada
+    : cards.reduce((sum, s) => sum + SENA_WORTH[s], 0) + Math.max(0, handSize - cards.length) * 0.15; // the cards they didn't sign
+  return yes ? Math.max(worth, SENA_WORTH.si) : worth; // a 'sí' promises at least one
 }
 
 export function chooseBid(
@@ -130,7 +135,8 @@ export const BOT_TOKEN = randomBytes(24).toString('hex');
 // watching the face of whoever has to answer a rival's knock.
 const SIGN_ON_DEAL = 0.75; // chance to sign right after the deal (else they wait to be asked)
 const ANSWER_ASK = 0.8; // chance to answer a partner's knock
-const WATCH_MS = 4000; // how long a bot stares at the answering rival's face
+const WATCH_MS = 4000;
+const ASK_PATIENCE_MS = 20_000; // how long a bot waits for its partners to answer its knock // how long a bot stares at the answering rival's face
 
 const NAMES = ['Ana', 'Beto', 'Caro', 'Dani', 'Eli', 'Fede', 'Gabi', 'Hugo'];
 const bots = new Map<string, Socket[]>(); // roomCode → bot clients
@@ -187,9 +193,11 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
     }
   });
   // the server only sends a seña we can see: a partner's, or a rival's caught on their face
+  const lastSenaAt = new Map<string, number>(); // when each player last made a seña we saw
   s.on('sena:made', (d: { playerId: string; sena: Sena }) => {
     const seen = teammates().some((p) => p.id === d.playerId) ? partnerSenas : rivalSenas;
     seen.set(d.playerId, (seen.get(d.playerId) ?? new Set()).add(d.sena));
+    lastSenaAt.set(d.playerId, Date.now());
   });
   s.on('game:cardPlayed', (d: { playerId: string; card: Card }) => {
     const sena = senaForCard(d.card);
@@ -295,8 +303,13 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
         // no señas from the partners yet: knock on the table and give them a moment to answer
         if (!askedThisRound && teammates().length && signedBy().every((l) => l.length === 0)) {
           askedThisRound = true;
+          // knock, then wait for an answer (any seña: a 'no' counts too) from every partner, up
+          // to ASK_PATIENCE_MS so a silent table doesn't stall the game
+          const askedAt = Date.now();
           s.emit('sena:ask', { roomCode });
-          await sleep(2800);
+          const answered = () => teammates().every((p) => (lastSenaAt.get(p.id) ?? 0) >= askedAt);
+          while (!answered() && Date.now() - askedAt < ASK_PATIENCE_MS && !leaving) await sleep(200);
+          await sleep(600); // a moment to take it in
         }
         const myTeam = roster.find((p) => p.id === me)?.team;
         const teamSize = Math.max(1, roster.filter((p) => p.team === myTeam).length);
