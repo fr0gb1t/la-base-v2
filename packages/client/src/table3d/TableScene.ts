@@ -183,7 +183,8 @@ export class TableScene {
   private senas = new Map<number, { s: Sena; t0: number; frozen?: boolean; gaze?: { yaw: number; pitch: number } }>()
   private aimedFace = -1
   private asks = new Map<number, { t0: number; knocks: number }>() // seat → knocking for señas
-  private faceShown: Array<Sena | null> = [] // per seat, for tests // seat → seña on their face
+  private faceShown: Array<Sena | null> = [] // per seat, for tests
+  dealTimes: Array<{ cards: number; players: number; ms: number }> = [] // hand arrived → dealt, for tests // seat → seña on their face
   private focus: THREE.Vector3 | null = null
   private stareAtYou = 0
   private remoteLook = new Map<number, { yaw: number; pitch: number; t: number }>()
@@ -292,6 +293,11 @@ export class TableScene {
     this.canPlay = myTurn
   }
 
+  /** Your hand is still being dealt (no señas about it yet). */
+  get isDealing() {
+    return this.dealing
+  }
+
   get isAnimating() {
     return this.queued > 0
   }
@@ -301,7 +307,11 @@ export class TableScene {
     this.hand = myHand
     this.dealing = true // your fan fills card by card, not before the cards arrive
     this.vm.forEach((v) => (v.mesh.visible = false))
-    this.enqueue(() => this.animateDeal(dealerId ? this.seatOf(dealerId) : this.n - 1, perPlayer))
+    const dealtAt = now()
+    this.enqueue(async () => {
+      await this.animateDeal(dealerId ? this.seatOf(dealerId) : this.n - 1, perPlayer)
+      this.dealTimes.push({ cards: perPlayer, players: this.n, ms: Math.round((now() - dealtAt) * 1000) }) // tests
+    })
   }
 
   cardPlayed(playerId: string, card: Card) {
@@ -710,6 +720,7 @@ export class TableScene {
 
   // ------------------------------------------------------------------ animations
 
+  // timings mirrored by dealAnimationMs (@la-base/shared): bots wait for the deal to end
   private async animateDeal(dealer: number, perPlayer: number) {
     this.dealing = true
     const shown = Array(this.n).fill(0)

@@ -396,6 +396,7 @@ export function GamePage() {
     (sena: Sena) => {
       setWheel(null);
       if (!socket || !roomCode) return;
+      if (sceneRef.current?.isDealing) return setStatus('esperá a que terminen de repartir');
       socket.emit('sena:make', { roomCode, sena, ...sceneRef.current?.gaze() }, (res: { success: boolean; error?: string }) => {
         if (!res?.success) return setStatus(res?.error === 'Too fast' ? 'más despacio con las señas' : res?.error || 'No se pudo hacer la seña');
         const label = gestureOf(sena);
@@ -408,6 +409,7 @@ export function GamePage() {
   const askSenas = useCallback(() => {
     setWheel(null);
     if (!socket || !roomCode) return;
+    if (sceneRef.current?.isDealing) return setStatus('esperá a que terminen de repartir');
     socket.emit('sena:ask', { roomCode }, (res: { success: boolean; error?: string }) => {
       if (!res?.success) return setStatus(res?.error === 'Too fast' ? 'ya pediste, esperá un momento' : res?.error || 'No se pudo pedir señas');
       sceneRef.current?.askSenas(latest.current.myId);

@@ -7,7 +7,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { io as connect, type Socket } from 'socket.io-client';
-import { cardRank, gazeToward, resolveBase, senaForCard, senasForHand, type AssignedTeam, type Gaze, type Card, type GameState, type PlayedCard, type Sena } from '@la-base/shared';
+import { cardRank, dealAnimationMs, gazeToward, resolveBase, senaForCard, senasForHand, type AssignedTeam, type Gaze, type Card, type GameState, type PlayedCard, type Sena } from '@la-base/shared';
 
 // ---------------------------------------------------------------- strategy
 // Not an expert, but it plays La Base on purpose: bids from hand strength, tries to win exactly
@@ -194,6 +194,8 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
     const dealt = d.hand.length > hand.length;
     hand = d.hand;
     if (dealt) {
+      // the others are still watching the cards being dealt: nothing happens before they land
+      cardsVisibleAt = Date.now() + dealAnimationMs(Math.max(2, roster.length), d.hand.length);
       partnerSenas.clear();
       rivalSenas.clear();
       askedThisRound = false;
@@ -201,6 +203,10 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
     }
   });
   // the server only sends a seña we can see: a partner's, or a rival's caught on their face
+  let cardsVisibleAt = 0; // when the deal animation ends on the players' screens
+  const untilDealt = async () => {
+    while (Date.now() < cardsVisibleAt && !leaving) await sleep(150);
+  };
   const lastSenaAt = new Map<string, number>(); // when each player last made a seña we saw
   s.on('sena:made', (d: { playerId: string; sena: Sena }) => {
     const seen = teammates().some((p) => p.id === d.playerId) ? partnerSenas : rivalSenas;
@@ -237,6 +243,7 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
     const mates = teammates();
     if (!mates.length) return;
     const list = senasForHand(hand, state?.acePowers).slice(0, 2);
+    await untilDealt(); // no señas about cards nobody has seen yet
     for (const sena of list) {
       await sleep(toward ? 500 + Math.random() * 700 : 1500 + Math.random() * 3500);
       if (!state || (state.phase !== 'bidding' && state.phase !== 'playing') || leaving) return;
@@ -307,6 +314,7 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
         await sleep(900);
         await emit('draw:initialCard', { roomCode });
       } else if (st.phase === 'bidding' && st.currentBidPlayerId === me) {
+        await untilDealt(); // see the hand land before knocking or declaring
         await sleep(1200);
         // no señas from the partners yet: knock on the table and give them a moment to answer
         if (!askedThisRound && teammates().length && signedBy().every((l) => l.length === 0)) {

@@ -67,3 +67,16 @@ export function senasForHand(hand: Card[], powers: AcePowers = ALL_POWERS): Sena
   );
   return SENAS.map((s) => s.id).filter((id) => found.has(id) && !isHeadSena(id));
 }
+
+/**
+ * How long the 3D table takes to show a new hand (sweep the last round, shuffle, deal one card at a
+ * time): nobody should sign, knock or declare before their cards are visible. Mirrors the
+ * client's animateSweep + animateDeal timings.
+ */
+export function dealAnimationMs(players: number, perPlayer: number): number {
+  const SWEEP = 1400; // the last round's cards (or the draw) go back to the dealer
+  const SHUFFLE = 500;
+  const PER_CARD = 110; // one card leaves the dealer every 0.11 s…
+  const FLIGHT = 420; // …and lands 0.42 s later
+  return SWEEP + SHUFFLE + players * perPlayer * PER_CARD + FLIGHT + 400;
+}

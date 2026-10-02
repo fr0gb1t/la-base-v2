@@ -2,7 +2,7 @@
 //   LABASE_TEST=1 LABASE_ROOM_TTL_MS=1500 LABASE_CLEANUP_MS=300 node --import tsx src/index.ts
 // Usage: node e2e/rules.e2e.mjs [http://localhost:3000]
 import { io } from 'socket.io-client'
-import { gazeToward } from '@la-base/shared'
+import { dealAnimationMs, gazeToward } from '@la-base/shared'
 
 const SERVER = process.argv[2] ?? 'http://localhost:3000'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -208,7 +208,13 @@ const C = (value, suit) => ({ value, suit })
   const looks = new Map()
   s.on('presence:look', (d) => looks.set(d.playerId, d))
   let hand = []
-  s.on('player:hand', (d) => (hand = d.hand))
+  let dealt = { at: 0, cards: 0 }
+  const askedAt = new Map()
+  s.on('player:hand', (d) => {
+    if (d.hand.length > hand.length) dealt = { at: Date.now(), cards: d.hand.length }
+    hand = d.hand
+  })
+  s.on('sena:asked', (d) => askedAt.set(d.playerId, { at: Date.now(), deal: dealt }))
   const room = (await emit('room:create', { playerName: 'Host', playerCount: 4 })).roomCode
   for (let i = 0; i < 3; i++) await emit('room:addBot', { roomCode: room })
   await sleep(800)
@@ -236,7 +242,10 @@ const C = (value, suit) => ({ value, suit })
   // the host never signs: when declaring for the team falls to its bot partner, the bot knocks first
   let mateDeclared = false
   for (let i = 0; i < 1200 && !asked.includes(mate.id); i++) {
-    if (state?.phase === 'bidding' && state.currentBidPlayerId === s.id) await emit('bid:declare', { roomCode: room, bidValue: 0 })
+    if (state?.phase === 'bidding' && state.currentBidPlayerId === s.id) {
+      // 0, unless the Pie restriction forbids it (the sum can't equal the round's bases)
+      for (const v of [0, 1, 2]) if ((await emit('bid:declare', { roomCode: room, bidValue: v })).success) break
+    }
     if (state?.phase === 'bidding' && state.currentBidPlayerId === mate.id) mateDeclared = true
     if (state?.readyGate && !state.readyGate.readyPlayerIds.includes(s.id)) await emit('game:ready', { roomCode: room })
     if (state?.phase === 'playing' && state.currentTurnPlayerId === s.id && hand.length) await emit('card:play', { roomCode: room, card: hand[0], copasDirection: 'mantener' })
@@ -244,6 +253,11 @@ const C = (value, suit) => ({ value, suit })
     await sleep(100)
   }
   check('a bot knocks for señas before declaring when its partner signed nothing', asked.includes(mate.id), `mate declared: ${mateDeclared}; phase ${state?.phase} round ${state?.roundIndex} bidder ${state?.currentBidPlayerId === mate.id ? 'mate' : state?.currentBidPlayerId === s.id ? 'host' : 'rival'} turn ${state?.currentTurnPlayerId === s.id ? 'host' : '-'} gate ${state?.readyGate?.kind ?? '-'}`)
+  const knock = askedAt.get(mate.id)
+  if (knock) {
+    const wait = knock.at - knock.deal.at
+    check('a bot knocks only once the cards have landed on screen', wait >= dealAnimationMs(order.length, knock.deal.cards), `${wait} ms after the deal (animation ≈ ${dealAnimationMs(order.length, knock.deal.cards)} ms)`)
+  }
   // and it waits for the answer: the host nods 'sí' 1.5 s later; the bot declares only after that
   if (asked.includes(mate.id)) {
     const askAt = Date.now()
