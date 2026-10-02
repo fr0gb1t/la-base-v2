@@ -12,7 +12,7 @@ const check = (name, ok, extra = '') => {
   if (!ok) failures++
 }
 
-async function table({ kamikazes = 2, powers = { espadas: true, copas: true, oros: true }, structure = 'clasica' } = {}) {
+async function table({ kamikazes = 2, powers = { espadas: true, copas: true, oros: true }, structure = 'clasica', bidClockMs = 0 } = {}) {
   const ps = []
   for (let i = 0; i < 4; i++) {
     const s = io(SERVER, { transports: ['websocket'], forceNew: true })
@@ -24,7 +24,7 @@ async function table({ kamikazes = 2, powers = { espadas: true, copas: true, oro
   }
   const room = (await ps[0].emit('room:create', { playerName: 'P0', playerCount: 4 })).roomCode
   for (let i = 1; i < 4; i++) await ps[i].emit('room:join', { roomCode: room, playerName: `P${i}` })
-  await ps[0].emit('game:config', { roomCode: room, structure, acePowers: powers, kamikazesPerTeam: kamikazes })
+  await ps[0].emit('game:config', { roomCode: room, structure, acePowers: powers, kamikazesPerTeam: kamikazes, bidClockMs })
   await ps[0].emit('game:start', { roomCode: room })
   const byId = (id) => ps.find((p) => p.id === id)
   const st = () => ps[0].state
@@ -218,6 +218,8 @@ const C = (value, suit) => ({ value, suit })
   const room = (await emit('room:create', { playerName: 'Host', playerCount: 4 })).roomCode
   for (let i = 0; i < 3; i++) await emit('room:addBot', { roomCode: room })
   await sleep(800)
+  // no kamikazes: a bot's failed one would end the game before these checks are done
+  await emit('game:config', { roomCode: room, structure: 'clasica', acePowers: { espadas: true, copas: true, oros: true }, kamikazesPerTeam: 0 })
   await emit('game:start', { roomCode: room })
   for (let i = 0; i < 200 && state?.phase !== 'bidding'; i++) {
     if (state?.phase === 'initial_draw' && state.initialDraw?.currentDrawerPlayerId === s.id) await emit('draw:initialCard', { roomCode: room })
@@ -238,7 +240,7 @@ const C = (value, suit) => ({ value, suit })
     const g = gazeToward(order.indexOf(p.id), order.indexOf(mate.id), order.length)
     return l && Math.abs(l.yaw - g.yaw) < 0.02 && Math.abs(l.pitch - g.pitch) < 0.02
   })
-  check('after a knock, rival bots watch the face of the partner who must answer', watching.length > 0, `${watching.length}/${rivals.length}`)
+  check('after a knock, rival bots watch the face of the partner who must answer', watching.length > 0, `${watching.length}/${rivals.length} (phase ${state?.phase}, bids ${state?.bids?.length}, looks ${rivals.map((p) => looks.has(p.id)).join(',')})`)
   // the host never signs: when declaring for the team falls to its bot partner, the bot knocks first
   let mateDeclared = false
   for (let i = 0; i < 1200 && !asked.includes(mate.id); i++) {
@@ -273,6 +275,38 @@ const C = (value, suit) => ({ value, suit })
     check('the bot waits for the answer to its knock, then declares', bidAt >= answerAt && bidAt - answerAt < 3000 && bidAt - askAt >= 1500, `answered after ${answerAt - askAt} ms, declared ${bidAt ? bidAt - answerAt : 'never'} ms later`)
   }
   s.disconnect()
+}
+
+// ---------------------------------------------------------------- the bidding clock (chess clock)
+{
+  const t = await table({ structure: 'postpandemia', bidClockMs: 4000 })
+  const mano = t.st().currentBidPlayerId
+  const manoTeam = t.teamOf(mano)
+  const other = manoTeam === 'nosotros' ? 'ellos' : 'nosotros'
+  check('with a clock, each team starts with the whole time', t.st().bidClock?.remainingMs[manoTeam] === 4000 && t.st().bidClock?.remainingMs[other] === 4000, JSON.stringify(t.st().bidClock))
+  check('the clock waits for the deal to land', t.st().bidClock?.running === null)
+  const started = await t.until((s) => s.bidClock?.running === manoTeam, dealAnimationMs(4, 1) + 2000)
+  check("then the Mano's team's time runs", started, JSON.stringify(t.st().bidClock))
+  await sleep(600)
+  await t.byId(mano).emit('bid:declare', { roomCode: t.room, bidValue: 0 })
+  await t.until((s) => s.bids.length === 1)
+  const c1 = t.st().bidClock
+  check("the Mano's bid presses the clock: the other team's time runs", c1.running === other && c1.remainingMs[manoTeam] < 3500 && c1.remainingMs[manoTeam] > 2500, JSON.stringify(c1))
+  await sleep(300)
+  await t.byId(t.st().currentBidPlayerId).emit('bid:declare', { roomCode: t.room, bidValue: 0 })
+  await t.until((s) => s.phase === 'playing')
+  const c2 = t.st().bidClock
+  check('the second bid stops it for both', c2.running === null && c2.remainingMs[other] < 4000, JSON.stringify(c2))
+  t.close()
+}
+{
+  const t = await table({ structure: 'postpandemia', bidClockMs: 1500 })
+  const manoTeam = t.teamOf(t.st().currentBidPlayerId)
+  let over = null
+  t.ps[0].s.on('game:gameOver', (d) => (over = d))
+  const ended = await t.until((s) => s.phase === 'game_over', dealAnimationMs(4, 1) + 4000)
+  check('the flag falls: the team out of time while bidding loses the game', ended && over?.reason === 'Time out' && over.winner !== manoTeam, JSON.stringify(over))
+  t.close()
 }
 
 console.log(failures ? `\n${failures} failing` : '\nall rules checks pass')

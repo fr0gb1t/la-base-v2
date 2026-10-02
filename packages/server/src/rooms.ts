@@ -4,7 +4,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import type { GameState, Player, AcePowers, Card } from '@la-base/shared';
-import { createGameState } from '@la-base/shared';
+import { createBidClock, createGameState } from '@la-base/shared';
 import type { GameStructure } from '@la-base/shared';
 
 export interface RoomPlayer extends Player {
@@ -26,6 +26,7 @@ export interface GameRoom {
   customStructure?: number[];
   acePowers: AcePowers;
   kamikazesPerTeam: number;
+  bidClockMs: number; // the bidding clock's total per team (0: no clock)
   initialDrawDeck: Card[];
 }
 
@@ -84,6 +85,7 @@ export class RoomManager {
       customStructure,
       acePowers: { espadas: false, copas: false, oros: false },
       kamikazesPerTeam: 2,
+      bidClockMs: 0,
       initialDrawDeck: [],
     };
 
@@ -224,6 +226,7 @@ export class RoomManager {
 
     // Create initial game state
     const gameState = createGameState(room.players, room.structure, room.acePowers, room.customStructure, room.kamikazesPerTeam);
+    gameState.bidClock = createBidClock(room.bidClockMs ?? 0);
     room.gameState = gameState;
     room.lastActivity = new Date();
 

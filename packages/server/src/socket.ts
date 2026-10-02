@@ -7,7 +7,7 @@ import { roomManager } from './rooms.js';
 import { BOT_TOKEN, botNameFor, spawnBot } from './bots.js';
 import { SenaDelivery } from './senaDelivery.js';
 import type { RoomPlayer } from './rooms.js';
-import { cardRank, isSena, type GameState, type Card } from '@la-base/shared';
+import { BID_CLOCK_OPTIONS, cardRank, clockLeft, dealAnimationMs, isSena, pressClock, startClock, type AssignedTeam, type GameState, type Card } from '@la-base/shared';
 import {
   createShuffledDeck,
   dealCards,
@@ -24,6 +24,15 @@ import {
   allPlayersPlayed,
   getFirstPlayerFromOtherTeam,
 } from './game-logic.js';
+
+type ClockTimers = { start?: ReturnType<typeof setTimeout>; flag?: ReturnType<typeof setTimeout> };
+const clockTimers = new Map<string, ClockTimers>();
+function clearClock(roomCode: string) {
+  const t = clockTimers.get(roomCode);
+  if (t?.start) clearTimeout(t.start);
+  if (t?.flag) clearTimeout(t.flag);
+  clockTimers.delete(roomCode);
+}
 
 export function setupSocketHandlers(io: SocketIOServer) {
   // señas go only to the players who can see them (see senaDelivery.ts)
@@ -60,6 +69,59 @@ export function setupSocketHandlers(io: SocketIOServer) {
       sendPrivateHands(room);
     };
 
+    // ---- the bidding clock (chess clock) ----------------------------------------------------
+    const otherTeam = (t: AssignedTeam): AssignedTeam => (t === 'nosotros' ? 'ellos' : 'nosotros');
+    const manoTeamOf = (room: any): AssignedTeam | null =>
+      (room.players.find((p: RoomPlayer) => p.id === room.gameState?.currentManoPlayerId)?.team as AssignedTeam) ?? null;
+
+    /** The flag falls: the team whose time ran out while bidding loses the game. */
+    const flagFall = (roomCode: string, team: AssignedTeam) => {
+      const room = roomManager.getRoom(roomCode);
+      const st = room?.gameState;
+      const c = st?.bidClock;
+      if (!room || !st || !c || st.phase !== 'bidding' || c.running !== team) return;
+      if (clockLeft(c, team, Date.now()) > 0) return armFlag(roomCode); // pressed meanwhile
+      st.bidClock = pressClock(c, Date.now(), null);
+      clearClock(roomCode);
+      io.to(roomCode).emit('game:gameOver', { winner: otherTeam(team), reason: 'Time out', finalScores: st.scores, flaggedTeam: team });
+      st.phase = 'game_over';
+      io.to(roomCode).emit('game:state', st);
+    };
+
+    /** (Re)arm the timer for whoever's time is running now. */
+    const armFlag = (roomCode: string) => {
+      const timers = clockTimers.get(roomCode) ?? {};
+      if (timers.flag) clearTimeout(timers.flag);
+      const c = roomManager.getRoom(roomCode)?.gameState?.bidClock;
+      if (c?.running) {
+        const team = c.running;
+        timers.flag = setTimeout(() => flagFall(roomCode, team), clockLeft(c, team, Date.now()) + 50);
+      } else timers.flag = undefined;
+      clockTimers.set(roomCode, timers);
+    };
+
+    /**
+     * A bidding phase begins: the Mano's team's time starts once the cards have been dealt
+     * (nobody can bid during the deal animation).
+     */
+    const startBidClock = (roomCode: string) => {
+      const room = roomManager.getRoom(roomCode);
+      const st = room?.gameState;
+      if (!room || !st?.bidClock) return;
+      clearClock(roomCode);
+      const team = manoTeamOf(room);
+      if (!team) return;
+      const deal = dealAnimationMs(Math.max(2, room.players.length), st.structureSequence[st.roundIndex] ?? 1);
+      const timers = { start: setTimeout(() => {
+        const cur = roomManager.getRoom(roomCode)?.gameState;
+        if (!cur?.bidClock || cur.phase !== 'bidding' || cur.bids.length !== 0 || cur.bidClock.running) return;
+        cur.bidClock = startClock(cur.bidClock, team, Date.now());
+        armFlag(roomCode);
+        io.to(roomCode).emit('game:state', cur);
+      }, deal) } as ClockTimers;
+      clockTimers.set(roomCode, timers);
+    };
+
     const beginBiddingAfterInitialDraw = (roomCode: string) => {
       const room = roomManager.getRoom(roomCode);
       if (!room || !room.gameState || room.gameState.phase !== 'initial_draw') return;
@@ -68,6 +130,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
       room.gameState.currentTurnPlayerId = room.gameState.currentManoPlayerId;
       room.gameState.currentBidPlayerId = room.gameState.currentManoPlayerId;
       dealCurrentRound(room);
+      startBidClock(roomCode);
 
       io.to(roomCode).emit('room:updated', {
         players: publicRoomPlayers(room.players),
@@ -255,6 +318,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
         room.gameState.currentTurnPlayerId = room.gameState.currentManoPlayerId;
         room.gameState.currentBidPlayerId = room.gameState.currentManoPlayerId;
         dealCurrentRound(room);
+        startBidClock(roomCode);
         io.to(roomCode).emit('room:updated', { players: publicRoomPlayers(room.players) });
         io.to(roomCode).emit('game:roundComplete', { nextRound: room.gameState.roundIndex });
         io.to(roomCode).emit('game:state', room.gameState);
@@ -534,7 +598,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
     /**
      * game:config - Host configures game settings
      */
-    socket.on('game:config', (payload: { roomCode: string; structure: string; acePowers: any; customStructure?: number[]; kamikazesPerTeam?: number }, callback) => {
+    socket.on('game:config', (payload: { roomCode: string; structure: string; acePowers: any; customStructure?: number[]; kamikazesPerTeam?: number; bidClockMs?: number }, callback) => {
       try {
         const room = roomManager.getRoom(payload.roomCode);
         const requester = room?.players.find((player) => player.socketId === socket.id);
@@ -551,11 +615,16 @@ export function setupSocketHandlers(io: SocketIOServer) {
         if (payload.kamikazesPerTeam !== undefined) {
           room.kamikazesPerTeam = Math.max(0, Math.min(3, payload.kamikazesPerTeam));
         }
+        if (payload.bidClockMs !== undefined) {
+          const allowed = (BID_CLOCK_OPTIONS as readonly number[]).includes(payload.bidClockMs) || (process.env.LABASE_TEST === '1' && payload.bidClockMs > 0) // tests: short clocks
+          room.bidClockMs = allowed ? payload.bidClockMs : 0;
+        }
 
         io.to(payload.roomCode).emit('game:config', {
           structure: room.structure,
           acePowers: room.acePowers,
           kamikazesPerTeam: room.kamikazesPerTeam,
+          bidClockMs: room.bidClockMs,
         });
 
         callback({ success: true });
@@ -890,6 +959,14 @@ export function setupSocketHandlers(io: SocketIOServer) {
           }
 
           room.gameState.bids.push(bid);
+          // the bid presses the clock: the other team's time runs, or (second bid) it stops
+          if (room.gameState.bidClock) {
+            const next = room.gameState.bids.length === 1 ? otherTeam(assignedTeam) : null;
+            const timers = clockTimers.get(payload.roomCode);
+            if (timers?.start) clearTimeout(timers.start);
+            room.gameState.bidClock = pressClock(room.gameState.bidClock, Date.now(), next);
+            armFlag(payload.roomCode);
+          }
 
           if (room.gameState.bids.length === 1) {
             const piePlayer = getFirstConnectedPlayerFromOtherTeam(
