@@ -25,11 +25,12 @@ const PX_PER_M = 1400
 const LABEL_RAISE = 0.1 // m above the buttons it names
 const FONT = '"IM Fell English SC", Georgia, serif'
 
-/** A small propeller plane seen from above (the kamikaze token). */
+/** The kamikaze plane seen from above, diving at 45° (no propeller). */
 export function plane(g: CanvasRenderingContext2D, cx: number, cy: number, s: number, color: string) {
-  // a WWII-style monoplane seen from above, nose up: swept wings, round cowling, tailplane, prop
+  // a WWII-style monoplane seen from above, nose to the top-right: swept wings, cowling, tailplane
   g.save()
   g.translate(cx, cy)
+  g.rotate(Math.PI / 4)
   g.fillStyle = color
   g.beginPath() // fuselage: round cowling tapering to the tail
   g.moveTo(0, -s * 0.5)
@@ -57,12 +58,6 @@ export function plane(g: CanvasRenderingContext2D, cx: number, cy: number, s: nu
   g.lineTo(s * 0.04, s * 0.3)
   g.closePath()
   g.fill()
-  g.lineWidth = Math.max(1.5, s * 0.05) // propeller blur
-  g.strokeStyle = color
-  g.beginPath()
-  g.moveTo(-s * 0.24, -s * 0.55)
-  g.lineTo(s * 0.24, -s * 0.55)
-  g.stroke()
   g.restore()
 }
 

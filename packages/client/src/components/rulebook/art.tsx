@@ -87,10 +87,10 @@ export function Bean({ x, y, r = 0, red = false }: { x: number; y: number; r?: n
   return <ellipse cx={x} cy={y} rx={5.5} ry={3.4} transform={`rotate(${r} ${x} ${y})`} fill={red ? '#c46a5c' : '#efe3c8'} stroke={INK} strokeWidth={1} />;
 }
 
-/** The kamikaze plane token, from above, nose up. */
+/** The kamikaze plane token, from above, diving at 45°. */
 export function Plane({ x = 0, y = 0, s = 1, color = '#9a9384' }: { x?: number; y?: number; s?: number; color?: string }) {
   return (
-    <g transform={`translate(${x} ${y}) scale(${s})`}>
+    <g transform={`translate(${x} ${y}) scale(${s}) rotate(45)`}>
       <path
         d="M0 -14 C3 -14 3 -3 1.4 12 L-1.4 12 C-3 -3 -3 -14 0 -14 Z M-2 -6 L-17 -1 Q-18.5 2 -15.5 2 L-2 0.6 Z M2 -6 L17 -1 Q18.5 2 15.5 2 L2 0.6 Z M-1 8 L-7 11 L-6.5 13 L6.5 13 L7 11 L1 8 Z"
         fill={color}
@@ -98,7 +98,6 @@ export function Plane({ x = 0, y = 0, s = 1, color = '#9a9384' }: { x?: number; 
         strokeWidth={1.1}
         strokeLinejoin="round"
       />
-      <path d="M-6 -15.5 H6" stroke={INK} strokeWidth={1.2} />
     </g>
   );
 }
