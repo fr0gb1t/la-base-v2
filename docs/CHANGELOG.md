@@ -2,6 +2,20 @@
 
 ## Desde `a603e36`
 
+- **34 dorsos ilustrados** recortados de los diseños de referencia (además de los 4 dibujados);
+  el selector de Ajustes es una grilla con el nombre del elegido. `f4ddbb0`
+- **La mano se ve igual con cualquier campo visual** (antes, al ampliarlo, las cartas quedaban
+  más bajas y estiradas). Campo visual por defecto: 63°, el borde cae sobre las caras de los
+  vecinos con 4 jugadores. `8b5950a`
+- **Reordenar la mano:** la carta que movés sigue visible, adelante y bajo el cursor; se reordena
+  pasando por encima de las cartas y fuera de ellas se lleva a la mesa. `d3645de`
+- **Cartas jugadas más al centro** (0,50 m en vez de 0,66 m), visibles desde todos los lugares;
+  los jugadores se inclinan más para llegar, y los aviones de kamikaze y las fichas se corrieron
+  para no quedar debajo. `3b717bd`
+- **Número pedido:** más grande, derecho para vos, del lado de quien pidió; sigue visible mientras
+  hacés zoom sobre él. `68ff423`
+- **Sonidos de los menús** propios de la sala: cadenita de la lámpara en los botones, silla que
+  cruje cuando alguien se sienta y que se arrastra cuando se va; solo los ases suenan a carta. `6dfeaa4`
 - **Manual en 3D:** el librito es una escena 3D bajo una lámpara; cada hoja levantada proyecta
   sombra. Las hojas se agarran y se arrastran sobre el lomo: si la tomás de una esquina, se dobla
   la esquina; del borde, se arquea entera; del medio, la parte de afuera cuelga por su peso; si la
