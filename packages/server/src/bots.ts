@@ -50,7 +50,8 @@ export function partnerWorth(senas: Sena[] | undefined, handSize: number): numbe
   return yes ? Math.max(worth, SENA_WORTH.si) : worth; // a 'sí' promises at least one
 }
 
-export function chooseBid(
+/** Bases the team should make this round: my hand, the partners' señas, what we caught on rivals. */
+export function bidEstimate(
   hand: Card[],
   st: GameState,
   teamSize: number,
@@ -66,9 +67,37 @@ export function chooseBid(
   // bases are (nearly) zero-sum: a rival caught signing strength takes what we'd otherwise get,
   // one caught signing 'nada' leaves bases on the table (difference from an average hand)
   const rivalShift = rivalSenas.reduce((sum, l) => sum + ((partnerWorth(l, hand.length) ?? average) - average), 0);
-  const estimate = Math.max(0, own + mates.reduce((a, b) => a + b, 0) - rivalShift);
+  return Math.max(0, own + mates.reduce((a, b) => a + b, 0) - rivalShift);
+}
+
+export function chooseBid(
+  hand: Card[],
+  st: GameState,
+  teamSize: number,
+  players: number,
+  partnerSenas: Sena[][] = [],
+  rivalSenas: Sena[][] = [],
+): number {
+  const max = st.structureSequence[st.roundIndex];
+  const estimate = bidEstimate(hand, st, teamSize, players, partnerSenas, rivalSenas);
   const options = Array.from({ length: max + 1 }, (_, v) => v).filter((v) => st.bids.length === 0 || st.bids[0].value + v !== max);
   return options.reduce((best, v) => (Math.abs(v - estimate) < Math.abs(best - estimate) ? v : best), options[0]);
+}
+
+/**
+ * As the Mano, call a kamikaze (all or nothing) when the hand is clearly lopsided: so weak (low
+ * cards, a partner signalling 'nada' or porno) that the team expects next to nothing → 0, or so
+ * strong it expects every base → all. A Mano that misses by 2+ without one loses the game, so on a
+ * hopeless hand the 0 is cheap insurance. Only on rounds of 3+ bases and with a kamikaze left;
+ * not every time. Returns the bid to declare as kamikaze, or null.
+ */
+export function chooseKamikaze(estimate: number, st: GameState, team: AssignedTeam, rng: () => number = Math.random): number | null {
+  const max = st.structureSequence[st.roundIndex];
+  if (st.bids.length !== 0 || max < 3 || (st.kamikazesRemaining?.[team] ?? 0) <= 0) return null;
+  if (rng() > KAMIKAZE_WILL) return null;
+  if (estimate <= max * KAMIKAZE_WEAK) return 0;
+  if (estimate >= max - KAMIKAZE_STRONG) return max;
+  return null;
 }
 
 export function chooseCard(
@@ -172,7 +201,10 @@ const WATCH_MS = 4000;
 const ASK_PATIENCE_MS = 20_000;
 const SAY_YES = 0.25; // answering a knock: just 'sí' (when the hand can surely make a base)
 const SAY_NO = 0.1; // …or just 'no' (not telling)
-const LET_IT_PASS = 0.75; // how often a bot lets a rival's low card take a base they didn't want // how long a bot waits for its partners to answer its knock // how long a bot stares at the answering rival's face
+const LET_IT_PASS = 0.75;
+const KAMIKAZE_WILL = 0.85; // how often a lopsided hand actually makes the Mano call it
+const KAMIKAZE_WEAK = 0.12; // expecting under this share of the bases: kamikaze to 0
+const KAMIKAZE_STRONG = 0.5; // expecting within half a base of all of them: kamikaze to all // how often a bot lets a rival's low card take a base they didn't want // how long a bot waits for its partners to answer its knock // how long a bot stares at the answering rival's face
 
 const NAMES = ['Ana', 'Beto', 'Caro', 'Dani', 'Eli', 'Fede', 'Gabi', 'Hugo'];
 const bots = new Map<string, Socket[]>(); // roomCode → bot clients
@@ -359,10 +391,13 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
         }
         const myTeam = roster.find((p) => p.id === me)?.team;
         const teamSize = Math.max(1, roster.filter((p) => p.team === myTeam).length);
-        const value = chooseBid(hand, st, teamSize, Math.max(4, roster.length), signedBy(), caughtFromRivals());
+        const players = Math.max(4, roster.length);
+        const estimate = bidEstimate(hand, st, teamSize, players, signedBy(), caughtFromRivals());
+        const kamikaze = chooseKamikaze(estimate, st, (myTeam ?? 'nosotros') as AssignedTeam);
+        const value = kamikaze ?? chooseBid(hand, st, teamSize, players, signedBy(), caughtFromRivals());
         s.emit('bid:bidValueChanged', { roomCode, bidValue: value, playerId: me });
         await sleep(800);
-        await emit('bid:declare', { roomCode, bidValue: value, isKamikaze: false });
+        await emit('bid:declare', { roomCode, bidValue: value, isKamikaze: kamikaze !== null });
       } else if (st.phase === 'playing' && st.currentTurnPlayerId === me && hand.length) {
         await sleep(900);
         const myTeam = (roster.find((p) => p.id === me)?.team ?? 'nosotros') as AssignedTeam;

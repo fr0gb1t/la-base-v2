@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Card, GameState } from '@la-base/shared';
-import { AVERAGE_CARD, chooseBid, chooseCard, partnerWorth, shortAnswer } from './bots.js';
+import { AVERAGE_CARD, bidEstimate, chooseBid, chooseCard, chooseKamikaze, partnerWorth, shortAnswer } from './bots.js';
 
 const state = (over: Partial<GameState> = {}): GameState =>
   ({
@@ -178,4 +178,20 @@ test("answering a knock, a bot sometimes just nods 'sí' (only with a hand that 
   assert.equal(shortAnswer(weak, st, 4, () => 0.1), null, 'no false promises: card señas instead');
   assert.equal(shortAnswer(weak, st, 4, () => 0.3), 'no');
   assert.equal(shortAnswer(strong, st, 4, () => 0.9), null);
+});
+
+test('the Mano calls a kamikaze on a lopsided hand: to 0 when the team has nothing, to all when it has everything', () => {
+  const st5 = state({ structureSequence: [5], kamikazesRemaining: { nosotros: 2, ellos: 2 } } as Partial<GameState>);
+  const porno: Card[] = [{ suit: 'oros', value: 4 }, { suit: 'copas', value: 5 }, { suit: 'espadas', value: 6 }, { suit: 'oros', value: 3 }, { suit: 'copas', value: 2 }];
+  const weak = bidEstimate(porno, st5, 2, 4, [['nada']]);
+  assert.equal(chooseKamikaze(weak, st5, 'nosotros', () => 0), 0);
+  assert.equal(chooseKamikaze(4.8, st5, 'nosotros', () => 0), 5);
+  assert.equal(chooseKamikaze(2.4, st5, 'nosotros', () => 0), null, 'a middling hand bids normally');
+  // not the Mano, no kamikazes left, or a small round: never
+  const pie = state({ structureSequence: [5], kamikazesRemaining: { nosotros: 2, ellos: 2 }, bids: [{ team: 'ellos', value: 2 }] } as Partial<GameState>);
+  assert.equal(chooseKamikaze(weak, pie, 'nosotros', () => 0), null);
+  const none = state({ structureSequence: [5], kamikazesRemaining: { nosotros: 0, ellos: 2 } } as Partial<GameState>);
+  assert.equal(chooseKamikaze(weak, none, 'nosotros', () => 0), null);
+  const small = state({ structureSequence: [1], kamikazesRemaining: { nosotros: 2, ellos: 2 } } as Partial<GameState>);
+  assert.equal(chooseKamikaze(0, small, 'nosotros', () => 0), null);
 });
