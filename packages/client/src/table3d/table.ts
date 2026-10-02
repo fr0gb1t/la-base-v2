@@ -151,6 +151,8 @@ export function buildLamp(scene: THREE.Scene) {
   key.castShadow = true
   key.shadow.mapSize.set(1024, 1024)
   key.shadow.bias = -0.0004
+  // soft penumbra: the bulb is a lamp, not a point (PCF with a wide Vogel-disk kernel)
+  key.shadow.radius = 7
   key.shadow.camera.near = 0.2
   key.shadow.camera.far = 4
   const target = new THREE.Object3D()
