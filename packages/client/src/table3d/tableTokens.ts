@@ -94,6 +94,7 @@ function bean(seed: number) {
 }
 
 const HEAP_R = CARD_W * 0.75 // radius of the circle the beans fall in (under a card's width)
+const ASKED_SIZE = 0.085 // the chalked number of bases asked (big enough to read across the table)
 const BEAN_GAP = 0.02 // beans don't land on top of each other
 
 /** The bases asked, chalked on the felt: the number in a rough circle. */
@@ -222,12 +223,13 @@ export class TableTokens {
       // centred level with the card's top edge and kept clear of the won-card piles, which lie
       // further out on the same side (from r ≈ 0.66): beans must never sit on top of cards
       const centre = polar(PLAY_R - CARD_H / 2 - 0.01, a, TABLE_Y).addScaledVector(right(a), CARD_W / 2 + 0.03 + HEAP_R)
-      const asked = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.05), new THREE.MeshBasicMaterial({ map: askedTexture(b.value), transparent: true, opacity: this.guides ? 0.9 : 0, depthWrite: false }))
-      asked.position.copy(centre).addScaledVector(right(a), HEAP_R + 0.03).setY(TABLE_Y + 0.0025)
-      asked.rotation.set(-Math.PI / 2, 0, Math.PI / 2 - a) // flat, upright for the player who asked
+      const asked = new THREE.Mesh(new THREE.PlaneGeometry(ASKED_SIZE, ASKED_SIZE), new THREE.MeshBasicMaterial({ map: askedTexture(b.value), transparent: true, opacity: this.guides ? 0.9 : 0, depthWrite: false }))
+      // on the asker's side of the heap (further sideways it would reach the neighbour's card with 8)
+      asked.position.copy(centre).addScaledVector(polar(1, a, 0), HEAP_R + ASKED_SIZE / 2 + 0.005).setY(TABLE_Y + 0.0025)
+      asked.rotation.set(-Math.PI / 2, 0, 0) // flat, upright for you (seat 0, at +Z): you are the one reading it
       this.dynamic.add(asked)
       // the heap and its number count as one hover zone
-      this.marks.push({ mesh: asked, centre: centre.clone().addScaledVector(right(a), 0.02) })
+      this.marks.push({ mesh: asked, centre: centre.clone().addScaledVector(polar(1, a, 0), 0.04) })
       this.heapFor(b.seat, b.won).forEach((p, i) => {
         const bn = bean(0)
         bn.position.set(centre.x + p.x, TABLE_Y + 0.004, centre.z + p.z)

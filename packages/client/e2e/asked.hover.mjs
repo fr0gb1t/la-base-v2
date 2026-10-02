@@ -33,7 +33,7 @@ await p.evaluate(() => {
   const t = window.__table
   const ids = t.players.map((x) => x.id); const me = ids.indexOf(t.myId)
   const at = (k) => ids[(me + k) % ids.length]
-  t.setTokens({ dealerId: at(1), bidderId: at(0), bids: [{ playerId: at(0), value: 3, won: 2 }], kamikazeIds: [] }) // I asked 3, hold 2 beans
+  t.setTokens({ dealerId: at(1), bidderId: at(0), bids: [{ playerId: at(0), value: 3, won: 2 }, { playerId: at(2), value: 1, won: 0 }], kamikazeIds: [] }) // I asked 3, hold 2 beans
   t.pitchT = -0.62
 })
 await sleep(1200)
@@ -46,8 +46,17 @@ const over = await p.evaluate(() => window.__table.heapsScreen())
 await p.screenshot({ path: `${out}-over.png` })
 await p.mouse.move(150, 150); await sleep(700)
 const left = await p.evaluate(() => window.__table.heapsScreen())
-const r = { hiddenAway: !away[0].shown, shownOver: over[0].shown, hiddenAgain: !left[0].shown }
+// across the table: point at their heap and zoom (right button held). The zoom brings it to the
+// middle of the screen, away from the cursor: its number must stay revealed
+const far = left[1]
+await p.mouse.move(far.x, far.y, { steps: 6 }); await sleep(500)
+const farOver = (await p.evaluate(() => window.__table.heapsScreen()))[1].shown
+await p.mouse.down({ button: 'right' }); await sleep(1200)
+const zoomed = (await p.evaluate(() => window.__table.heapsScreen()))[1].shown
+await p.screenshot({ path: `${out}-zoomed.png` })
+await p.mouse.up({ button: 'right' }); await sleep(300)
+const r = { hiddenAway: !away[0].shown, shownOver: over[0].shown, hiddenAgain: !left[0].shown, farOver, zoomed }
 console.log(JSON.stringify(r))
-const ok = r.hiddenAway && r.shownOver && r.hiddenAgain
+const ok = r.hiddenAway && r.shownOver && r.hiddenAgain && r.farOver && r.zoomed
 console.log(ok ? 'PASS' : 'FAIL')
 await b.close(); host.disconnect(); process.exit(ok ? 0 : 1)

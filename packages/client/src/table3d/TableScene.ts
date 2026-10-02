@@ -1313,8 +1313,11 @@ export class TableScene {
 
   private updateHover(time: number, dt: number) {
     this.raycaster.setFromCamera(this.mouse, this.camera)
-    // the felt under the pointer (bean heaps reveal their chalked number there)
-    const felt = this.raycaster.ray.intersectPlane(FELT, new THREE.Vector3())
+    // the felt under the pointer (bean heaps reveal their chalked number there). While zoomed, the
+    // point you zoomed onto counts instead: the zoom brings it to the middle of the screen and
+    // leaves the cursor somewhere else, which would hide the very number you zoomed in to read
+    const target = this.peek?.target
+    const felt = target ? (target.y <= TABLE_Y + 0.01 ? target.clone() : null) : this.raycaster.ray.intersectPlane(FELT, new THREE.Vector3())
     this.tokens.hoverAt(felt && felt.clone().setY(0).length() < TABLE_R ? felt : null)
     // an open question on the table (As de Copas / Oros) takes the pointer before your cards
     const choice = this.choices.update(time, dt, this.camera, this.raycaster)
