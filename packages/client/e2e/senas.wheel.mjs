@@ -40,8 +40,8 @@ const results = {}
 await p.mouse.move(640, 360)
 await p.mouse.down({ button: 'middle' })
 await sleep(300)
-const tresAt = (5 / 9) * Math.PI * 2 // 'tres' is the 6th of 9 items, clockwise from the top
-await p.mouse.move(640 + Math.sin(tresAt) * 118, 360 - Math.cos(tresAt) * 118, { steps: 6 })
+const tresAt = (5 / 11) * Math.PI * 2 // 'tres' is the 6th of 11 items, clockwise from the top
+await p.mouse.move(640 + Math.sin(tresAt) * 138, 360 - Math.cos(tresAt) * 138, { steps: 6 })
 await sleep(300)
 await p.screenshot({ path: `${out}-held.png` })
 results.hubWhileHeld = await p.evaluate(() => document.querySelector('.sena-hub')?.textContent)

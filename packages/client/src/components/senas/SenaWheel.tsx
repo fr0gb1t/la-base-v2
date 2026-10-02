@@ -6,7 +6,7 @@ import { SenaFace } from './SenaFace';
 // Releasing in the centre keeps it open: then click a face, press 1–8, or Esc to close. The centre
 // itself asks your partners for señas (two knocks on the table).
 
-const RADIUS = 118;
+const RADIUS = 138; // 11 faces around the hub
 const DEAD_ZONE = 34; // px from the centre where nothing is selected
 
 export interface WheelOpen {
@@ -21,6 +21,9 @@ interface Props {
   onAsk: () => void;
   onClose: () => void;
 }
+
+/** Keyboard shortcut shown on each face: 1–9 for the cards, S / N for sí and no. */
+const keyOf = (i: number) => (SENAS[i].id === 'si' ? 'S' : SENAS[i].id === 'no' ? 'N' : String(i + 1));
 
 /** Sector under a pointer offset, or -1 in the dead zone. Item 0 is at the top, clockwise. */
 function sectorAt(dx: number, dy: number) {
@@ -59,8 +62,10 @@ export function SenaWheel({ open, onPick, onAsk, onClose }: Props) {
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
+      if (e.key === 's' || e.key === 'S') return onPick('si');
+      if (e.key === 'n' || e.key === 'N') return onPick('no');
       const n = Number(e.key);
-      if (n >= 1 && n <= SENAS.length) onPick(SENAS[n - 1].id);
+      if (n >= 1 && n <= 9) onPick(SENAS[n - 1].id);
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
@@ -99,11 +104,11 @@ export function SenaWheel({ open, onPick, onAsk, onClose }: Props) {
             role="menuitem"
             className={`sena-item${i === hover ? ' on' : ''}`}
             style={{ transform: `translate(${Math.sin(a) * RADIUS}px, ${-Math.cos(a) * RADIUS}px) translate(-50%, -50%)` }}
-            aria-label={`${i + 1}: ${s.label} (${s.gesture})`}
+            aria-label={`${keyOf(i)}: ${s.label} (${s.gesture})`}
             onClick={() => onPick(s.id)}
           >
             <SenaFace sena={s.id} />
-            <small>{i + 1}</small>
+            <small>{keyOf(i)}</small>
           </button>
         );
       })}

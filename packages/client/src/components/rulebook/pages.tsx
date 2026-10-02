@@ -365,7 +365,7 @@ export const CHAPTERS: Chapter[] = [
       <div className="rb-faces">
         {SENAS.map((s) => (
           <figure key={s.id} className="rb-face">
-            <SenaFace sena={s.id} size={72} />
+            <SenaFace sena={s.id} size={60} />
             <figcaption>
               <b>{s.label}</b>
               <span>{s.gesture}</span>
@@ -386,6 +386,9 @@ export const CHAPTERS: Chapter[] = [
           </li>
           <li>
             <b>Pedir señas</b> <GiKnockout aria-hidden className="rb-inline-icon" />: golpecitos en la mesa (<Keycap>P</Keycap>). Todos lo ven y lo oyen… y los rivales van a clavar la mirada en quien tiene que contestar.
+          </li>
+          <li>
+            Con la cabeza: <b>sí</b> (asentir) es «pedí al menos una, yo puedo hacer una»; <b>no</b> (negar) es «no te paso información». Las dos cuentan como respuesta cuando te piden señas.
           </li>
           <li>
             Cada cabeza muestra hacia dónde mira ese jugador: usalo para saber quién te está mirando.

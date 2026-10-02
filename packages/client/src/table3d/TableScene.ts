@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { FACE_AIM_RADIUS, FACE_BACK_DOT, type Card, type Sena } from '@la-base/shared'
+import { FACE_AIM_RADIUS, FACE_BACK_DOT, isHeadSena, type Card, type Sena } from '@la-base/shared'
 import { buildLamp, buildRoom } from './table'
 import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, seatAngle, polar, playSlot } from './seats'
 import { makeAvatar, MAX_HAND, FAN_Y, type Avatar, type AvatarPose } from './avatar'
@@ -91,6 +91,7 @@ function zoneTexture() {
   return zoneTex
 }
 const ASK_DUR = 0.9 // s: two knocks on the table to ask for señas
+const NOD_HZ = 2.2 // nods / shakes per second for sí and no
 const SENA_HOLD = 1.6 // s a seña stays on the face
 /** How far into a seña the face is (0 rest … 1 full) at `t` seconds since it started. */
 function senaAmount(s: Sena, t: number) {
@@ -1364,10 +1365,16 @@ export class TableScene {
         p.headYaw = THREE.MathUtils.clamp(sg.gaze.yaw, -HEAD_YAW_MAX, HEAD_YAW_MAX)
         p.headPitch = sg.gaze.pitch
       }
-      av.pose(p)
       const amount = sg?.frozen ? 1 : sg ? senaAmount(sg.s, Math.floor((t - sg.t0) * 15) / 15) : 0 // stop-motion like the rest of the body
+      if (sg && amount > 0 && isHeadSena(sg.s)) {
+        // sí / no are made with the whole head: two nods, or two shakes
+        const swing = Math.sin(Math.floor((t - sg.t0) * 15) / 15 * Math.PI * 2 * NOD_HZ) * amount
+        if (sg.s === 'si') p.headPitch += swing * 0.22
+        else p.headYaw += swing * 0.32
+      }
+      av.pose(p)
       if (sg && amount <= 0 && t - sg.t0 > 0.5) this.senas.delete(av.seat)
-      av.sena(sg?.s ?? null, amount)
+      av.sena(sg && !isHeadSena(sg.s) ? sg.s : null, amount)
       this.faceShown[av.seat] = sg && amount > 0 ? sg.s : null
       // fingering a card in their hand
       const hv = this.remoteHover.get(av.seat)

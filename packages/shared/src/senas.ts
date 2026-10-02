@@ -14,7 +14,9 @@ export type Sena =
   | 'tres' // bite the lower lip
   | 'dos' // kiss
   | 'porno' // mouth slightly open, like a fish (any 4–7)
-  | 'nada'; // close the eyes and open them again: nothing that wins (no 10/11/12, ancho de bastos or powered ace)
+  | 'nada' // close the eyes and open them again: nothing that wins (no 10/11/12, ancho de bastos or powered ace)
+  | 'si' // nod: ask at least one base, I can make one
+  | 'no'; // shake the head: I'm not passing you information
 
 export const SENAS: ReadonlyArray<{ id: Sena; label: string; gesture: string }> = [
   { id: 'ancho-espada', label: 'As de espadas', gesture: 'levantar las cejas' },
@@ -26,7 +28,12 @@ export const SENAS: ReadonlyArray<{ id: Sena; label: string; gesture: string }> 
   { id: 'dos', label: 'Un dos', gesture: 'dar un beso' },
   { id: 'porno', label: 'Carta porno (4 a 7)', gesture: 'boca de pescado' },
   { id: 'nada', label: 'Nada: ni figuras ni ases', gesture: 'cerrar los ojos' },
+  { id: 'si', label: 'Sí: pedí al menos una', gesture: 'asentir con la cabeza' },
+  { id: 'no', label: 'No: no te paso información', gesture: 'negar con la cabeza' },
 ];
+
+/** Señas made with the whole head (a nod, a shake) rather than with the face. */
+export const isHeadSena = (s: Sena) => s === 'si' || s === 'no';
 
 export const isSena = (v: unknown): v is Sena => typeof v === 'string' && SENAS.some((s) => s.id === v);
 
@@ -58,5 +65,5 @@ export function senasForHand(hand: Card[], powers: AcePowers = ALL_POWERS): Sena
   const found = new Set(
     hand.map((c) => (c.value === 1 && !isStrongCard(c, powers) ? null : senaForCard(c))).filter((s): s is Sena => s !== null),
   );
-  return SENAS.map((s) => s.id).filter((id) => found.has(id));
+  return SENAS.map((s) => s.id).filter((id) => found.has(id) && !isHeadSena(id));
 }

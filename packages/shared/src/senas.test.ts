@@ -39,6 +39,7 @@ test('nada means no strong card: no figure, no ancho de bastos, no powered ace',
 
 test('isSena rejects unknown values', () => {
   assert.ok(isSena('dos'));
+  assert.ok(isSena('si') && isSena('no'));
   assert.ok(!isSena('falso'));
   assert.ok(!isSena(3));
 });

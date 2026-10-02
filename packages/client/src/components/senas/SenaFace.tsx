@@ -12,6 +12,12 @@ interface Props {
   size?: number;
 }
 
+/** Sí / no: the face at rest, with motion marks for the nod or the shake. */
+function HeadMotion({ sena }: { sena: 'si' | 'no' }) {
+  const arc = sena === 'si' ? 'M58 18 v28 M54 22 l4 -5 4 5 M54 42 l4 5 4 -5' : 'M14 6 h36 M18 2 l-5 4 5 4 M46 2 l5 4 -5 4';
+  return <path d={arc} stroke={ROSE} strokeWidth={2.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />;
+}
+
 export function SenaFace({ sena, size = 56 }: Props) {
   const browY = sena === 'ancho-espada' ? 15 : 21;
   const wink = sena === 'ancho-basto';
@@ -26,6 +32,7 @@ export function SenaFace({ sena, size = 56 }: Props) {
       {eye(22, closed)}
       {eye(42, closed || wink)}
       <Mouth sena={sena} />
+      {(sena === 'si' || sena === 'no') && <HeadMotion sena={sena} />}
     </svg>
   );
 }
