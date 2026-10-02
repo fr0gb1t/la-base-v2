@@ -21,6 +21,9 @@ function winChance(card: Card, espadasPower: boolean, players: number): number {
   return Math.min(0.97, (base + espadas) * (4 / Math.max(4, players)) ** 0.7);
 }
 
+/** Bases an unknown card wins on average (the deck's mean winChance at a table of 4). */
+export const AVERAGE_CARD = 0.2;
+
 /** Expected bases a seña promises (rough, like winChance). 'nada': no figure, ancho or powered ace. */
 const SENA_WORTH: Record<Sena, number> = {
   'ancho-basto': 0.9,
@@ -70,6 +73,9 @@ export function chooseCard(
   team: AssignedTeam,
   teamOf: (id: string) => string | undefined,
   partnerHolds: (sena: Sena) => string | null = () => null, // a teammate who signed it and still has it
+  // bases our partners should still win with the cards they hold after this base (from their
+  // señas, or an average hand): `cardsLeft` is what each partner keeps once this base is over
+  partnersExpect: (cardsLeft: (partnerId: string) => number) => number = () => 0,
 ): number {
   const byRank = hand.map((c, i) => ({ c, i })).sort((a, b) => cardRank(a.c) - cardRank(b.c));
   const lowest = byRank[0].i;
@@ -81,9 +87,19 @@ export function chooseCard(
     const next: PlayedCard = { playerId: me, card, order: played.length };
     return resolveBase([...played, next], st.acePowers, st.playDirection).playerId === me;
   };
-  // the plan: keep as many strong cards as bases we still need; everything above that is spare,
-  // and a spare high card kept too long wins bases we don't want later
-  const keep = new Set(byRank.slice(byRank.length - Math.max(0, need)).map((x) => x.i));
+  const current = played.length ? resolveBase(played, st.acePowers, st.playDirection) : null;
+  const teammateWinning = current !== null && teamOf(current.playerId) === team;
+  // a partner who signed the ancho de bastos and hasn't played yet will take this base
+  const ace = partnerHolds('ancho-basto');
+  const partnerWillWin = ace !== null && !played.some((p) => p.playerId === ace);
+  // the plan, for the whole team: the base our side is already taking counts, and so do the bases
+  // our partners should still win with their remaining cards. Keep only as many strong cards as
+  // the bases left for me; the rest is spare, and a spare high card kept too long wins bases
+  // nobody wants later.
+  const takingThis = teammateWinning || partnerWillWin ? 1 : 0;
+  const theirs = partnersExpect(() => hand.length - 1); // everyone holds as many as I do once this base is over
+  const mine = Math.max(0, Math.ceil(need - takingThis - theirs - 1e-9));
+  const keep = new Set(byRank.slice(byRank.length - Math.min(mine, byRank.length)).map((x) => x.i));
   const spare = byRank.filter((x) => !keep.has(x.i));
   /** Shed the highest spare card that loses this base (the lowest card if none). */
   const shed = () => {
@@ -91,14 +107,9 @@ export function chooseCard(
     return losing.length ? losing[losing.length - 1].i : lowest;
   };
   if (played.length === 0) {
-    // leading: open strong if we need bases, otherwise with the weakest card
-    return need > 0 ? highest : lowest;
+    // leading: open strong if the team still counts on my cards, otherwise with the weakest
+    return mine > 0 ? highest : lowest;
   }
-  const current = resolveBase(played, st.acePowers, st.playDirection);
-  const teammateWinning = teamOf(current.playerId) === team;
-  // a partner who signed the ancho de bastos and hasn't played yet will take this base
-  const ace = partnerHolds('ancho-basto');
-  const partnerWillWin = ace !== null && !played.some((p) => p.playerId === ace);
   if (need > 0) {
     // our side takes it anyway: don't overtake the partner, use the turn to shed a spare card
     if (teammateWinning || partnerWillWin) return shed();
@@ -243,6 +254,12 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
   const signedBy = () => teammates().map((p) => [...(partnerSenas.get(p.id) ?? [])]);
   const caughtFromRivals = () => [...rivalSenas.values()].map((set) => [...set]).filter((l) => l.length);
   const partnerHolds = (sena: Sena) => teammates().find((p) => partnerSenas.get(p.id)?.has(sena))?.id ?? null;
+  // what our partners should still win: their señas if they made any, else an average hand
+  const partnersExpect = (cardsLeft: (id: string) => number) =>
+    teammates().reduce((sum, p) => {
+      const left = cardsLeft(p.id);
+      return sum + (partnerWorth([...(partnerSenas.get(p.id) ?? [])], left) ?? left * AVERAGE_CARD);
+    }, 0);
   s.on('room:kicked', stop);
   s.on('game:gameOver', () => setTimeout(stop, 60_000));
   s.on('room:updated', (d: { players: Array<{ id: string; team: string; isBot?: boolean; isConnected: boolean }> }) => {
@@ -290,7 +307,7 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
       } else if (st.phase === 'playing' && st.currentTurnPlayerId === me && hand.length) {
         await sleep(900);
         const myTeam = (roster.find((p) => p.id === me)?.team ?? 'nosotros') as AssignedTeam;
-        const k = chooseCard(hand, st, me, myTeam, (id) => roster.find((p) => p.id === id)?.team, partnerHolds);
+        const k = chooseCard(hand, st, me, myTeam, (id) => roster.find((p) => p.id === id)?.team, partnerHolds, partnersExpect);
         const card = hand[k];
         const feint = Math.random() < 0.35;
         for (let i = 0; i <= 14; i++) {

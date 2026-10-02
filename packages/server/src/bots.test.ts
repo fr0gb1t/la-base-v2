@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Card, GameState } from '@la-base/shared';
-import { chooseBid, chooseCard, partnerWorth } from './bots.js';
+import { AVERAGE_CARD, chooseBid, chooseCard, partnerWorth } from './bots.js';
 
 const state = (over: Partial<GameState> = {}): GameState =>
   ({
@@ -51,21 +51,41 @@ test('what a bot caught on rival faces moves its bid: strong rivals down, empty-
   assert.ok(weakRivals >= blind, `blind ${blind} weak ${weakRivals}`);
 });
 
-test('needing one more base and unable to win this one, the bot sheds a spare high card', () => {
-  // asked 2, already won 1; a rival leads a rey and nothing of ours beats it
-  const hand: Card[] = [{ suit: 'oros', value: 12 }, { suit: 'copas', value: 11 }, { suit: 'espadas', value: 4 }];
+// The whole-team plan, base by base (round of 3, the team asked 2). Partner: rey, rey, 2.
+// Bot: rey, caballo, as. The partner holds two cards after each base it wins.
+const teamOf2 = (id: string) => (id === 'mate' || id === 'me' ? 'nosotros' : 'ellos');
+const averagePartner = (cardsLeft: (id: string) => number) => cardsLeft('mate') * AVERAGE_CARD;
+
+test('base 1: the partner leads a rey and is taking it — the bot already sheds one of its two high cards', () => {
+  const hand: Card[] = [{ suit: 'copas', value: 12 }, { suit: 'oros', value: 11 }, { suit: 'oros', value: 1 }];
+  const st = state({
+    phase: 'playing',
+    bids: [{ team: 'nosotros', value: 2 }] as GameState['bids'],
+    basesWon: { nosotros: 0, ellos: 0 },
+    currentBaseCards: [
+      { playerId: 'mate', card: { suit: 'espadas', value: 12 }, order: 0 },
+      { playerId: 'rival', card: { suit: 'copas', value: 5 }, order: 1 },
+    ],
+  });
+  // one base is ours, the partner still has cards: the bot keeps one high card, sheds the caballo
+  assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf2, () => null, averagePartner), 1);
+});
+
+test('base 2: the ancho de bastos kills the partner rey — the bot throws the as and saves its rey for the last base', () => {
+  const hand: Card[] = [{ suit: 'copas', value: 12 }, { suit: 'oros', value: 1 }];
   const st = state({
     phase: 'playing',
     bids: [{ team: 'nosotros', value: 2 }] as GameState['bids'],
     basesWon: { nosotros: 1, ellos: 0 },
-    currentBaseCards: [{ playerId: 'rival', card: { suit: 'espadas', value: 12 }, order: 0 }],
+    currentBaseCards: [
+      { playerId: 'mate', card: { suit: 'oros', value: 12 }, order: 0 },
+      { playerId: 'rival', card: { suit: 'bastos', value: 1 }, order: 1 },
+    ],
   });
-  const teamOf = (id: string) => (id === 'mate' || id === 'me' ? 'nosotros' : 'ellos');
-  // keeps the rey for the base still needed, sheds the caballo (not the 4)
-  assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf), 1);
+  assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf2, () => null, averagePartner), 1);
 });
 
-test('while the partner takes the base, the bot sheds a spare card under it', () => {
+test('when the partner takes the only base the team needs, the bot sheds its highest card under it', () => {
   const hand: Card[] = [{ suit: 'oros', value: 12 }, { suit: 'copas', value: 10 }, { suit: 'espadas', value: 3 }];
   const st = state({
     phase: 'playing',
@@ -74,7 +94,9 @@ test('while the partner takes the base, the bot sheds a spare card under it', ()
     currentBaseCards: [{ playerId: 'mate', card: { suit: 'bastos', value: 1 }, order: 0 }], // ancho de bastos
   });
   const teamOf = (id: string) => (id === 'mate' || id === 'me' ? 'nosotros' : 'ellos');
-  assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf), 1); // the sota goes, the rey stays for later
+  // asked 1 and the partner's ancho is taking it: the bot needs nothing more, so the rey goes now
+  // (kept, it would win a base nobody wants)
+  assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf), 0);
 });
 
 test('bid met and every card wins: win with the highest, so it cannot win again later', () => {
