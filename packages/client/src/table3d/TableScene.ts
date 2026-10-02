@@ -8,7 +8,7 @@ import { drawBack, drawFace, toTexture } from './cardFace'
 import { playPose, PLAY_DURATION } from './play'
 import { makePost } from './post'
 import { schedule, tickJobs, wait } from './jobs'
-import { initAudio, sfx, lampBuzz, toggleMute } from './audio'
+import { attachAudio, sfx, lampBuzz, toggleMute } from './audio'
 import { PALETTE, hex, DUOTONES } from './look'
 import { getViewSettings, onViewSettings } from '../settings/viewSettings'
 import { NameTag } from './nameTags'
@@ -211,6 +211,7 @@ export class TableScene {
     this.renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;image-rendering:pixelated;cursor:crosshair'
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera)
+    this.detachAudio = attachAudio(this.camera) // you hear the room from your seat
     this.scene.add(this.tokens.group)
     this.tokens.setGuides(this.guides)
     this.scene.add(this.choices.group)
@@ -489,7 +490,10 @@ export class TableScene {
     return toggleMute()
   }
 
+  private detachAudio: () => void = () => undefined
+
   dispose() {
+    this.detachAudio()
     this.offView()
     this.disposed = true
     this.renderer.setAnimationLoop(null)
@@ -1089,7 +1093,6 @@ export class TableScene {
       { passive: false },
     )
     this.on(el, 'pointerdown', (e: PointerEvent) => {
-      void initAudio(this.camera)
       if (e.button === 2) {
         if (!this.drag) this.beginPeek()
         return

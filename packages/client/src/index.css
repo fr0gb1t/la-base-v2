@@ -2769,3 +2769,21 @@ button {
   font-size: 14px;
   font-weight: bold;
 }
+
+.sound-unlock {
+  position: absolute;
+  left: 50%;
+  bottom: 54px;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 14px;
+  font-family: var(--font-sc);
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--paper-stain), var(--paper-grain), var(--bone);
+  border: 2px solid var(--ink);
+  cursor: pointer;
+}

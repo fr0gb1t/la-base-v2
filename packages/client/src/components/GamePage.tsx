@@ -12,6 +12,8 @@ import { TableScene, type TablePlayer } from '../table3d/TableScene';
 import { SettingsButton, useViewSettings } from '../settings/SettingsPanel';
 import { SenaWheel, type WheelOpen } from './senas/SenaWheel';
 import { Rulebook } from './rulebook/Rulebook';
+import { audioState, onAudioState, resumeAudio } from '../table3d/audio';
+import { GiSpeakerOff } from 'react-icons/gi';
 import { GiExitDoor, GiScrollUnfurled, GiBookCover } from 'react-icons/gi';
 
 // First-person 3D table (La Base v2). The table shows every card movement; the non-card phases
@@ -87,6 +89,9 @@ export function GamePage() {
   const [log, setLog] = useState<Array<{ id: number; round: number; text: string; kind: string }>>([]);
   const [showLog, setShowLog] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  // the browser keeps sound paused until the page gets a click or key (e.g. after a reload)
+  const [soundOn, setSoundOn] = useState(audioState() === 'running');
+  useEffect(() => onAudioState((st) => setSoundOn(st === 'running')), []);
   const [wheel, setWheel] = useState<WheelOpen | null>(null);
   const [aimFace, setAimFace] = useState(false);
   const view = useViewSettings();
@@ -729,6 +734,12 @@ export function GamePage() {
       )}
 
       {showRules && <Rulebook onClose={() => setShowRules(false)} />}
+
+      {!soundOn && (
+        <button type="button" className="sound-unlock" onClick={resumeAudio} title="El navegador espera un click para dejar sonar la página">
+          <GiSpeakerOff aria-hidden /> activar sonido
+        </button>
+      )}
 
       {stamp && (
         <div key={`stamp-${stamp.key}`} className="stamp on">{stamp.text}</div>

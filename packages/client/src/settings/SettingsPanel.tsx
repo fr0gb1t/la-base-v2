@@ -136,7 +136,7 @@ export function SettingsHost() {
               onKeyUp={() => previewSound()}
             />
           </label>
-          {!audioReady() && <p className="ledger-note">El sonido arranca con tu primer click en la mesa.</p>}
+          {!audioReady() && <p className="ledger-note">El navegador habilita el sonido con tu primer click o tecla en la página.</p>}
         </fieldset>
 
         <fieldset className="ledger-group">

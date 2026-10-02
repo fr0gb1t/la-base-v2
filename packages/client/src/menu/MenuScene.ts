@@ -1,3 +1,4 @@
+import { attachAudio } from '../table3d/audio'
 import * as THREE from 'three'
 import { buildLamp, buildRoom, type SeatLabel } from '../table3d/table'
 import { TABLE_Y, CARD_H } from '../table3d/seats'
@@ -120,6 +121,7 @@ export class MenuScene {
     this.renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;image-rendering:pixelated'
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera, this.roomGroup)
+    attachAudio(this.camera) // the basement hums from the very first screen
     this.setSeatCount(8)
     this.scene.add(this.floating.group, this.inputCard.mesh, this.inputCard.hit)
     this.buildOptions()

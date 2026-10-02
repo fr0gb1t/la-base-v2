@@ -28,6 +28,7 @@ const VOICE: Record<Sfx, { gain: number; rate: [number, number] }> = {
 }
 
 let listener: THREE.AudioListener | null = null
+let graphReady = false
 let ctx: AudioContext
 let master: GainNode
 let wet: GainNode
@@ -53,12 +54,61 @@ function roomImpulse(c: AudioContext) {
   return ir
 }
 
-// Must be called from a user gesture (autoplay rules).
-export async function initAudio(camera: THREE.Camera) {
+/**
+ * Sound starts with the app, not with a click on the table. Browsers keep an AudioContext
+ * suspended until the first interaction with the page (autoplay rules), so the context is created
+ * at once and resumed by the first pointer or key event anywhere: by the time you sit at the table
+ * (after typing your name and picking a menu card) it is already playing.
+ */
+export function startAudio() {
   if (listener) return
   listener = new THREE.AudioListener()
-  camera.add(listener)
   ctx = listener.context
+  const resume = () => {
+    if (ctx.state === 'suspended') void ctx.resume()
+  }
+  for (const ev of ['pointerdown', 'keydown', 'touchstart'] as const) window.addEventListener(ev, resume, { capture: true, passive: true })
+  ctx.addEventListener('statechange', () => stateListeners.forEach((f) => f(ctx.state)))
+  void buildGraph()
+}
+
+const stateListeners = new Set<(s: AudioContextState) => void>()
+/** Whether sound is actually playing (it stays 'suspended' until the page gets a gesture). */
+export const audioState = (): AudioContextState => (ctx ? ctx.state : 'suspended')
+export function onAudioState(fn: (s: AudioContextState) => void) {
+  stateListeners.add(fn)
+  return () => {
+    stateListeners.delete(fn)
+  }
+}
+/** Ask the browser to play now (call from a click). */
+export function resumeAudio() {
+  if (ctx?.state === 'suspended') void ctx.resume()
+}
+
+/**
+ * The ears go where the eyes are: the menu's camera, then the table's. Returns a function that
+ * gives them back to the previous camera (leaving the table returns you to the menu's room).
+ */
+const ears: THREE.Camera[] = []
+export function attachAudio(camera: THREE.Camera) {
+  startAudio()
+  ears.push(camera)
+  const hearFrom = (c: THREE.Camera | undefined) => {
+    if (!listener || !c || listener.parent === c) return
+    listener.parent?.remove(listener)
+    c.add(listener)
+  }
+  hearFrom(camera)
+  return () => {
+    const i = ears.lastIndexOf(camera)
+    if (i >= 0) ears.splice(i, 1)
+    hearFrom(ears[ears.length - 1])
+  }
+}
+
+async function buildGraph() {
+  if (!listener) return
   master = ctx.createGain()
   sfxBus = ctx.createGain()
   ambBus = ctx.createGain()
@@ -97,6 +147,7 @@ export async function initAudio(camera: THREE.Camera) {
   lp.connect(hum).connect(ambBus)
   applySettings(getAudioSettings())
   onAudioSettings(applySettings)
+  graphReady = true // buffers keep loading; a sound whose buffer isn't there yet is skipped
 
   const names = [...new Set(Object.values(FILES).flat())]
   await Promise.all(
@@ -150,7 +201,7 @@ function knock(at: THREE.Vector3, volume: number) {
 }
 
 export function sfx(kind: Sfx, at: THREE.Vector3, volume = 1) {
-  if (!listener || !getAudioSettings().effects) return
+  if (!listener || !graphReady || ctx.state !== 'running' || !getAudioSettings().effects) return
   if (kind === 'knock') return knock(at, volume)
   const list = FILES[kind]
   const buf = buffers.get(list[Math.floor(Math.random() * list.length)])
@@ -168,7 +219,7 @@ export function sfx(kind: Sfx, at: THREE.Vector3, volume = 1) {
 // Filament crackle while the lamp flickers.
 let lastBuzz = 0
 export function lampBuzz(at: THREE.Vector3) {
-  if (!listener || !getAudioSettings().ambient || ctx.currentTime - lastBuzz < 0.3) return
+  if (!listener || !graphReady || ctx.state !== 'running' || !getAudioSettings().ambient || ctx.currentTime - lastBuzz < 0.3) return
   lastBuzz = ctx.currentTime
   const o = ctx.createOscillator()
   o.type = 'sawtooth'
@@ -216,4 +267,4 @@ export function previewSound() {
   sfx('place', at)
 }
 
-export const audioReady = () => Boolean(listener)
+export const audioReady = () => Boolean(listener) && ctx?.state === 'running'
