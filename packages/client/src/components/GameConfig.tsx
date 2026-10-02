@@ -114,6 +114,7 @@ export function GameConfig() {
             icon: 'plane' as const,
             at: [-0.2 + (k - 1) * 0.12, ROW.kamikazes] as [number, number],
             selected: kamikazesPerTeam >= k,
+            crossed: kamikazesPerTeam < k, // off: dark and crossed out
             hint:
               kamikazesPerTeam === k
                 ? `quitar uno: ${k - 1 === 0 ? 'sin kamikazes' : `${k - 1} por equipo`}`

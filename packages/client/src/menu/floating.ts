@@ -15,6 +15,7 @@ export interface FloatItem {
   icon?: 'plane' // a small engraved glyph above the label (chips)
   raise?: number // labels: metres above the row they name (default LABEL_RAISE)
   scale?: number // size multiplier (a tag far across the table)
+  crossed?: boolean // struck out with a red cross (an option that is off)
   at: [number, number] // table x, z
   selected?: boolean
   disabled?: boolean
@@ -136,12 +137,26 @@ function texture(item: FloatItem) {
   g.textBaseline = 'middle'
   g.font = title
   if (item.icon === 'plane' && kind === 'chip' && !item.label) {
-    plane(g, 64, 66, 70, g.fillStyle as string) // icon only: the plane fills the chip
+    plane(g, 64, 64, 70, g.fillStyle as string) // icon only: the plane fills the chip
   } else if (item.icon === 'plane' && kind === 'chip') {
     plane(g, 64, 42, 48, g.fillStyle as string)
     g.font = `42px ${FONT}`
     g.fillText(item.label, 64, 94)
   } else g.fillText(item.label, cv.width / 2, kind === 'chip' ? 68 : item.sub ? h * 0.4 : h / 2 + 2)
+  if (item.crossed) {
+    // struck out: a red cross over the whole face, like crossing it off by hand
+    g.save()
+    g.strokeStyle = '#b3261c'
+    g.lineWidth = 9
+    g.lineCap = 'round'
+    g.beginPath()
+    g.moveTo(32, 30)
+    g.lineTo(96, 98)
+    g.moveTo(97, 31)
+    g.lineTo(31, 97)
+    g.stroke()
+    g.restore()
+  }
   if (item.sub && kind !== 'chip') {
     g.font = `26px ${FONT}`
     g.globalAlpha = 0.75
@@ -181,7 +196,7 @@ export class FloatingItems {
     const seen = new Set<string>()
     for (const def of items) {
       seen.add(def.id)
-      const key = `${def.label}|${def.sub}|${def.kind}|${def.selected}|${def.disabled}`
+      const key = `${def.label}|${def.sub}|${def.kind}|${def.selected}|${def.disabled}|${def.crossed}`
       const cur = this.live.get(def.id)
       if (cur && cur.key === key) {
         cur.def = def
