@@ -364,8 +364,10 @@ export class HudBoard {
   private ledCv = document.createElement('canvas')
   private ledTex: THREE.CanvasTexture
   private ledPivot = new THREE.Group()
+  private ledGlass!: THREE.Mesh
   private msg = ''
   private shown = 0 // characters spelled so far
+  private flashT = 0 // seconds of flare left
   private ledDrawn = ''
 
   constructor() {
@@ -383,6 +385,7 @@ export class HudBoard {
     const body = new THREE.Mesh(new THREE.BoxGeometry(LED_W + 0.08, LED_H + 0.08, 0.08), plastic)
     const glass = new THREE.Mesh(new THREE.PlaneGeometry(LED_W, LED_H), new THREE.MeshBasicMaterial({ map: this.ledTex, color: new THREE.Color(1.35, 1.35, 1.35), toneMapped: false, fog: false }))
     glass.position.z = 0.041
+    this.ledGlass = glass
     this.ledPivot.add(body, glass)
     this.ledPivot.position.set(LED_X, 0, 0)
     this.group.add(this.ledPivot)
@@ -407,9 +410,10 @@ export class HudBoard {
   }
 
   /** The next thing to do, spelled on the LED panel (a letter at a time when it changes). */
-  setMessage(text: string) {
+  setMessage(text: string, flash = false) {
     const t = ledText(text)
     if (t === this.msg) return
+    this.flashT = flash ? 2.2 : 0 // a bid from the rivals: the panel flares to catch the eye
     this.msg = t
     this.shown = 0
     this.drawLed()
@@ -634,6 +638,13 @@ export class HudBoard {
       mat.uniforms.time.value = t
       mat.uniforms.glow.value = l.glow
     }
+    // the flare: the glass brightens in quick pulses and settles
+    const lit = this.ledGlass.material as THREE.MeshBasicMaterial
+    if (this.flashT > 0) {
+      this.flashT = Math.max(0, this.flashT - dt)
+      const k = Math.min(1, this.flashT / 0.7)
+      lit.color.setScalar(1.35 + k * (1.4 + 1.1 * Math.sin(t * 22)))
+    } else lit.color.setScalar(1.35)
     // the message is spelled out almost at once (a whole line in about a tenth of a second): messages change fast
     if (this.shown < this.msg.length) this.shown = Math.min(this.msg.length, this.shown + dt * 400)
     this.drawLed()

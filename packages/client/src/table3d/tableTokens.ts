@@ -87,16 +87,16 @@ function metalPlane() {
 }
 
 function bean(seed: number) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(0.0085, 10, 6), new THREE.MeshStandardMaterial({ color: BEAN, roughness: 0.55 }))
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.0125, 12, 8), new THREE.MeshStandardMaterial({ color: BEAN, roughness: 0.55 }))
   m.scale.set(1.45, 0.72, 1)
   m.rotation.y = seed * 2.39
   m.castShadow = true
   return m
 }
 
-const HEAP_R = CARD_W * 0.5 // radius of the circle the beans fall in (half a card's width: a tight heap)
+const HEAP_R = CARD_W * 0.62 // radius of the circle the beans fall in (half a card's width: a tight heap)
 const ASKED_SIZE = 0.085 // the chalked number of bases asked (big enough to read across the table)
-const BEAN_GAP = 0.017 // beans don't land on top of each other
+const BEAN_GAP = 0.026 // beans don't land on top of each other
 
 /** The bases asked, chalked on the felt: the number in a rough circle. */
 const askedTex = new Map<number, THREE.Texture>()

@@ -87,7 +87,7 @@ export interface RoundReport {
 const PW = 768
 const PH = 1056
 // the tick button, in page pixels
-const TICK = { x: 560, y: 840, w: 170, h: 130 }
+const TICK = { x: 600, y: 935, w: 130, h: 96 } // low in the corner, small: clear of the players' names
 const INKC = '#120e0b' // dark and strong: the lamp over the paper must not wash it out
 const HAND = '"Caveat", "IM Fell English", cursive'
 
@@ -126,7 +126,8 @@ function wrapText(g: CanvasRenderingContext2D, text: string, width: number) {
 
 /** The tick: a short stroke down and a long one up. */
 function tickPath(cx: number, cy: number): Array<[number, number]> {
-  return [[cx - 52, cy + 2], [cx - 14, cy + 40], [cx + 56, cy - 44]]
+  const k = 0.68
+  return [[cx - 52 * k, cy + 2 * k], [cx - 14 * k, cy + 40 * k], [cx + 56 * k, cy - 44 * k]]
 }
 
 /** The first `frac` of a polyline, stroked in `color`. */
@@ -161,7 +162,7 @@ function drawReport(cv: HTMLCanvasElement, r: RoundReport, tick: number, hot: bo
   g.textBaseline = 'alphabetic'
   g.fillStyle = INKC
   const base = r.kind === 'base'
-  g.font = `700 ${base ? 132 : 100}px ${HAND}`
+  g.font = `500 ${base ? 132 : 100}px ${HAND}`
   g.fillText(r.title, 112, base ? 160 : 130)
   g.font = `600 ${base ? 70 : 52}px ${HAND}`
   const last = wrapText(g, r.lastBase, PW - 160)
@@ -172,11 +173,11 @@ function drawReport(cv: HTMLCanvasElement, r: RoundReport, tick: number, hot: bo
     let by = 480
     for (const st of r.standings ?? []) {
       g.fillStyle = st.mine ? '#2f5f6b' : '#8e2a22'
-      g.font = `700 66px ${HAND}`
+      g.font = `500 66px ${HAND}`
       const lines = wrapText(g, st.text, PW - 120)
       lines.slice(0, 2).forEach((l, i) => g.fillText(l, 112, by + i * 68))
       g.strokeStyle = g.fillStyle
-      g.lineWidth = 4
+      g.lineWidth = 3
       g.beginPath()
       g.moveTo(112, by + 14 + (lines.length - 1) * 68)
       g.quadraticCurveTo(300, by + 22 + (lines.length - 1) * 68, 640, by + 12 + (lines.length - 1) * 68)
@@ -187,10 +188,10 @@ function drawReport(cv: HTMLCanvasElement, r: RoundReport, tick: number, hot: bo
   let y = 375
   for (const row of base ? [] : r.rows) {
     g.fillStyle = row.mine ? '#2f5f6b' : '#8e2a22'
-    g.font = `700 68px ${HAND}`
+    g.font = `500 68px ${HAND}`
     g.fillText(row.label, 112, y)
     g.strokeStyle = g.fillStyle
-    g.lineWidth = 4
+    g.lineWidth = 3
     g.beginPath()
     g.moveTo(112, y + 10)
     g.quadraticCurveTo(300, y + 16, 600, y + 8)
@@ -199,7 +200,7 @@ function drawReport(cv: HTMLCanvasElement, r: RoundReport, tick: number, hot: bo
     g.font = `600 56px ${HAND}`
     g.fillText(`pidió ${row.asked}   ganó ${row.won}`, 112, y + 66)
     g.fillStyle = row.met ? '#3d6b3a' : '#8e2a22'
-    g.font = `700 58px ${HAND}`
+    g.font = `500 58px ${HAND}`
     g.fillText(row.met ? 'cumplió' : 'falló', 112, y + 124)
     g.fillStyle = INKC
     g.fillText(`${row.pts} puntos`, 360, y + 124)
@@ -209,7 +210,7 @@ function drawReport(cv: HTMLCanvasElement, r: RoundReport, tick: number, hot: bo
   }
   if (base && r.totals) {
     // the score so far
-    g.font = `700 54px ${HAND}`
+    g.font = `500 54px ${HAND}`
     g.fillStyle = INKC
     g.fillText('Puntos:', 112, 722)
     const x0 = 112 + g.measureText('Puntos:  ').width
@@ -233,8 +234,8 @@ function drawReport(cv: HTMLCanvasElement, r: RoundReport, tick: number, hot: bo
   const cx = TICK.x + TICK.w / 2
   const cy = TICK.y + TICK.h / 2
   const pts = tickPath(cx, cy)
-  strokeUpTo(g, pts, 1, hot && !r.ready ? 'rgb(100,96,90)' : 'rgb(172,168,160)', 8)
-  if (tick > 0) strokeUpTo(g, pts, tick, '#2e7d32', 8)
+  strokeUpTo(g, pts, 1, hot && !r.ready ? 'rgb(100,96,90)' : 'rgb(172,168,160)', 5)
+  if (tick > 0) strokeUpTo(g, pts, tick, '#2e7d32', 5)
   return pts
 }
 
@@ -262,7 +263,7 @@ function pageStar(g: CanvasRenderingContext2D, cx: number, cy: number, r: number
   }
   g.closePath()
   g.lineJoin = 'round'
-  g.lineWidth = 5
+  g.lineWidth = 3.4
   g.strokeStyle = color
   g.stroke()
   if (kind !== 'owed') {
@@ -278,7 +279,7 @@ function bolden(g: CanvasRenderingContext2D) {
     fill(text, x, y, max)
     g.save()
     g.strokeStyle = g.fillStyle as string
-    g.lineWidth = 2.6
+    g.lineWidth = 0.7
     g.lineJoin = 'round'
     g.strokeText(text, x, y, max)
     g.restore()
@@ -292,40 +293,40 @@ function drawLive(cv: HTMLCanvasElement, d: LiveSheet) {
   ruledPage(g)
   g.textBaseline = 'alphabetic'
   g.fillStyle = INKC
-  g.font = `700 104px ${HAND}`
+  g.font = `500 104px ${HAND}`
   g.fillText(`Ronda ${d.round}/${d.rounds}`, 110, 112)
-  g.font = `700 92px ${HAND}`
+  g.font = `500 92px ${HAND}`
   g.fillText(`Base ${d.base}/${d.bases}`, 110, 214)
-  g.font = `700 150px ${HAND}`
+  g.font = `500 150px ${HAND}`
   g.fillText(d.clockwise ? '↻' : '↺', 590, 190)
   const top = [262, 640]
   d.teams.slice(0, 2).forEach((t, i) => {
     const y = top[i]
     const color = t.mine ? '#2a5560' : '#8e2a22'
     g.fillStyle = color
-    g.font = `700 88px ${HAND}`
+    g.font = `500 88px ${HAND}`
     g.fillText(t.label + (t.acting ? ' ✎' : ''), 110, y + 62)
     g.strokeStyle = color
-    g.lineWidth = 7
+    g.lineWidth = 4
     g.beginPath()
     g.moveTo(110, y + 80)
     g.quadraticCurveTo(330, y + 90, 690, y + 78)
     g.stroke()
     g.fillStyle = INKC
-    g.font = `700 230px ${HAND}`
+    g.font = `500 230px ${HAND}`
     g.fillText(String(t.score), 100, y + 280)
-    g.font = `700 78px ${HAND}`
+    g.font = `500 78px ${HAND}`
     g.fillText(`pidió ${t.asked}`, 400, y + 190)
     g.fillText(`lleva ${t.won}`, 400, y + 276)
     if (t.kamikaze) {
       g.fillStyle = '#8e2a22'
-      g.font = `700 52px ${HAND}`
+      g.font = `500 52px ${HAND}`
       g.fillText('kamikaze', 520, y + 130)
     }
     if (t.bid === 0 && t.won === 0) {
       // asked nothing: a plain dash
       g.strokeStyle = INKC
-      g.lineWidth = 12
+      g.lineWidth = 7
       g.lineCap = 'round'
       g.beginPath()
       g.moveTo(414, y + 322)
@@ -439,9 +440,9 @@ export class Notepad {
     this.group.add(pencil)
     this.pencilRest.copy(pencil.position)
     this.pencilRestQuat.copy(pencil.quaternion)
-    const tipDir = new THREE.Vector3(0, -1, 0).applyQuaternion(this.pencilRestQuat)
-    this.pencilReportQuat.setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(-tipDir.x, tipDir.y, tipDir.z))
-    this.pencilReport.set(0.135, 0.07, 0.04) // hovering beside the pad (the pad is tilted: lower than this and it would sink into the table) // on the table, right of the pad
+    // lying beside the pad on the right, almost parallel to its long side, the tip toward you and a touch inward
+    this.pencilReportQuat.setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(-0.2, 0, 1).normalize())
+    this.pencilReport.set(0.1, 0.07, 0.06) // lower along the pad: clear of the central deck // hovering beside the pad (the pad is tilted: lower than this and it would sink into the table) // on the table, right of the pad
     // the tick's spot on the page (a flat, invisible target)
     this.tickHit = new THREE.Mesh(new THREE.PlaneGeometry((TICK.w / PW) * W * 1.15, (TICK.h / PH) * D * 1.15), new THREE.MeshBasicMaterial({ visible: false }))
     this.tickHit.rotation.x = -Math.PI / 2

@@ -589,7 +589,7 @@ export function GamePage() {
   }
   if (gate) ledLine = 'Marcá el tilde';
   useEffect(() => {
-    sceneRef.current?.setHudMessage(ledLine);
+    sceneRef.current?.setHudMessage(ledLine, /^Rival pide/.test(ledLine));
   }, [ledLine]);
 
   // the scoresheet's content (written by hand when the notepad opens)

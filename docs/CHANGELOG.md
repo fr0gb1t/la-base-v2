@@ -2,6 +2,11 @@
 
 ## Desde `a603e36`
 
+- **Retoques:** trazo del anotador más fino; el lápiz casi paralelo al anotador y más abajo, lejos
+  del mazo central; el tilde más chico y más abajo (lejos de los nombres); el dorso del mazo central
+  menos brillante (ahora se ve el dibujo); los porotos más grandes (y su montoncito un poco más
+  ancho); y cuando el **rival pide**, el panel de segmentos destella en pulsos rápidos durante unos
+  segundos para que se vea al instante cuántas bases pidió.
 - **Anotador navegable:** las hojas de cada resumen (cada base y cada ronda, tal como quedaron
   tildadas) se van acumulando en el anotador de la mesa, y la de arriba es siempre el marcador en
   vivo. Se las hojea arrastrando sobre el anotador con el mouse (o el dedo): hacia arriba da vuelta

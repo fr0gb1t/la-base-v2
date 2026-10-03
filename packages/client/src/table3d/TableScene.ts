@@ -250,7 +250,8 @@ export class TableScene {
     this.centerDeck = new THREE.Mesh(
       new THREE.BoxGeometry(CARD_W, 40 * CARD_T, CARD_H),
       [0, 1, 2, 3, 4, 5].map((i) =>
-        i === 2 ? new THREE.MeshStandardMaterial({ map: this.backTex, roughness: 0.85 }) : new THREE.MeshStandardMaterial({ color: hex(PALETTE.bone), roughness: 0.9 }),
+        // (the back is dimmed: right under the lamp it burnt its drawing out)
+        i === 2 ? new THREE.MeshStandardMaterial({ map: this.backTex, color: 0x8c8780, roughness: 0.85 }) : new THREE.MeshStandardMaterial({ color: hex(PALETTE.bone), roughness: 0.9 }),
       ),
     )
     this.centerDeck.position.set(0, TABLE_Y + 20 * CARD_T, 0)
@@ -1425,8 +1426,8 @@ export class TableScene {
   }
 
   /** What to do next, chalked on the slate. */
-  setHudMessage(text: string) {
-    this.hud.setMessage(text)
+  setHudMessage(text: string, flash = false) {
+    this.hud.setMessage(text, flash)
   }
 
   /** Screen position of a slate button (tests). */
