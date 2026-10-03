@@ -6,14 +6,15 @@ import { useSocket } from '../hooks/useSocket';
 
 // rows of the config form on the felt (table z, toward you); the aces lie at z 0.14
 // (aces: the same z as ACE_Z in MenuScene)
-const ROW = { aces: -0.1, structure: 0.29, kamikazes: 0.55, clock: 0.69, actions: 0.85 } as const;
+const ROW = { aces: -0.1, structure: 0.29, kamikazes: 0.6, clock: 0.6, actions: 0.84 } as const;
 // the form is centred on the felt: titles at the left, their options to the right, and the whole
 // block (titles included) balanced around x = 0
 const STRUCTURE_BUTTON_PX = 330; // the three structure buttons are the same size (the widest name sets it)
 const MAX_KAMIKAZES = 3;
-const KAMI_AT: [number, number] = [0, ROW.kamikazes]; // the plane; its count sits at its upper right
+const KAMI_AT: [number, number] = [-0.2, ROW.kamikazes]; // the plane; its count sits at its upper right
 const TITLE_X = -0.62; // the titles' left edge
-const OPT_X = 0.14; // the middle of the options column
+const CLOCK_X = 0.2; // kamikazes and clock share one row, each with its title under it
+const UNDER = 0.11; // how far toward you a title sits below its button
 // the bidding clock: total per team for the whole game (0 = no clock)
 const CLOCK_OPTIONS = [0, 60_000, 120_000, 300_000] as const;
 const clockName = (ms: number) => (ms === 0 ? 'sin tiempo' : `${ms / 60_000} min`);
@@ -121,7 +122,7 @@ export function GameConfig() {
             hint: `${names[mode]}: bases por ronda ${sequences[mode].join(' · ')}`,
             onPick: () => setStructure(mode),
           })),
-          { id: 't-kamikazes', label: 'Kamikazes', kind: 'label', at: [TITLE_X, ROW.kamikazes], onPick: () => undefined },
+          { id: 't-kamikazes', label: 'Kamikazes', kind: 'label', centred: true, at: [KAMI_AT[0], ROW.kamikazes + UNDER], onPick: () => undefined },
           // one plane with its count as an exponent (a small badge that turns half a turn per change)
           // shows how many each team gets: 0 → 1 → 2 → 3 → 0
           {
@@ -135,13 +136,13 @@ export function GameConfig() {
             hint: `${kamikazesPerTeam === 0 ? 'Sin kamikazes' : `${kamikazesPerTeam} kamikaze${kamikazesPerTeam === 1 ? '' : 's'} por equipo`} (todo o nada: 0 o todas las bases) · click para cambiar`,
             onPick: () => setKamikazesPerTeam((kamikazesPerTeam + 1) % (MAX_KAMIKAZES + 1)),
           },
-          { id: 't-reloj', label: 'Reloj', kind: 'label', at: [TITLE_X, ROW.clock], onPick: () => undefined },
+          { id: 't-reloj', label: 'Reloj', kind: 'label', centred: true, at: [CLOCK_X, ROW.clock + UNDER], onPick: () => undefined },
           // one button that cycles through the options (four buttons crowded the form)
           {
             id: 'reloj',
             label: clockName(bidClockMs),
             sub: bidClockMs === 0 ? 'se pide sin apuro' : 'por equipo, toda la partida',
-            at: [OPT_X, ROW.clock] as [number, number],
+            at: [CLOCK_X, ROW.clock] as [number, number],
             selected: bidClockMs !== 0,
             hint: bidClockMs === 0
               ? 'Sin reloj: se pide sin apuro. Click para darle tiempo a cada equipo'

@@ -17,7 +17,8 @@ export interface FloatItem {
   width?: number // tags/stamps: fixed width in texture pixels (a row of equal buttons)
   scale?: number // size multiplier (a tag far across the table)
   crossed?: boolean // struck out with a red cross (an option that is off)
-  at: [number, number] // table x, z (a title: its LEFT edge, so titles line up)
+  at: [number, number] // table x, z (a title: its LEFT edge, so titles line up — or its middle with `centred`)
+  centred?: boolean // titles: `at` is the middle of the text (a title under its button)
   selected?: boolean
   disabled?: boolean
   onPick: () => void
@@ -196,7 +197,7 @@ export class FloatingItems {
     const seen = new Set<string>()
     for (const def of items) {
       seen.add(def.id)
-      const key = `${def.label}|${def.sub}|${def.width}|${def.kind}|${def.selected}|${def.disabled}|${def.crossed}`
+      const key = `${def.label}|${def.sub}|${def.width}|${def.centred}|${def.kind}|${def.selected}|${def.disabled}|${def.crossed}`
       const cur = this.live.get(def.id)
       if (cur && cur.key === key) {
         cur.def = def
@@ -252,7 +253,7 @@ export class FloatingItems {
       const k = l.def.scale ?? 1
       const centre = isLabel ? rowHeight(l) / 2 : heightOf(l) / 2
       const w = (l.mesh.geometry as THREE.PlaneGeometry).parameters.width * k
-      const rest = new THREE.Vector3(l.def.at[0] + (isLabel ? w / 2 : 0), TABLE_Y + 0.025 + centre, l.def.at[1])
+      const rest = new THREE.Vector3(l.def.at[0] + (isLabel && !l.def.centred ? w / 2 : 0), TABLE_Y + 0.025 + centre, l.def.at[1])
       l.hit.position.copy(rest)
       l.hit.scale.setScalar(k)
       l.hit.lookAt(camera.position)
