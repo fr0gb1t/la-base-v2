@@ -30,7 +30,18 @@ const CAM_IN = 0.7; // s for the camera to come down to the booklet
 
 type Side = 'left' | 'right';
 
+/** One physical leaf (a mesh with its own two faces): several can be in the air at once. */
+interface Leaf {
+  mesh: THREE.Mesh;
+  pos: THREE.BufferAttribute;
+  front: THREE.MeshLambertMaterial;
+  back: THREE.MeshLambertMaterial;
+  backMap: THREE.Texture | null; // the back face shows its page mirrored
+}
+
 interface Turn {
+  leaf: Leaf;
+  posed: boolean; // a leaf waiting to start has been shaped once
   from: number; // spread (-1 = the closed cover)
   to: number;
   dir: 1 | -1;
@@ -53,6 +64,7 @@ interface Turn {
 
 const FADE_S = 0.5; // the room fades in
 const LAND_S = 0.8; // s the booklet takes to come down onto the table
+const FOLLOW_S = 0.09; // a leaf started while others are in the air follows this far behind
 const REVEAL_MAX_MS = 2500; // never keep you waiting longer than this for the pictures
 
 export interface BookOptions {
@@ -220,20 +232,16 @@ export class BookScene {
     left: new THREE.MeshLambertMaterial({ map: this.paper, side: THREE.DoubleSide }),
     right: new THREE.MeshLambertMaterial({ map: this.paper, side: THREE.DoubleSide }),
     edge: new THREE.MeshLambertMaterial({ map: this.edge, side: THREE.DoubleSide }),
-    front: new THREE.MeshLambertMaterial({ map: this.paper, side: THREE.FrontSide, shadowSide: THREE.DoubleSide }),
-    back: new THREE.MeshLambertMaterial({ map: this.paper, side: THREE.BackSide, shadowSide: THREE.DoubleSide }),
     board: new THREE.MeshLambertMaterial({ color: BOARD }),
   };
-  private backMap: THREE.Texture | null = null; // the back face shows its page mirrored
+  private leaves: Leaf[] = []; // every leaf made; the free ones wait here
   private stacks: Record<Side, THREE.Mesh>;
   private heights: Record<Side, number> = { left: 0, right: 0 };
   private boards: Record<Side, THREE.Mesh>;
-  private leaf: THREE.Mesh;
-  private leafPos: THREE.BufferAttribute;
   private raycaster = new THREE.Raycaster();
   private ndc = new THREE.Vector2();
   private page: number; // the open spread; -1 = closed
-  private turn: Turn | null = null;
+  private turns: Turn[] = []; // the leaves in the air, in the order they were started (all one direction)
   private queued: number | null = null;
   private raf = 0;
   private last = performance.now();
@@ -263,6 +271,7 @@ export class BookScene {
     this.book.rotation.y = -0.03; // set down by hand, not squared to the table
     this.scene.add(this.book);
     for (const m of Object.values(this.mats)) if (m !== this.mats.board) m.color.setScalar(ALBEDO);
+    this.warm = 3;
 
     const board = (side: Side) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(W * 1.035, BOARD_T, H * 1.05), this.mats.board);
@@ -281,13 +290,7 @@ export class BookScene {
     };
     this.stacks = { left: stack('left'), right: stack('right') };
 
-    const geo = leafGeometry();
-    this.leafPos = geo.getAttribute('position') as THREE.BufferAttribute;
-    this.leaf = new THREE.Mesh(geo, [this.mats.front, this.mats.back]);
-    this.leaf.castShadow = this.leaf.receiveShadow = true;
-    this.leaf.frustumCulled = false;
-    this.leaf.visible = false;
-    this.book.add(this.leaf);
+    this.makeLeaf().mesh.visible = true; // drawn during the warm-up frames: shaders compiled before it's needed
 
     // the index tabs: one per chapter, staggered down the outer edge of the leaves
     void document.fonts.load('44px "IM Fell English SC"').catch(() => undefined).then(() => {
@@ -319,7 +322,7 @@ export class BookScene {
     el.addEventListener('pointermove', this.onMove);
     el.addEventListener('pointerup', this.onUp);
     el.addEventListener('pointercancel', this.onUp);
-    o.pages.paused = () => this.turn !== null;
+    o.pages.paused = () => this.turns.length > 0;
 
     // The booklet is built and its first pages photographed while the menu is idle (the canvas
     // stays transparent and nothing is drawn but a couple of frames, to compile and upload);
@@ -328,6 +331,36 @@ export class BookScene {
     r.domElement.style.opacity = '0';
     r.domElement.style.transition = `opacity ${FADE_S}s ease-out`;
     this.loop();
+  }
+
+  private makeLeaf(): Leaf {
+    const mat = (side: THREE.Side) => {
+      const m = new THREE.MeshLambertMaterial({ map: this.paper, side, shadowSide: THREE.DoubleSide });
+      m.color.setScalar(ALBEDO);
+      return m;
+    };
+    const front = mat(THREE.FrontSide);
+    const back = mat(THREE.BackSide);
+    const geo = leafGeometry();
+    const mesh = new THREE.Mesh(geo, [front, back]);
+    mesh.castShadow = mesh.receiveShadow = true;
+    mesh.frustumCulled = false;
+    mesh.visible = false;
+    this.book.add(mesh);
+    const leaf: Leaf = { mesh, pos: geo.getAttribute('position') as THREE.BufferAttribute, front, back, backMap: null };
+    this.leaves.push(leaf);
+    return leaf;
+  }
+
+  /** A leaf nobody is using (made on demand). */
+  private freeLeaf(): Leaf {
+    return this.leaves.find((l) => !this.turns.some((t) => t.leaf === l) && !l.mesh.visible) ?? this.makeLeaf();
+  }
+
+  /** The spread the book will be showing when every leaf in the air has landed. */
+  private logical() {
+    const l = this.turns[this.turns.length - 1];
+    return l ? l.to : this.page;
   }
 
   /** Come up now: wait (briefly) for the cover and first spread if they are not ready, then enter. */
@@ -422,7 +455,7 @@ export class BookScene {
   /** Each chapter's tab sticks out of its leaf: on the left once read, on the right ahead. */
   private placeTabs() {
     const n = this.tabs.length;
-    const shown = this.turn ? this.turn.from : this.page;
+    const shown = this.turns.length ? this.turns[0].from : this.page;
     this.tabs.forEach((t, i) => {
       const left = shown >= 0 && i < shown;
       const depth = left ? shown - 1 - i : i - Math.max(0, shown); // leaves above it on that side
@@ -452,41 +485,51 @@ export class BookScene {
     }
   }
 
-  /** Puts the right pictures on the stacks and the leaf (also when a picture gets ready). */
+  /** Puts the right pictures on the stacks and the leaves (also when a picture gets ready). */
   refresh(): void {
-    const t = this.turn;
+    const ts = this.turns;
     let left: string | null;
     let right: string | null;
-    if (!t) {
+    if (!ts.length) {
       left = this.page >= 0 ? `L${this.page}` : null;
       right = `R${Math.max(0, this.page)}`;
-    } else if (t.dir > 0) {
-      left = t.from >= 0 ? `L${t.from}` : null;
-      right = `R${t.to}`;
     } else {
-      left = `L${t.to}`;
-      right = `R${t.from}`;
+      // all in the air go one way: the side they leave shows what's under the last of them, the
+      // side they land on shows the page under the first (the last one already landed)
+      const first = ts[0];
+      const last = ts[ts.length - 1];
+      if (first.dir > 0) {
+        left = first.from >= 0 ? `L${first.from}` : null;
+        right = `R${last.to}`;
+      } else {
+        left = `L${last.to}`;
+        right = `R${first.from}`;
+      }
     }
     this.show(this.mats.left, left);
     this.show(this.mats.right, right);
-    this.stacks.left.visible = this.boards.left.visible = left !== null || (t?.from ?? 0) >= 0;
-    if (t) {
-      const front = t.dir > 0 ? (t.from < 0 ? 'cover' : `R${t.from}`) : `R${t.to}`;
-      const back = t.dir > 0 ? `L${t.to}` : `L${t.from}`;
-      this.show(this.mats.front, front);
-      const tex = this.o.pages.get(back);
-      if (tex && this.backMap?.source !== tex.source) {
-        this.backMap?.dispose();
-        this.backMap = tex.clone();
-        this.backMap.repeat.x = -1;
-        this.backMap.offset.x = 1;
-        this.backMap.needsUpdate = true;
-      }
-      const map = tex && this.backMap ? this.backMap : this.paper;
-      if (this.mats.back.map !== map) {
-        this.mats.back.map = map;
-        this.mats.back.needsUpdate = true;
-      }
+    this.stacks.left.visible = this.boards.left.visible = left !== null;
+    for (const t of ts) this.dress(t);
+  }
+
+  /** The faces of a turning leaf: its front is the page it lifts off, its back the one it lands on. */
+  private dress(t: Turn) {
+    const front = t.dir > 0 ? (t.from < 0 ? 'cover' : `R${t.from}`) : `R${t.to}`;
+    const back = t.dir > 0 ? `L${t.to}` : `L${t.from}`;
+    this.show(t.leaf.front, front);
+    const lf = t.leaf;
+    const tex = this.o.pages.get(back);
+    if (tex && lf.backMap?.source !== tex.source) {
+      lf.backMap?.dispose();
+      lf.backMap = tex.clone();
+      lf.backMap.repeat.x = -1;
+      lf.backMap.offset.x = 1;
+      lf.backMap.needsUpdate = true;
+    }
+    const map = tex && lf.backMap ? lf.backMap : this.paper;
+    if (lf.back.map !== map) {
+      lf.back.map = map;
+      lf.back.needsUpdate = true;
     }
   }
 
@@ -495,18 +538,32 @@ export class BookScene {
   /** Turns to a spread (arrows, tabs): the leaf goes over by itself, as if taken by its corner. */
   go(to: number): void {
     const target = Math.max(0, Math.min(this.o.count - 1, to));
-    if (this.turn) {
-      if (this.turn.mode === 'auto') this.queued = target;
+    const from = this.logical();
+    if (this.turns.some((t) => t.mode === 'drag')) return; // a leaf is in your hand
+    if (this.page < 0 && !this.turns.length) return;
+    if (target === from) return;
+    const dir = target > from ? 1 : -1;
+    const last = this.turns[this.turns.length - 1];
+    if (last && last.dir !== dir) {
+      this.queued = target; // the other way: once the leaves in the air have landed
       return;
     }
-    if (target === this.page || this.page < 0) return;
-    this.startTurn(this.page, target, { u: 0.93, v: 0.8 }, 'auto');
+    // another leaf starts while the others are still in the air, a beat behind them
+    this.startTurn(from, target, { u: 0.93, v: 0.8 }, 'auto', last ? FOLLOW_S : 0);
+  }
+
+  /** Turns one spread from wherever the book is heading (so quick presses add leaves). */
+  step1(delta: 1 | -1): void {
+    this.go(this.logical() + delta);
   }
 
   private startTurn(from: number, to: number, grab: { u: number; v: number }, mode: Turn['mode'], delay = 0) {
     const dir = to > from ? 1 : -1;
     const startA = dir > 0 ? 0 : Math.PI;
-    this.turn = {
+    const leaf = this.freeLeaf();
+    const t: Turn = {
+      leaf,
+      posed: false,
       from,
       to,
       dir,
@@ -524,17 +581,16 @@ export class BookScene {
       downY: 0,
       moved: false,
     };
-    if (mode === 'auto') this.release(Math.PI - startA, delay);
+    this.turns.push(t);
+    if (mode === 'auto') this.release(t, Math.PI - startA, delay);
     const keys = dir > 0 ? [`R${to}`, `L${to}`] : [`L${to}`, `R${to}`];
     this.o.pages.want(keys);
-    this.leaf.visible = true;
-    this.posed = false;
+    leaf.mesh.visible = true;
     this.refresh();
   }
 
   /** Lets the leaf go: it falls to `target` (π = over to the left), keeping the speed it had. */
-  private release(target: number, delay = 0) {
-    const t = this.turn!;
+  private release(t: Turn, target: number, delay = 0) {
     t.mode = 'auto';
     t.a0 = t.shape.angle;
     t.v0 = t.shape.omega;
@@ -544,19 +600,19 @@ export class BookScene {
     if (target !== (t.dir > 0 ? 0 : Math.PI) && !this.muteTurnSound) this.o.onTurnStart();
   }
 
-  private finish() {
-    const t = this.turn!;
+  private finish(t: Turn) {
     const done = t.target === (t.dir > 0 ? Math.PI : 0);
-    this.turn = null;
-    this.leaf.visible = false;
+    this.turns = this.turns.filter((x) => x !== t);
+    t.leaf.mesh.visible = false;
     if (done) {
       this.page = t.to;
       this.o.onPage(t.to);
-    } else if (t.from >= 0) this.page = t.from;
+    }
     this.refresh();
     this.placeTabs();
     const p = Math.max(0, this.page);
     this.o.pages.want([p + 1, p - 1].filter((n) => n >= 0 && n < this.o.count).flatMap((n) => [`R${n}`, `L${n}`]));
+    if (this.turns.length) return;
     if (this.page < 0) this.startTurn(-1, this.o.start, { u: 0.92, v: 0.82 }, 'auto', 0.4);
     else if (this.queued !== null) {
       const q = this.queued;
@@ -573,15 +629,16 @@ export class BookScene {
     this.raycaster.setFromCamera(this.ndc, this.camera);
   }
 
-  /** What's under the pointer: the moving leaf, or the top page of a stack (as leaf coordinates). */
-  private pick(): { what: 'leaf' | Side; u: number; v: number } | null {
+  /** What's under the pointer: a moving leaf, or the top page of a stack (as leaf coordinates). */
+  private pick(): { what: 'leaf' | Side; u: number; v: number; turn?: Turn } | null {
     const hits = this.raycaster.intersectObjects(
-      [this.leaf, this.stacks.left, this.stacks.right].filter((m) => m.visible),
+      [...this.turns.map((t) => t.leaf.mesh), this.stacks.left, this.stacks.right].filter((m) => m.visible),
       false,
     );
     for (const h of hits) {
       if (!h.uv) continue;
-      if (h.object === this.leaf) return { what: 'leaf', u: h.uv.x, v: 1 - h.uv.y };
+      const turn = this.turns.find((t) => t.leaf.mesh === h.object);
+      if (turn) return { what: 'leaf', u: h.uv.x, v: 1 - h.uv.y, turn };
       if (h.face && h.face.materialIndex !== 0) continue; // the edge of the stack
       const side: Side = h.object === this.stacks.left ? 'left' : 'right';
       // leaf coordinates count from the spine
@@ -598,30 +655,38 @@ export class BookScene {
 
   private grabbable(hit: ReturnType<BookScene['pick']>) {
     if (!hit) return false;
-    if (hit.what === 'leaf') return true;
-    if (this.turn || this.page < 0) return false;
-    return hit.what === 'right' ? this.page < this.o.count - 1 : this.page > 0;
+    if (this.turns.some((t) => t.mode === 'drag')) return false; // one leaf in hand at a time
+    // a leaf in the air can be caught only if it is the last one started (the rest are ahead of it)
+    if (hit.what === 'leaf') return hit.turn === this.turns[this.turns.length - 1];
+    const at = this.logical();
+    if (at < 0) return false;
+    const dir = this.turns[0]?.dir;
+    // the stack the leaves are leaving: another one joins them
+    if (hit.what === 'right') return (dir === undefined || dir > 0) && at < this.o.count - 1;
+    return (dir === undefined || dir < 0) && at > 0;
   }
 
   private onDown = (e: PointerEvent) => {
     if (e.button !== 0) return;
     this.aim(e);
-    const tab = this.turn ? -1 : this.pickTab();
+    const tab = this.turns.length ? -1 : this.pickTab();
     if (tab >= 0) {
       this.go(tab); // an index tab: straight to its chapter
       return;
     }
     const hit = this.pick();
     if (!hit || !this.grabbable(hit)) return;
+    let t: Turn;
     if (hit.what === 'leaf') {
       // catch the leaf that is turning: it is now held where you took it
-      this.turn!.mode = 'drag';
-      this.turn!.grabTo = { u: hit.u, v: hit.v };
+      t = hit.turn!;
+      t.mode = 'drag';
+      t.grabTo = { u: hit.u, v: hit.v };
     } else {
-      const to = hit.what === 'right' ? this.page + 1 : this.page - 1;
-      this.startTurn(this.page, to, { u: hit.u, v: hit.v }, 'drag');
+      const at = this.logical();
+      this.startTurn(at, hit.what === 'right' ? at + 1 : at - 1, { u: hit.u, v: hit.v }, 'drag');
+      t = this.turns[this.turns.length - 1];
     }
-    const t = this.turn!;
     t.pointer = e.pointerId;
     t.downAt = performance.now();
     t.downX = e.clientX;
@@ -635,8 +700,8 @@ export class BookScene {
 
   private onMove = (e: PointerEvent) => {
     this.aim(e);
-    const t = this.turn;
-    if (t && t.mode === 'drag' && e.pointerId === t.pointer) {
+    const t = this.turns.find((x) => x.mode === 'drag');
+    if (t && e.pointerId === t.pointer) {
       if (Math.hypot(e.clientX - t.downX, e.clientY - t.downY) > CLICK_PX) t.moved = true;
       // the pointer on the booklet's plane, in the booklet's own units
       const ray = this.raycaster.ray.clone().applyMatrix4(this.book.matrixWorld.clone().invert());
@@ -644,25 +709,25 @@ export class BookScene {
       if (p) this.dragX = p.x;
       return;
     }
-    this.hoverTab = this.pickTab();
+    this.hoverTab = this.turns.length ? -1 : this.pickTab();
     this.renderer.domElement.style.cursor = this.hoverTab >= 0 ? 'pointer' : this.grabbable(this.pick()) ? 'grab' : '';
   };
 
   private onUp = (e: PointerEvent) => {
-    const t = this.turn;
-    if (!t || t.mode !== 'drag' || e.pointerId !== t.pointer) return;
+    const t = this.turns.find((x) => x.mode === 'drag');
+    if (!t || e.pointerId !== t.pointer) return;
     this.renderer.domElement.style.cursor = '';
     const over = t.dir > 0 ? Math.PI : 0;
     const back = Math.PI - over;
     const quick = !t.moved && performance.now() - t.downAt < CLICK_MS;
     if (quick) {
-      this.release(over); // a click: it turns by itself from where you took it
+      this.release(t, over); // a click: it turns by itself from where you took it
       return;
     }
     // a flick decides; otherwise whichever side of the spine it is on
     const fling = t.shape.omega;
-    if (Math.abs(fling) > 3) this.release(fling > 0 ? Math.PI : 0);
-    else this.release(t.shape.angle > Math.PI / 2 ? Math.PI : 0);
+    if (Math.abs(fling) > 3) this.release(t, fling > 0 ? Math.PI : 0);
+    else this.release(t, t.shape.angle > Math.PI / 2 ? Math.PI : 0);
     if (t.target === back) t.dur *= 0.8;
   };
 
@@ -673,10 +738,17 @@ export class BookScene {
   }
 
   private step(dt: number) {
-    // the stacks settle to their size
-    const t = this.turn;
-    const lc = t ? (t.dir > 0 ? this.leftCount(t.from) : this.leftCount(t.to)) : this.leftCount(this.page);
-    const rc = t ? (t.dir > 0 ? this.rightCount(t.to) : this.rightCount(t.from)) : this.rightCount(this.page);
+    // the stacks settle to their size: the side the leaves leave counts the last of them gone, the
+    // side they land on counts only those that have landed
+    const ts = this.turns;
+    let lc = this.leftCount(this.page);
+    let rc = this.rightCount(this.page);
+    if (ts.length) {
+      const first = ts[0];
+      const last = ts[ts.length - 1];
+      lc = first.dir > 0 ? this.leftCount(first.from) : this.leftCount(last.to);
+      rc = first.dir > 0 ? this.rightCount(last.to) : this.rightCount(first.from);
+    }
     for (const [side, n] of [['left', lc], ['right', rc]] as const) {
       const goal = n * LEAF_T;
       const h = this.heights[side];
@@ -686,9 +758,11 @@ export class BookScene {
       m.geometry.dispose();
       m.geometry = stackGeometry(side === 'right' ? 1 : -1, Math.max(0.001, this.heights[side]));
       this.placeTabs();
-      }
-    if (!t) return;
+    }
+    for (const t of [...ts]) this.stepTurn(t, dt, ts.indexOf(t));
+  }
 
+  private stepTurn(t: Turn, dt: number, index: number) {
     const s = t.shape;
     // the hand moves along the leaf softly when you catch it somewhere else
     const k = Math.min(1, dt * 10);
@@ -701,33 +775,32 @@ export class BookScene {
     } else {
       const now = performance.now();
       if (now < t.t0) {
-        // waiting to start (the opening): the leaf already lies in place, so the closed booklet
-        // shows its cover instead of the first page
-        if (!this.posed) {
-          this.posed = true;
-          this.poseLeaf();
+        // waiting to start (the opening, or a leaf following another): shape it once so it lies
+        // in place instead of showing its first pose
+        if (!t.posed) {
+          t.posed = true;
+          this.poseLeaf(t, index);
         }
         return;
       }
       const u = Math.min(1, (now - t.t0) / 1000 / t.dur);
       s.angle = Math.max(0, Math.min(Math.PI, hermite(t.a0, t.v0 * t.dur, t.target, u)));
       if (u >= 1) {
-        this.finish();
+        this.finish(t);
         return;
       }
     }
     s.omega += ((s.angle - prev) / Math.max(dt, 1e-3) - s.omega) * Math.min(1, dt * 12);
-    this.poseLeaf();
+    this.poseLeaf(t, index);
   }
 
-  private posed = false; // the waiting leaf has been shaped
-  private poseLeaf() {
-    const t = this.turn;
-    if (!t) return;
-    shapeLeaf(t.shape, this.frame(), this.leafPos.array as Float32Array);
-    this.leafPos.needsUpdate = true;
-    this.leaf.geometry.computeVertexNormals();
-    this.leaf.geometry.computeBoundingSphere();
+  private poseLeaf(t: Turn, index: number) {
+    const lf = t.leaf;
+    shapeLeaf(t.shape, this.frame(), lf.pos.array as Float32Array);
+    lf.pos.needsUpdate = true;
+    lf.mesh.geometry.computeVertexNormals();
+    lf.mesh.geometry.computeBoundingSphere();
+    lf.mesh.position.y = index * LEAF_T * 0.6; // leaves in the air never share a plane (no z-fighting)
   }
 
   private loop = () => {
@@ -735,6 +808,7 @@ export class BookScene {
     if (!this.active) {
       if (this.warm <= 0) return; // parked: nothing to draw
       this.warm--;
+      if (this.warm === 0) for (const l of this.leaves) if (!this.turns.some((t) => t.leaf === l)) l.mesh.visible = false; // end of the warm-up
     }
     const now = performance.now();
     const dt = Math.min(0.05, (now - this.last) / 1000);
@@ -743,7 +817,7 @@ export class BookScene {
     // tabs lean out a little under the pointer
     let moved = false;
     this.tabs.forEach((t, i) => {
-      const goal = i === this.hoverTab && !this.turn ? 1 : 0;
+      const goal = i === this.hoverTab && !this.turns.length ? 1 : 0;
       if (Math.abs(goal - t.hover) < 0.01) return;
       t.hover += (goal - t.hover) * Math.min(1, dt * 14);
       moved = true;
@@ -771,8 +845,8 @@ export class BookScene {
 
   /** For tests: where things are. */
   debug() {
-    const t = this.turn;
-    return { page: this.page, turning: t ? { from: t.from, to: t.to, mode: t.mode, angle: t.shape.angle } : null };
+    const t = this.turns[0];
+    return { page: this.page, leaves: this.turns.length, turning: t ? { from: t.from, to: t.to, mode: t.mode, angle: t.shape.angle } : null };
   }
 
   /** For tests: the screen point of a chapter's index tab (null until the tabs are made). */
@@ -813,7 +887,11 @@ export class BookScene {
     }
     this.paper.dispose();
     this.edge.dispose();
-    this.backMap?.dispose();
+    for (const l of this.leaves) {
+      l.backMap?.dispose();
+      l.front.dispose();
+      l.back.dispose();
+    }
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     el.remove();

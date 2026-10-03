@@ -184,8 +184,8 @@ export function RulebookHost() {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowRight') go(page + 1);
-      if (e.key === 'ArrowLeft') go(page - 1);
+      if (e.key === 'ArrowRight') book.current?.step1(1); // from where the book is heading: quick presses add leaves
+      if (e.key === 'ArrowLeft') book.current?.step1(-1);
       if (e.key === 'r' || e.key === 'R') e.stopPropagation();
     };
     window.addEventListener('keydown', onKey);
@@ -209,9 +209,9 @@ export function RulebookHost() {
           <RightPage ch={CHAPTERS[page]} n={page} />
         </div>
         <footer className="rb-nav">
-          <button type="button" className="rb-turn" onClick={() => go(page - 1)} disabled={page === 0} tabIndex={open ? 0 : -1}>← {page > 0 ? CHAPTERS[page - 1].tab : ''}</button>
+          <button type="button" className="rb-turn" onClick={() => book.current?.step1(-1)} disabled={page === 0} tabIndex={open ? 0 : -1}>← {page > 0 ? CHAPTERS[page - 1].tab : ''}</button>
           <span className="rb-hint">agarrá una hoja y arrastrala, o hacé clic · ← → · Esc para cerrar</span>
-          <button type="button" className="rb-turn" onClick={() => go(page + 1)} disabled={page === CHAPTERS.length - 1} tabIndex={open ? 0 : -1}>{page < CHAPTERS.length - 1 ? CHAPTERS[page + 1].tab : ''} →</button>
+          <button type="button" className="rb-turn" onClick={() => book.current?.step1(1)} disabled={page === CHAPTERS.length - 1} tabIndex={open ? 0 : -1}>{page < CHAPTERS.length - 1 ? CHAPTERS[page + 1].tab : ''} →</button>
         </footer>
         <button type="button" className="rb-close" onClick={onClose} aria-label="Cerrar el manual" tabIndex={open ? 0 : -1}><GiCrossMark aria-hidden /></button>
       </section>

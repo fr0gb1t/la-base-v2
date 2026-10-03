@@ -2,6 +2,11 @@
 
 ## Desde `a603e36`
 
+- **Varias hojas a la vez en el reglamento:** ya no hace falta esperar a que termine de darse vuelta
+  una hoja para dar la siguiente: con las flechas, los botones o clics seguidos en la página cada
+  hoja sale un instante después de la anterior y quedan varias en el aire a la vez, cada una con
+  su propia forma y sus dos caras. Para volver atrás, las hojas en el aire terminan de caer y
+  recién ahí sale la hoja en sentido contrario.
 - **Reglamento sin tirones:** el librito se arma de antemano (la sala 3D, los shaders y las fotos de
   la tapa y la primera doble página) cuando el menú lleva unos segundos en reposo, y queda
   guardado invisible; al tocar «reglas» solo se reproduce la entrada. Al cerrarlo se prepara el
