@@ -38,6 +38,7 @@ for (const n of (process.argv[3] ?? '4,8').split(',').map(Number)) {
   for (let i = 0; i < n - 2; i++) { const o = await auto(room); await o.emit('room:join', { roomCode: room, playerName: `P${i}` }); others.push(o) }
   const p = await b.newPage()
   p.on('pageerror', (e) => console.log('PAGEERR', e.message))
+  p.on('console', (m) => m.text().startsWith('[hud]') && console.log(m.text()))
   await p.goto('http://localhost:5174/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(1500)
   await p.evaluate(() => { localStorage.clear(); localStorage.setItem('guestName', 'Vos') })
   await p.reload({ waitUntil: 'domcontentloaded' }); await sleep(2500)
@@ -63,6 +64,11 @@ for (const n of (process.argv[3] ?? '4,8').split(',').map(Number)) {
   console.log('state', host.state?.phase, host.state?.roundIndex, JSON.stringify(await p.evaluate(() => window.__table.clockScreen())))
   await sleep(1500)
   await p.screenshot({ path: `${out}-${n}-play.png` })
+  const hb = await p.evaluate(() => window.__table.hudScreen('ajustes'))
+  if (hb) { await p.mouse.move(hb.x, hb.y); await sleep(700); await p.screenshot({ path: `${out}-${n}-hud-hover.png` })
+    await p.mouse.down(); await sleep(50); await p.mouse.up(); await sleep(600)
+    console.log('slate click opens settings:', await p.evaluate(() => Boolean(document.querySelector('.settings-veil'))))
+    await p.keyboard.press('Escape'); await sleep(300) }
   await p.evaluate(() => { window.__table.pitchT = -0.62 })
   await sleep(900)
   await p.screenshot({ path: `${out}-${n}-down.png` })

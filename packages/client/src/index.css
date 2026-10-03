@@ -1769,7 +1769,8 @@ button {
 
 /* ---- the phase line: a paper strip pinned over the table ---- */
 .phase-line {
-  top: 12px;
+  top: auto;
+  bottom: 62px; /* the top of the view belongs to the slate with the game's buttons */
   padding: 4px 16px 5px;
   font-family: var(--font-print);
   font-size: 19px;

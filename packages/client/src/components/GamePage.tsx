@@ -9,13 +9,15 @@ import { RoundScoringPanel } from './RoundScoringPanel';
 import { LiveBidDisplay } from './LiveBidDisplay';
 import { ToastContainer } from './ToastContainer';
 import { TableScene, type TablePlayer } from '../table3d/TableScene';
-import { SettingsButton, useViewSettings } from '../settings/SettingsPanel';
+import { SettingsButton, useViewSettings, openSettings } from '../settings/SettingsPanel';
 import { SenaWheel, type WheelOpen } from './senas/SenaWheel';
 import { SenaEcho, type Echo } from './senas/SenaEcho';
 import { Rulebook } from './rulebook/Rulebook';
 import { audioState, onAudioState, resumeAudio } from '../table3d/audio';
 import { GiSpeakerOff } from 'react-icons/gi';
-import { GiExitDoor, GiScrollUnfurled, GiBookCover } from 'react-icons/gi';
+import { GiExitDoor, GiScrollUnfurled, GiBookCover, GiNotebook, GiBackwardTime, GiCog } from 'react-icons/gi';
+import { renderToStaticMarkup } from 'react-dom/server';
+import type { HudItem } from '../table3d/hudBoard';
 
 // First-person 3D table (La Base v2). The table shows every card movement; the non-card phases
 // (initial draw, bidding, ace choices, ready gates, scoring) are dark minimal overlays over it.
@@ -191,6 +193,7 @@ export function GamePage() {
       status: (text) => setStatus(text),
       deckClick: () => drawRef.current(),
       clockPress: () => pressBidClock.current?.(),
+      hudPress: (id) => hudActions.current[id]?.(),
       error: (message, stack) => {
         const code = latest.current.roomCode;
         socket?.emit('client:error', { roomCode: code, message, stack: stack?.slice(0, 2000), where: 'table3d', ua: navigator.userAgent });
@@ -478,6 +481,21 @@ export function GamePage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [cycleHud, gate, iAmReady, handleReady, inGame, askSenas, tableAsk]);
 
+  // ---- the controls live on a slate at the back of the room (the DOM keeps hidden buttons)
+  const hudActions = useRef<Record<string, () => void>>({});
+  const hudLabel = hud === 'basico' ? 'básico' : hud === 'completo' ? 'completo' : 'oculto';
+  useEffect(() => {
+    const icon = (el: JSX.Element) => renderToStaticMarkup(el);
+    const items: HudItem[] = [
+      { id: 'anotador', label: 'anotador', hint: `Anotador: ${hudLabel} · click para cambiar (H)`, svg: icon(<GiNotebook />) },
+      { id: 'historial', label: 'historial', hint: 'Lo que pasó en la partida (J)', svg: icon(<GiBackwardTime />) },
+      { id: 'reglas', label: 'reglas', hint: 'El manual de la mesa (R)', svg: icon(<GiBookCover />) },
+      { id: 'ajustes', label: 'ajustes', hint: 'Sonido, cámara, dorso, señas (O)', svg: icon(<GiCog />) },
+      { id: 'salir', label: 'salir', hint: 'Volver al lobby', svg: icon(<GiExitDoor />), danger: true },
+    ];
+    sceneRef.current?.setHud(items);
+  }, [hudLabel]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleLeaveGame = () => {
     if (socket && roomCode) socket.emit('room:leave', { roomCode });
     setRoomCode(null);
@@ -487,6 +505,7 @@ export function GamePage() {
     setPlayerHand([]);
     setCurrentPage('lobby');
   };
+  hudActions.current = { anotador: cycleHud, historial: () => setShowLog((v) => !v), reglas: () => setShowRules(true), ajustes: () => openSettings(true), salir: handleLeaveGame };
 
   const handleInitialDraw = () => {
     if (!socket || !roomCode) return;
@@ -663,8 +682,8 @@ export function GamePage() {
         ) : (
           <div />
         )}
-        <nav className="hud-tabs">
-          <button className="hud-tab" onClick={cycleHud} title="Tecla H"><GiScrollUnfurled aria-hidden /> anotador: {hud === 'basico' ? 'básico' : hud === 'completo' ? 'completo' : 'oculto'}</button>
+        <nav className="sr-only" aria-label="Controles de la partida">
+          <button className="hud-tab" onClick={cycleHud} title="Tecla H"><GiScrollUnfurled aria-hidden /> anotador: {hudLabel}</button>
           <button className="hud-tab" onClick={() => setShowLog((v) => !v)} title="Tecla J"><GiBookCover aria-hidden /> historial</button>
           <button className="hud-tab" onClick={() => setShowRules(true)} title="Tecla R"><GiScrollUnfurled aria-hidden /> reglas</button>
           <SettingsButton />

@@ -16,6 +16,7 @@ import { NameTag, TAG_Y, TAG_R_OFFSET } from './nameTags'
 import { TableTokens } from './tableTokens'
 import { TableChoices, type CopasChoice, type Direction } from './tableChoices'
 import { ChessClock, type ClockView } from './chessClock'
+import { HudBoard, type HudItem } from './hudBoard'
 
 // ---------------------------------------------------------------------------------------------
 // The 3D table, driven by real game events. Seats follow the server's turn order with the local
@@ -42,6 +43,8 @@ export interface TableCallbacks {
   deckClick?(): void
   /** a click on the bidding clock while it's your turn to bid: confirm the bid */
   clockPress?(): void
+  /** a click on a button of the slate at the back of the room (anotador, historial, …) */
+  hudPress?(id: string): void
   /** something broke inside the table (a frame, the WebGL context): report it */
   error?(message: string, stack?: string): void
   /** the centre of your view moved onto (playerId) or off (null) someone's face */
@@ -150,6 +153,8 @@ export class TableScene {
   private drawn: CardView[] = [] // initial draw cards
   private centerDeck: THREE.Mesh
   private clock = new ChessClock()
+  private hud = new HudBoard()
+  private hudHint = ''
   private clockView: ClockView | null = null
   private queue: Promise<void> = Promise.resolve()
   private queued = 0
@@ -222,7 +227,7 @@ export class TableScene {
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera)
     this.detachAudio = attachAudio(this.camera) // you hear the room from your seat
-    this.scene.add(this.tokens.group, this.clock.group)
+    this.scene.add(this.tokens.group, this.clock.group, this.hud.group)
     this.tokens.setGuides(this.guides)
     this.scene.add(this.choices.group)
     this.scene.add(this.roomGroup)
@@ -513,6 +518,7 @@ export class TableScene {
   private detachAudio: () => void = () => undefined
 
   dispose() {
+    this.hud.dispose()
     this.clock.dispose()
     this.detachAudio()
     this.offView()
@@ -1299,6 +1305,16 @@ export class TableScene {
     this.deckHint = on
   }
 
+  /** The slate at the back of the room: the game's buttons. */
+  setHud(items: HudItem[]) {
+    this.hud.set(items)
+  }
+
+  /** Screen position of a slate button (tests). */
+  hudScreen(id: string) {
+    return this.hud.screenOf(id, this.camera, this.renderer.domElement.getBoundingClientRect())
+  }
+
   /** The bidding clock: both teams' time, whose is running, and whether you can press it. */
   setClock(view: ClockView) {
     const prev = this.clockView
@@ -1330,6 +1346,10 @@ export class TableScene {
 
   /** A click (no drag) on the table: the deck in the middle draws during the initial draw. */
   private tableClick() {
+    if (this.hud.hovered && this.cb.hudPress) {
+      this.cb.hudPress(this.hud.hovered)
+      return
+    }
     if (this.clockView?.canPress && this.cb.clockPress) {
       this.raycaster.setFromCamera(this.mouse, this.camera)
       if (this.raycaster.intersectObject(this.clock.hit, false).length) {
@@ -1364,7 +1384,13 @@ export class TableScene {
     const choice = this.choices.update(time, dt, this.camera, this.raycaster)
     // the bidding clock, when it's yours to press
     this.clock.hovered = Boolean(this.clockView?.canPress && !this.drag && !this.peek && this.raycaster.intersectObject(this.clock.hit, false).length)
-    this.renderer.domElement.style.cursor = choice || this.clock.hovered ? 'pointer' : this.lookDrag ? 'grabbing' : 'crosshair'
+    // the slate's buttons
+    const slate = this.hud.update(dt, this.raycaster, !this.drag && !this.peek && (!this.lookDrag || this.lookDrag.moved < HOLD_PX))
+    if (slate || this.hudHint) {
+      const hint = this.hud.hint(slate) ?? ''
+      if (hint !== this.hudHint) this.cb.status((this.hudHint = hint))
+    }
+    this.renderer.domElement.style.cursor = choice || this.clock.hovered || slate ? 'pointer' : this.lookDrag ? 'grabbing' : 'crosshair'
     if (choice || this.choices.active) {
       this.hovered = -1
       const hint = this.choices.hint() ?? ''

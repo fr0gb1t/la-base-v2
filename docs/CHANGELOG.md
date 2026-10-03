@@ -17,6 +17,14 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
   jugadores, más chico y más cerca tuyo). Sin tiempo marca «-:--». `25d49ce`
 
 ### Mesa de juego
+- **Los botones de la partida viven en una pizarra:** anotador, historial, reglas, ajustes y salir
+  son cinco botones redondos de tiza sobre una pizarra colgada de dos cadenas al fondo de la sala,
+  más arriba que las cabezas de todos (no la tapa ningún jugador, con 4, 6 u 8) y con su propia
+  lamparita. Sin texto: al pasar el mouse el botón se enciende y su nombre aparece escrito
+  debajo, y la descripción sale en la línea de estado. Anotador e historial/reglas ya no repiten
+  icono (cuaderno, reloj de retroceso, libro, engranaje, puerta en rojo). Los botones del DOM
+  quedan ocultos para teclado y lectores de pantalla (H, J, R, O siguen andando). La línea de
+  estado pasó al borde de abajo.
 - **Cartas jugadas sin quemarse:** la cara de las cartas ya no se quema con la lámpara (de ~45 % de
   píxeles quemados a ~1 %), y se leen sin zoom. `ac8e036`
 - **Porotos más juntos:** caen en un círculo de media carta de ancho (antes tres cuartos). `be55c02`
