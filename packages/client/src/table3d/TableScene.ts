@@ -163,7 +163,6 @@ export class TableScene {
   private clock = new ChessClock()
   private hud = new HudBoard()
   private notepad = new Notepad()
-  private hudHint = ''
   private clockView: ClockView | null = null
   private queue: Promise<void> = Promise.resolve()
   private queued = 0
@@ -1433,10 +1432,7 @@ export class TableScene {
     this.clock.hovered = Boolean(this.clockView?.canPress && !this.drag && !this.peek && this.raycaster.intersectObject(this.clock.hit, false).length)
     // the slate's buttons
     const slate = this.hud.update(dt, this.raycaster, !this.drag && !this.peek && (!this.lookDrag || this.lookDrag.moved < HOLD_PX))
-    if (slate || this.hudHint) {
-      const hint = this.hud.hint(slate) ?? ''
-      if (hint !== this.hudHint) this.cb.status((this.hudHint = hint))
-    }
+    // (what a set is called is written on its own glass; the LED panel keeps showing what to do)
     this.notepad.hovered = Boolean(!this.drag && !this.peek && (!this.lookDrag || this.lookDrag.moved < HOLD_PX) && this.raycaster.intersectObject(this.notepad.hit, false).length)
     this.renderer.domElement.style.cursor = choice || this.clock.hovered || slate || this.notepad.hovered ? 'pointer' : this.lookDrag ? 'grabbing' : 'crosshair'
     if (choice || this.choices.active) {

@@ -42,6 +42,10 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
   (vacía = pedida, llena = lograda, roja = de más) se dibujan trazo por trazo con rough.js.
   Muestra ronda, base, sentido, puntos, lo que pidió y lleva cada equipo, kamikazes y los jugadores
   con su estado. Reemplaza al papelito fijo de la esquina y al botón de la pizarra.
+- **Televisores más chicos con más pantalla, íconos y nombres legibles:** el cuerpo es ~7 % más
+  chico pero la pantalla ocupa más del frente; el ícono es más grande y brillante (núcleo claro con
+  poco halo, así no se empasta) y la estática le cede lugar; el nombre al pasar el mouse va grande,
+  sobre una franja oscura. El panel LED ya no muestra la explicación de cada botón: solo qué hacer.
 - **Televisores CRT más de verdad:** carcasa casi cuadrada de esquinas redondeadas con el tubo
   hundido detrás de un bisel y un aro cromado, vidrio abombado en los dos sentidos con esquinas
   redondeadas y distorsión de barril, cuerpo trasero que se achica en dos escalones con ranuras de

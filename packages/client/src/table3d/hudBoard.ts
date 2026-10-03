@@ -136,8 +136,8 @@ function iconPaths(svg: string): { paths: string[]; box: number } {
   return { paths, box: vb ? Number(vb[1]) : 512 }
 }
 
-const SCREEN_W = 256
-const SCREEN_H = 200
+const SCREEN_W = 512
+const SCREEN_H = 400
 
 /** The picture on the tube, on a transparent layer: the icon in phosphor (and its name when `hot`). The static, scanlines and vignette are the glass shader's. */
 function screenTexture(item: HudItem, hot: boolean) {
@@ -145,30 +145,38 @@ function screenTexture(item: HudItem, hot: boolean) {
   cv.width = SCREEN_W
   cv.height = SCREEN_H
   const g = cv.getContext('2d')!
-  const color = item.danger ? RED : GREEN
+  const color = item.danger ? '#ffb08a' : '#b8ffc8' // the bright core of the phosphor
+  const glow = item.danger ? RED : GREEN
   const { paths, box } = iconPaths(item.svg)
-  const size = hot ? 112 : 136
+  const size = hot ? 168 : 300
   const s = size / box
+  const top = hot ? 22 : (SCREEN_H - size) / 2
   g.save()
-  g.translate((SCREEN_W - size) / 2, (SCREEN_H - size) / 2 - (hot ? 18 : 2))
+  g.translate((SCREEN_W - size) / 2, top)
   g.scale(s, s)
-  g.shadowColor = color
-  g.shadowBlur = hot ? 40 : 26
   g.fillStyle = color
+  g.shadowColor = glow
+  g.shadowBlur = 14
   for (const d of paths) g.fill(new Path2D(d))
   g.restore()
   if (hot) {
+    // the name: big, on a dark strip so the static can't eat it
+    g.fillStyle = 'rgba(0,12,4,0.92)'
+    g.fillRect(24, SCREEN_H - 176, SCREEN_W - 48, 130)
+    g.strokeStyle = glow
+    g.lineWidth = 3
+    g.strokeRect(24, SCREEN_H - 176, SCREEN_W - 48, 130)
     g.fillStyle = color
-    g.shadowColor = color
-    g.shadowBlur = 12
-    g.font = '36px VT323, "Courier New", monospace'
+    g.shadowColor = glow
+    g.shadowBlur = 10
+    g.font = 'bold 118px VT323, "Courier New", monospace'
     g.textAlign = 'center'
     g.textBaseline = 'middle'
-    g.fillText(item.label.toUpperCase(), SCREEN_W / 2, SCREEN_H - 28)
+    g.fillText(item.label.toUpperCase(), SCREEN_W / 2, SCREEN_H - 108)
   }
   const tex = new THREE.CanvasTexture(cv)
   tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 4
+  tex.anisotropy = 8
   return tex
 }
 
@@ -198,7 +206,7 @@ function glassMaterial(map: THREE.Texture, tint: THREE.Color, seed: number, wear
         float grain = 0.55 + 0.9 * n;
         vec3 base = tint * (0.03 + 0.1 * grain * grain * wear.x) * (0.8 + glow * 0.6);
         vec4 ic = texture2D(map, uv);
-        vec3 col = base + ic.rgb * ic.a * (1.5 + glow * 0.7);
+        vec3 col = base * (1.0 - 0.85 * ic.a) + ic.rgb * ic.a * (1.7 + glow * 0.5);
         // scanlines and the rolling band
         col *= 0.78 + 0.22 * sin(uv.y * 520.0);
         col *= 0.9 + 0.35 * smoothstep(0.0, 0.5, 0.5 - abs(fract(uv.y - time * wear.z) - 0.5));
@@ -326,12 +334,12 @@ function wearTexture(w: number, h: number, hole: { x: number; y: number; w: numb
   return tex
 }
 
-const TV_W = 0.42
-const TV_H = 0.37
-const TV_D = 0.2 // depth of the cabinet
-const SCR_W = 0.25
+const TV_W = 0.39
+const TV_H = 0.325
+const TV_D = 0.18 // depth of the cabinet
+const SCR_W = 0.27
 const SCR_H = SCR_W * (SCREEN_H / SCREEN_W)
-const SCR_X = -0.045 // the screen sits left of centre: the controls take the right side
+const SCR_X = -0.04 // the screen sits left of centre: the controls take the right side
 
 interface Live {
   item: HudItem
@@ -533,7 +541,7 @@ export class HudBoard {
     glass.position.set(SCR_X, 0, 0.012)
     // the control strip on the right: a dark panel with a big knob, a small one, buttons and a speaker grille
     const stripX = SCR_X + SCR_W / 2 + (TV_W / 2 - (SCR_X + SCR_W / 2)) / 2
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.07, TV_H * 0.8, 0.012), dark)
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.055, TV_H * 0.8, 0.012), dark)
     strip.position.set(stripX, 0, 0.066)
     const knobMat = mat(0x6e695f, 0.35, 0.7)
     const knob = (y: number, r: number) => {
@@ -547,12 +555,12 @@ export class HudBoard {
     }
     const knobs = [...knob(TV_H * 0.3, 0.016), ...knob(TV_H * 0.1, 0.011)]
     const buttons = [-0.04, -0.075].map((dy) => {
-      const b = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.012, 0.01), knobMat)
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.011, 0.01), knobMat)
       b.position.set(stripX, dy, 0.076)
       return b
     })
     const slots = Array.from({ length: 6 }, (_, k) => {
-      const sl = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.004, 0.004), shell)
+      const sl = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.004, 0.004), shell)
       sl.position.set(stripX, -0.1 - k * 0.011, 0.074)
       return sl
     })
