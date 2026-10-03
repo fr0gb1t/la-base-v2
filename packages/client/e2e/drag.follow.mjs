@@ -12,7 +12,7 @@ host.on('player:hand', (d) => (host.hand = d.hand))
 host.on('game:state', async (st) => {
   if (st.readyGate && !st.readyGate.readyPlayerIds.includes(host.id)) await emit('game:ready', { roomCode: room })
   if (st.phase === 'initial_draw' && st.initialDraw?.currentDrawerPlayerId === host.id) await emit('draw:initialCard', { roomCode: room })
-  if (st.phase === 'bidding' && st.currentBidPlayerId === host.id) { const max = st.structureSequence[st.roundIndex]; const v = [0, 1, 2, 3].find((x) => x <= max && (st.bids.length === 0 || st.bids[0].value + x !== max)); await emit('bid:declare', { roomCode: room, bidValue: v }) }
+  if (st.phase === 'bidding' && st.currentBidPlayerId === host.id) { const max = st.structureSequence[st.roundIndex]; const v = [0, 1, 2, 3, 0, 1, 2, 3, 4, 5, 6].find((x) => x <= max && (st.bids.length === 0 || [max - 1, max + 1].includes(st.bids[0].value + x))); await emit('bid:declare', { roomCode: room, bidValue: v }) }
   if (st.phase === 'playing' && st.currentTurnPlayerId === host.id && host.hand?.length) await emit('card:play', { roomCode: room, card: host.hand[0] })
 })
 const b = await puppeteer.launch({ executablePath: '/usr/bin/chromium', headless: 'new', args: ['--use-angle=vulkan', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'], defaultViewport: { width: 1280, height: 720 } })

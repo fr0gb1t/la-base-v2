@@ -7,7 +7,7 @@ import { roomManager } from './rooms.js';
 import { BOT_TOKEN, botNameFor, spawnBot } from './bots.js';
 import { SenaDelivery } from './senaDelivery.js';
 import type { RoomPlayer } from './rooms.js';
-import { BID_CLOCK_OPTIONS, cardRank, clockLeft, dealAnimationMs, isSena, pressClock, startClock, type AssignedTeam, type GameState, type Card } from '@la-base/shared';
+import { BID_CLOCK_OPTIONS, isPieBidRule, cardRank, clockLeft, dealAnimationMs, isSena, pressClock, startClock, type AssignedTeam, type GameState, type Card } from '@la-base/shared';
 import {
   createShuffledDeck,
   dealCards,
@@ -598,7 +598,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
     /**
      * game:config - Host configures game settings
      */
-    socket.on('game:config', (payload: { roomCode: string; structure: string; acePowers: any; customStructure?: number[]; kamikazesPerTeam?: number; bidClockMs?: number }, callback) => {
+    socket.on('game:config', (payload: { roomCode: string; structure: string; acePowers: any; customStructure?: number[]; kamikazesPerTeam?: number; bidClockMs?: number; pieBidRule?: string }, callback) => {
       try {
         const room = roomManager.getRoom(payload.roomCode);
         const requester = room?.players.find((player) => player.socketId === socket.id);
@@ -615,6 +615,9 @@ export function setupSocketHandlers(io: SocketIOServer) {
         if (payload.kamikazesPerTeam !== undefined) {
           room.kamikazesPerTeam = Math.max(0, Math.min(3, payload.kamikazesPerTeam));
         }
+        if (payload.pieBidRule !== undefined) {
+          room.pieBidRule = isPieBidRule(payload.pieBidRule) ? payload.pieBidRule : 'estricta';
+        }
         if (payload.bidClockMs !== undefined) {
           const allowed = (BID_CLOCK_OPTIONS as readonly number[]).includes(payload.bidClockMs) || (process.env.LABASE_TEST === '1' && payload.bidClockMs > 0) // tests: short clocks
           room.bidClockMs = allowed ? payload.bidClockMs : 0;
@@ -625,6 +628,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
           acePowers: room.acePowers,
           kamikazesPerTeam: room.kamikazesPerTeam,
           bidClockMs: room.bidClockMs,
+          pieBidRule: room.pieBidRule,
         });
 
         callback({ success: true });
@@ -923,8 +927,10 @@ export function setupSocketHandlers(io: SocketIOServer) {
 
           if (room.gameState.bids.length === 1) {
             const manoBid = room.gameState.bids[0];
-            if (!validatePieBid(manoBid.value, payload.bidValue, maxBases)) {
-              callback({ success: false, error: `Mano + Pie cannot equal ${maxBases}` });
+            const rule = room.gameState.pieBidRule ?? 'estricta';
+            if (!validatePieBid(manoBid.value, payload.bidValue, maxBases, rule)) {
+              const allowed = getValidPieBidRange(manoBid.value, maxBases, rule);
+              callback({ success: false, error: `Pie can bid ${allowed.join(' or ')} (Mano + Pie must ${rule === 'estricta' ? `be ${maxBases - 1} or ${maxBases + 1}` : `not equal ${maxBases}`})` });
               return;
             }
           }

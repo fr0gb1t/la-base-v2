@@ -14,7 +14,7 @@ host.on('game:state', async (st) => {
   if (st.phase === 'bidding' && st.currentBidPlayerId === host.id) {
     const max = st.structureSequence[st.roundIndex]
     const kami = st.bids.length === 0 && st.kamikazesRemaining && (st.kamikazeCalls ?? []).length === 0
-    await emit('bid:declare', { roomCode: room, bidValue: kami ? max : [2, 1, 3, 0].find((x) => x <= max && (st.bids.length === 0 || st.bids[0].value + x !== max)), isKamikaze: Boolean(kami) })
+    await emit('bid:declare', { roomCode: room, bidValue: kami ? max : [2, 1, 3, 0, 0, 1, 2, 3, 4, 5, 6].find((x) => x <= max && (st.bids.length === 0 || [max - 1, max + 1].includes(st.bids[0].value + x))), isKamikaze: Boolean(kami) })
   }
   if (st.phase === 'playing' && st.currentTurnPlayerId === host.id && host.hand?.length) await emit('card:play', { roomCode: room, card: host.hand[0] })
 })

@@ -127,6 +127,8 @@ export type GameState = {
   kamikazeCalls?: Array<{ playerId: string; team: AssignedTeam; round: number }>;
   // tied after the last round: two extra rounds with the structure's most bases were appended
   tiebreak?: boolean;
+  /** how the Pie may bid (default 'estricta': the sum is one less or one more than the round's bases) */
+  pieBidRule?: import('./scoring.js').PieBidRule;
   /** the bidding (chess) clock; null/absent: played without time */
   bidClock?: import('./bidClock.js').BidClock | null;
 };

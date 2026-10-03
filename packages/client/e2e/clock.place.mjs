@@ -21,7 +21,7 @@ async function auto(room) {
     if (st.phase === 'bidding' && st.currentBidPlayerId === sock.id) {
       await sleep(400)
       const max = st.structureSequence[st.roundIndex]
-      await emit('bid:declare', { roomCode: room, bidValue: [1, 0].find((x) => x <= max && (st.bids.length === 0 || st.bids[0].value + x !== max)), isKamikaze: false })
+      await emit('bid:declare', { roomCode: room, bidValue: [1, 0, 0, 1, 2, 3, 4, 5, 6].find((x) => x <= max && (st.bids.length === 0 || [max - 1, max + 1].includes(st.bids[0].value + x))), isKamikaze: false })
     }
     if (st.phase === 'playing' && st.currentTurnPlayerId === sock.id && me.hand.length) { await sleep(300); await emit('card:play', { roomCode: room, card: me.hand[0], copasDirection: 'mantener' }) }
     if (st.pendingOrosChoice?.chooserPlayerId === sock.id) await emit('ace:oros:choose', { roomCode: room, playerId: st.pendingOrosChoice.options[0] })

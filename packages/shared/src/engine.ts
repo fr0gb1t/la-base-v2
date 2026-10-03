@@ -12,6 +12,7 @@ import type {
   AcePowers,
 } from './types.js';
 import { getBasesForRound, getStructure } from './structures.js';
+import type { PieBidRule } from './scoring.js';
 
 /**
  * Create initial game state
@@ -21,7 +22,8 @@ export function createGameState(
   structure: GameStructure,
   acePowers: AcePowers,
   customStructure?: number[],
-  kamikazesPerTeam = 2
+  kamikazesPerTeam = 2,
+  pieBidRule: PieBidRule = 'estricta'
 ): GameState {
   const manoPlayer = players[0]; // First player is Mano
 
@@ -31,6 +33,7 @@ export function createGameState(
     structureSequence: getStructure(structure, customStructure),
     roundIndex: 0,
     acePowers,
+    pieBidRule,
     scores: {
       nosotros: 0,
       ellos: 0,

@@ -48,29 +48,30 @@ export function checkKamikazeViolation(
 }
 
 /**
- * Validate a Pie bid given Mano's bid and total bases
- * Constraint: sum of bids must NOT equal total bases
- * @param manoBidValue The Mano team's bid
- * @param pieBidValue The Pie team's bid
- * @param totalBases Total bases available
- * @returns true if Pie bid is valid
+ * How the Pie (the team that answers) may bid:
+ *  - 'estricta' (the real rule, the default): the two bids must add up to one less or one more than
+ *    the round's bases. With 5 bases and the Mano asking 3, the Pie can ask 1 or 3; with 3 bases and
+ *    the Mano asking 3, only 1 (a bid can't be negative).
+ *  - 'amplia' (the looser house rule): any bid from 0 to the total, as long as the sum is not
+ *    exactly the total.
  */
-export function validatePieBid(manoBidValue: number, pieBidValue: number, totalBases: number): boolean {
+export type PieBidRule = 'estricta' | 'amplia';
+export const PIE_BID_RULES: readonly PieBidRule[] = ['estricta', 'amplia'];
+export const isPieBidRule = (v: unknown): v is PieBidRule => v === 'estricta' || v === 'amplia';
+
+/** Validate a Pie bid given Mano's bid and the round's bases. */
+export function validatePieBid(manoBidValue: number, pieBidValue: number, totalBases: number, rule: PieBidRule = 'estricta'): boolean {
+  if (pieBidValue < 0 || pieBidValue > totalBases) return false;
   const sum = manoBidValue + pieBidValue;
-  return sum !== totalBases;
+  if (rule === 'amplia') return sum !== totalBases;
+  return sum === totalBases - 1 || sum === totalBases + 1;
 }
 
-/**
- * Get valid bid range for Pie team
- * Returns all valid values from 0 to totalBases
- * @param manoBidValue The Mano team's bid
- * @param totalBases Total bases available
- * @returns Array of valid bid values
- */
-export function getPieValidBidRange(manoBidValue: number, totalBases: number): number[] {
+/** Every bid the Pie may make (ascending). */
+export function getPieValidBidRange(manoBidValue: number, totalBases: number, rule: PieBidRule = 'estricta'): number[] {
   const validBids: number[] = [];
   for (let i = 0; i <= totalBases; i++) {
-    if (validatePieBid(manoBidValue, i, totalBases)) {
+    if (validatePieBid(manoBidValue, i, totalBases, rule)) {
       validBids.push(i);
     }
   }

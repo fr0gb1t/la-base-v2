@@ -199,22 +199,25 @@ export const CHAPTERS: Chapter[] = [
         {[0, 1, 2].map((k) => (
           <Bean key={k} x={150 + k * 20} y={57} r={k * 25 - 20} />
         ))}
-        <text x={10} y={112} fontSize={13} fill={INK} fontFamily="IM Fell English SC, Georgia, serif">el Pie puede pedir</text>
-        {[0, 1, 2, 3, 4, 5].map((v) => (
-          <g key={v}>
-            <circle cx={30 + v * 45} cy={150} r={17} fill="none" stroke={v === 2 ? OXBLOOD : INK} strokeWidth={2} />
-            <text x={30 + v * 45} y={157} fontSize={20} textAnchor="middle" fill={v === 2 ? OXBLOOD : INK} fontFamily={NUM_FONT}>{v}</text>
-            {v === 2 && <path d={`M${13 + v * 45} 167 L${47 + v * 45} 133`} stroke={OXBLOOD} strokeWidth={3} />}
-          </g>
-        ))}
-        <text x={120} y={196} fontSize={12} fill={OXBLOOD} fontFamily="IM Fell English, Georgia, serif">3 + 2 = 5: prohibido</text>
+        <text x={10} y={112} fontSize={13} fill={INK} fontFamily="IM Fell English SC, Georgia, serif">el Pie solo puede pedir</text>
+        {[0, 1, 2, 3, 4, 5].map((v) => {
+          const ok = v === 1 || v === 3; // 3 + 1 = 4 y 3 + 3 = 6: una base menos o una más que 5
+          return (
+            <g key={v} opacity={ok ? 1 : 0.35}>
+              <circle cx={30 + v * 45} cy={150} r={17} fill="none" stroke={ok ? OXBLOOD : INK} strokeWidth={ok ? 3 : 1.5} />
+              <text x={30 + v * 45} y={157} fontSize={20} textAnchor="middle" fill={ok ? OXBLOOD : INK} fontFamily={NUM_FONT}>{v}</text>
+              {!ok && <path d={`M${15 + v * 45} 165 L${45 + v * 45} 135`} stroke={INK} strokeWidth={1.5} />}
+            </g>
+          );
+        })}
+        <text x={20} y={196} fontSize={12} fill={OXBLOOD} fontFamily="IM Fell English, Georgia, serif">3 + 1 = 4 · 3 + 3 = 6: una menos o una más que 5</text>
       </svg>
     ),
     body: (
       <>
         <ol className="rb-steps">
           <li>La <b>Mano</b> declara por su equipo: de cero hasta todas las bases de la ronda.</li>
-          <li>El <b>Pie</b> responde por el suyo, también de cero al total, <b>pero</b> la suma de los dos pedidos no puede ser igual a las bases de la ronda.</li>
+          <li>El <b>Pie</b> responde por el suyo, pero solo puede pedir lo que haga que la suma de los dos pedidos sea <b>una base menos o una base más</b> que las de la ronda (con 3 bases y la Mano pidiendo 3, solo puede pedir 1: no hay pedidos negativos). En la casa se puede elegir una modalidad más amplia: cualquier pedido, menos el que haga la suma justo igual a las bases.</li>
           <li>Lo dicho, dicho está: no se puede cambiar.</li>
         </ol>
         <p>

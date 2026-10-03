@@ -146,15 +146,16 @@ El equipo Mano elige un número entre **0 y el total de bases disponibles** en e
 
 **Paso 2: Equipo Pie responde**
 
-El equipo Pie elige un número entre **0 y el total de bases disponibles**, PERO con una restricción crítica:
+El equipo Pie solo puede pedir una cantidad que, **sumada a lo que pidió la Mano, dé una base menos o una base más que el total de la ronda** (nunca puede pedir un número negativo).
 
-> **Restricción**: La suma de lo que pide Mano + lo que pide Pie **NO PUEDE SER IGUAL** al total de bases disponibles.
+> **Restricción (regla por defecto, "estricta")**: Mano + Pie = total − 1, o Mano + Pie = total + 1.
 
-**Ejemplo:**
-- Total de bases: 5
-- Mano pide: 3
-- Pie PUEDE pedir: 0, 1, 4 o 5 (suma = 3, 4, 7, 8)
-- Pie NO PUEDE pedir: 2 (suma = 5, que es el total)
+**Ejemplos:**
+- Ronda de 5 bases, la Mano pide 3 → el Pie solo puede pedir **1 o 3** (suma 4 o 6).
+- Ronda de 5 bases, la Mano pide 2 → el Pie solo puede pedir **2 o 4** (suma 4 o 6).
+- Ronda de 3 bases, la Mano pide 3 → el Pie solo puede pedir **1** (3 + 1 = 4; la otra opción, 2, daría un pedido negativo).
+
+**Modalidad amplia (opción de la casa)**: en la configuración de la partida ("Pedido del Pie") se puede elegir la modalidad menos restrictiva: el Pie puede pedir cualquier cantidad de 0 al total, siempre que la suma **no sea igual** al total (con 5 bases y la Mano pidiendo 3: 0, 1, 4 o 5).
 
 > **Garantía del Juego**: Esta regla asegura que SIEMPRE habrá un equipo que no cumpla su promesa.
 

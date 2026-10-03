@@ -76,41 +76,46 @@ describe('Kamikaze Rule', () => {
 });
 
 describe('Pie Bid Validation', () => {
-  test('Constraint: sum of bids cannot equal total bases', () => {
-    // 6 total bases available
-    assert.ok(!validatePieBid(3, 3, 6)); // sum=6 → invalid
-    assert.ok(validatePieBid(3, 2, 6)); // sum=5 → valid
-    assert.ok(validatePieBid(3, 4, 6)); // sum=7 → valid
+  test("strict (default): the sum is one less or one more than the round's bases", () => {
+    // 5 bases
+    assert.deepEqual(getPieValidBidRange(3, 5), [1, 3]); // 3+1=4, 3+3=6
+    assert.deepEqual(getPieValidBidRange(2, 5), [2, 4]); // 2+2=4, 2+4=6
+    assert.deepEqual(getPieValidBidRange(0, 5), [4]); // 0+4=4 (0+6 is out of range)
+    assert.deepEqual(getPieValidBidRange(5, 5), [1]); // 5+1=6 (5-1 would be negative)
+    assert.deepEqual(getPieValidBidRange(4, 5), [0, 2]); // 4+0=4, 4+2=6
   });
 
-  test('Valid ranges for Pie given Mano bid', () => {
-    // Mano bids 3, total = 6
-    // Valid: sum must NOT equal 6
-    // So Pie can bid: 0 (sum=3), 1 (sum=4), 2 (sum=5), 3 (sum=6 INVALID), 4 (sum=7), 5 (sum=8), 6 (sum=9)
-    const validBids = getPieValidBidRange(3, 6);
-    assert.deepEqual(validBids, [0, 1, 2, 4, 5, 6]); // everything except 3
-
-    // Mano bids 2, total = 5
-    // Valid: sum must NOT equal 5
-    // So Pie can bid: 0 (sum=2), 1 (sum=3), 2 (sum=4), 3 (sum=5 INVALID), 4 (sum=6), 5 (sum=7)
-    const validBids2 = getPieValidBidRange(2, 5);
-    assert.deepEqual(validBids2, [0, 1, 2, 4, 5]); // everything except 3
+  test('strict: 3 bases, the Mano asks 3: only 1 (a bid cannot be negative)', () => {
+    assert.deepEqual(getPieValidBidRange(3, 3), [1]);
+    assert.ok(validatePieBid(3, 1, 3));
+    assert.ok(!validatePieBid(3, 0, 3)); // sum = total
   });
 
-  test('Edge case: Mano bids 0', () => {
-    // Mano bids 0, total = 5
-    // Valid: sum must NOT equal 5
-    // So Pie can bid: 0 (sum=0), 1 (sum=1), 2 (sum=2), 3 (sum=3), 4 (sum=4), 5 (sum=5 INVALID)
-    const validBids = getPieValidBidRange(0, 5);
-    assert.deepEqual(validBids, [0, 1, 2, 3, 4]); // everything except 5
+  test('strict: there is always an option, for any bases and any Mano bid', () => {
+    for (let total = 1; total <= 8; total++) {
+      for (let mano = 0; mano <= total; mano++) {
+        assert.ok(getPieValidBidRange(mano, total).length > 0, `bases ${total}, Mano ${mano}`);
+      }
+    }
   });
 
-  test('Edge case: Mano bids maximum', () => {
-    // Mano bids 6, total = 6
-    // Valid: sum must NOT equal 6
-    // So Pie can bid: 0 (sum=6 INVALID), 1 (sum=7), 2 (sum=8), 3 (sum=9), 4 (sum=10), 5 (sum=11), 6 (sum=12)
-    const validBids = getPieValidBidRange(6, 6);
-    assert.deepEqual(validBids, [1, 2, 3, 4, 5, 6]); // everything except 0
+  test('strict is the default rule', () => {
+    assert.ok(validatePieBid(3, 2, 6)); // 5 = 6 - 1
+    assert.ok(validatePieBid(3, 4, 6)); // 7 = 6 + 1
+    assert.ok(!validatePieBid(3, 1, 6)); // 4
+    assert.ok(!validatePieBid(3, 3, 6)); // 6
+  });
+});
+
+describe('Pie Bid Validation (amplia, the looser house rule)', () => {
+  test('any bid, as long as the sum is not exactly the total', () => {
+    assert.ok(!validatePieBid(3, 3, 6, 'amplia')); // sum=6
+    assert.ok(validatePieBid(3, 2, 6, 'amplia'));
+    assert.ok(validatePieBid(3, 4, 6, 'amplia'));
+    assert.deepEqual(getPieValidBidRange(3, 6, 'amplia'), [0, 1, 2, 4, 5, 6]);
+    assert.deepEqual(getPieValidBidRange(2, 5, 'amplia'), [0, 1, 2, 4, 5]);
+    assert.deepEqual(getPieValidBidRange(0, 5, 'amplia'), [0, 1, 2, 3, 4]);
+    assert.deepEqual(getPieValidBidRange(6, 6, 'amplia'), [1, 2, 3, 4, 5, 6]);
   });
 });
 

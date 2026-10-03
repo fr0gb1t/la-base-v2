@@ -4,8 +4,8 @@
  */
 
 import { randomInt } from 'node:crypto';
-import type { Card, GameState, PlayedCard, Bid } from '@la-base/shared';
-import { resolveBase, removeCardFromHand } from '@la-base/shared';
+import type { Card, GameState, PlayedCard, Bid, PieBidRule } from '@la-base/shared';
+import { resolveBase, removeCardFromHand, validatePieBid as sharedValidatePieBid, getPieValidBidRange } from '@la-base/shared';
 import type { RoomPlayer } from './rooms.js';
 
 /**
@@ -276,22 +276,16 @@ export function resetRoundState(gameState: GameState): void {
 }
 
 /**
- * Validate Pie's bid respects the constraint: sum ≠ total bases
+ * Validate Pie's bid (see PieBidRule in @la-base/shared: by default the sum must be one less or one
+ * more than the round's bases)
  */
-export function validatePieBid(manoBidValue: number, pieBidValue: number, maxBases: number): boolean {
-  const sum = manoBidValue + pieBidValue;
-  return sum !== maxBases; // Valid if sum does NOT equal total
+export function validatePieBid(manoBidValue: number, pieBidValue: number, maxBases: number, rule: PieBidRule = 'estricta'): boolean {
+  return sharedValidatePieBid(manoBidValue, pieBidValue, maxBases, rule);
 }
 
 /**
  * Get valid bid range for Pie
  */
-export function getValidPieBidRange(manoBidValue: number, maxBases: number): number[] {
-  const validBids: number[] = [];
-  for (let i = 0; i <= maxBases; i++) {
-    if (validatePieBid(manoBidValue, i, maxBases)) {
-      validBids.push(i);
-    }
-  }
-  return validBids;
+export function getValidPieBidRange(manoBidValue: number, maxBases: number, rule: PieBidRule = 'estricta'): number[] {
+  return getPieValidBidRange(manoBidValue, maxBases, rule);
 }

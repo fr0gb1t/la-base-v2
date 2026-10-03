@@ -7,7 +7,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { io as connect, type Socket } from 'socket.io-client';
-import { cardRank, dealAnimationMs, gazeToward, resolveBase, senaForCard, senasForHand, type AssignedTeam, type Gaze, type Card, type GameState, type PlayedCard, type Sena } from '@la-base/shared';
+import { cardRank, dealAnimationMs, validatePieBid, gazeToward, resolveBase, senaForCard, senasForHand, type AssignedTeam, type Gaze, type Card, type GameState, type PlayedCard, type Sena } from '@la-base/shared';
 
 // ---------------------------------------------------------------- strategy
 // Not an expert, but it plays La Base on purpose: bids from hand strength, tries to win exactly
@@ -80,7 +80,7 @@ export function chooseBid(
 ): number {
   const max = st.structureSequence[st.roundIndex];
   const estimate = bidEstimate(hand, st, teamSize, players, partnerSenas, rivalSenas);
-  const options = Array.from({ length: max + 1 }, (_, v) => v).filter((v) => st.bids.length === 0 || st.bids[0].value + v !== max);
+  const options = Array.from({ length: max + 1 }, (_, v) => v).filter((v) => st.bids.length === 0 || validatePieBid(st.bids[0].value, v, max, st.pieBidRule ?? 'estricta'));
   return options.reduce((best, v) => (Math.abs(v - estimate) < Math.abs(best - estimate) ? v : best), options[0]);
 }
 

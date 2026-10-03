@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 import { GiDynamite, GiKnockout } from 'react-icons/gi';
+import { getPieValidBidRange } from '@la-base/shared';
 
 /** Pressing the bidding clock on the table confirms your bid (set while it's your turn). */
 export const pressBidClock: { current: (() => void) | null } = { current: null };
@@ -64,17 +65,8 @@ export function BiddingPanel({ onAskSenas }: { onAskSenas?: () => void }) {
   const validBidsForPie = useMemo(() => {
     if (!isPie || !gameState?.bids || gameState.bids.length === 0) return [];
 
-    const manoBid = gameState.bids[0].value;
-    const validBids = [];
-
-    for (let i = 0; i <= maxBases; i++) {
-      if (manoBid + i !== maxBases) {
-        validBids.push(i);
-      }
-    }
-
-    return validBids;
-  }, [isPie, gameState?.bids, maxBases]);
+    return getPieValidBidRange(gameState.bids[0].value, maxBases, gameState.pieBidRule ?? 'estricta');
+  }, [isPie, gameState?.bids, gameState?.pieBidRule, maxBases]);
 
   const isValidPieBid = useMemo(() => {
     if (!isPie) return true;
@@ -150,7 +142,7 @@ export function BiddingPanel({ onAskSenas }: { onAskSenas?: () => void }) {
         <p className="tally-line">
           rivales pidieron <b>{manoBid.value}</b>
           {manoBid.isKamikaze && <span className="kami"> · kamikaze</span>}
-          <span className="dim"> · no podés pedir {maxBases - manoBid.value}</span>
+          <span className="dim"> · podés pedir {validBidsForPie.join(' o ')}</span>
         </p>
       )}
 

@@ -43,7 +43,7 @@ async function act(b) {
     } else if (st.phase === 'bidding' && st.currentBidPlayerId === b.id) {
       await sleep(900)
       const max = st.structureSequence[st.roundIndex]
-      const options = Array.from({ length: max + 1 }, (_, v) => v).filter((v) => st.bids.length === 0 || st.bids[0].value + v !== max)
+      const options = Array.from({ length: max + 1 }, (_, v) => v).filter((v) => st.bids.length === 0 || [max - 1, max + 1].includes(st.bids[0].value + v))
       const v = options[Math.floor(Math.random() * options.length)]
       b.s.emit('bid:bidValueChanged', { roomCode: b.room, bidValue: v, playerId: b.id })
       await sleep(500)

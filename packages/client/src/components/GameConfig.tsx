@@ -11,9 +11,10 @@ const ROW = { aces: -0.1, structure: 0.29, kamikazes: 0.6, clock: 0.6, actions: 
 // block (titles included) balanced around x = 0
 const STRUCTURE_BUTTON_PX = 330; // the three structure buttons are the same size (the widest name sets it)
 const MAX_KAMIKAZES = 3;
-const KAMI_AT: [number, number] = [-0.13, ROW.kamikazes]; // the plane; its count sits at its upper right
+const KAMI_AT: [number, number] = [-0.3, ROW.kamikazes]; // the plane; its count sits at its upper right
 const TITLE_X = -0.62; // the titles' left edge
-const CLOCK_X = 0.17; // kamikazes and clock share one row, each with its title under it
+const CLOCK_X = 0;
+const RULE_X = 0.3; // kamikazes and clock share one row, each with its title under it
 const UNDER = 0.11; // how far toward you a title sits below its button
 // the bidding clock: total per team for the whole game (0 = no clock)
 const CLOCK_OPTIONS = [0, 60_000, 120_000, 300_000] as const;
@@ -33,6 +34,8 @@ export function GameConfig() {
   });
   const [kamikazesPerTeam, setKamikazesPerTeam] = useState(2);
   const [bidClockMs, setBidClockMs] = useState<number>(60_000);
+  // how the Pie may answer: the real rule (the sum is one less or one more than the bases) or the looser house one
+  const [pieBidRule, setPieBidRule] = useState<'estricta' | 'amplia'>('estricta');
 
   const handleTogglePower = (power: 'espadas' | 'copas' | 'oros') => {
     setAcePowers((prev) => ({
@@ -53,6 +56,7 @@ export function GameConfig() {
       acePowers,
       kamikazesPerTeam,
       bidClockMs,
+      pieBidRule,
     }, (response: any) => {
       if (!response.success) {
           console.error('Error de configuración:', response.error);
@@ -148,6 +152,18 @@ export function GameConfig() {
               ? 'Sin reloj: se pide sin apuro. Click para darle tiempo a cada equipo'
               : `Cada equipo tiene ${clockName(bidClockMs)} para pedir en toda la partida (corre solo mientras le toca pedir; si se le acaba, pierde). Click para cambiar`,
             onPick: () => setBidClockMs(CLOCK_OPTIONS[(CLOCK_OPTIONS.indexOf(bidClockMs as (typeof CLOCK_OPTIONS)[number]) + 1) % CLOCK_OPTIONS.length]),
+          },
+          { id: 't-regla', label: 'Pedido del Pie', kind: 'label', centred: true, under: 'regla', at: [RULE_X, ROW.clock + UNDER], onPick: () => undefined },
+          {
+            id: 'regla',
+            label: pieBidRule === 'estricta' ? 'Estricta' : 'Amplia',
+            sub: pieBidRule === 'estricta' ? 'suma ±1 al total' : 'cualquiera menos el total',
+            at: [RULE_X, ROW.clock] as [number, number],
+            selected: pieBidRule === 'estricta',
+            hint: pieBidRule === 'estricta'
+              ? 'Regla real: lo que pide el Pie, sumado a lo de la Mano, tiene que dar una base menos o una más que las de la ronda. Click para la modalidad amplia'
+              : 'Modalidad amplia: el Pie puede pedir cualquier cantidad mientras la suma no sea justo las bases de la ronda. Click para la regla real',
+            onPick: () => setPieBidRule(pieBidRule === 'estricta' ? 'amplia' : 'estricta'),
           },
           { id: 'volver', label: 'Volver', straighten: 0.65, at: [-0.28, ROW.actions], onPick: handleBack },
           { id: 'iniciar', label: loading ? 'Iniciando…' : 'Iniciar partida', kind: 'stamp', straighten: 0.65, at: [0.28, ROW.actions], disabled: loading, hint: `Mesa ${roomCode}`, onPick: handleStartGame },

@@ -4,7 +4,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import type { GameState, Player, AcePowers, Card } from '@la-base/shared';
-import { createBidClock, createGameState } from '@la-base/shared';
+import { createBidClock, createGameState, type PieBidRule } from '@la-base/shared';
 import type { GameStructure } from '@la-base/shared';
 
 export interface RoomPlayer extends Player {
@@ -27,6 +27,7 @@ export interface GameRoom {
   acePowers: AcePowers;
   kamikazesPerTeam: number;
   bidClockMs: number; // the bidding clock's total per team (0: no clock)
+  pieBidRule: PieBidRule; // how the Pie may answer a bid (default: the strict, real rule)
   initialDrawDeck: Card[];
 }
 
@@ -86,6 +87,7 @@ export class RoomManager {
       acePowers: { espadas: false, copas: false, oros: false },
       kamikazesPerTeam: 2,
       bidClockMs: 0,
+      pieBidRule: 'estricta',
       initialDrawDeck: [],
     };
 
@@ -225,7 +227,7 @@ export class RoomManager {
     if (kamikazesPerTeam !== undefined) room.kamikazesPerTeam = kamikazesPerTeam;
 
     // Create initial game state
-    const gameState = createGameState(room.players, room.structure, room.acePowers, room.customStructure, room.kamikazesPerTeam);
+    const gameState = createGameState(room.players, room.structure, room.acePowers, room.customStructure, room.kamikazesPerTeam, room.pieBidRule);
     gameState.bidClock = createBidClock(room.bidClockMs ?? 0);
     room.gameState = gameState;
     room.lastActivity = new Date();

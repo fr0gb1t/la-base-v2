@@ -2,6 +2,13 @@
 
 ## Desde `a603e36`
 
+- **Regla corregida: lo que puede pedir el Pie.** La regla real es que el pedido del Pie, sumado al
+  de la Mano, dé **una base menos o una base más** que las de la ronda (5 bases y la Mano pide 3:
+  el Pie solo puede pedir 1 o 3; 5 bases y pide 2: 2 o 4; 3 bases y pide 3: solo 1, porque no hay
+  pedidos negativos). Es la regla por defecto en el servidor, el panel de pedidos (que ahora dice
+  qué podés pedir), los bots, el manual y `RULEBOOK.md`. La regla anterior (cualquier pedido menos
+  el que suma justo el total) quedó como **«Pedido del Pie: Amplia»**, un botón nuevo en Configurar
+  y empezar (junto a kamikazes y reloj), que se manda al servidor con la configuración.
 Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), agrupado por área.
 
 ### Celulares y tablets (solo con pantalla táctil; la versión de escritorio no cambia)
