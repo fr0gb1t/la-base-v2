@@ -236,9 +236,9 @@ export class FloatingItems {
     this.live.delete(l.def.id)
   }
 
-  /** Per frame: pose every item parallel to the screen (so a row reads as a straight line, not a
-   *  fan turned toward the camera); hover against the rest-pose twins. A title stays perfectly
-   *  still, level with the middle of the row it names. */
+  /** Per frame: pose every item facing the camera; hover against the rest-pose twins. A title
+   *  (what a button or setting is) stays perfectly still, level with the middle of its row and
+   *  lined up with the other titles by its left edge. */
   update(time: number, camera: THREE.Camera, raycaster: THREE.Raycaster, calm: boolean) {
     const targets: THREE.Object3D[] = []
     const heightOf = (l: Live) => (l.mesh.geometry as THREE.PlaneGeometry).parameters.height * (l.def.scale ?? 1)
@@ -254,7 +254,7 @@ export class FloatingItems {
       const rest = new THREE.Vector3(l.def.at[0] + (isLabel ? w / 2 : 0), TABLE_Y + 0.025 + centre, l.def.at[1])
       l.hit.position.copy(rest)
       l.hit.scale.setScalar(k)
-      l.hit.quaternion.copy(camera.quaternion)
+      l.hit.lookAt(camera.position)
       l.hit.updateMatrixWorld()
       if (!l.def.disabled && !isLabel) targets.push(l.hit)
     }
@@ -271,7 +271,7 @@ export class FloatingItems {
       if (l.shadow) {
         // the footprint rides with the button (same height, same heading)
         l.shadow.position.copy(l.mesh.position)
-        l.shadow.rotation.y = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ').y
+        l.shadow.rotation.y = Math.atan2(camera.position.x - l.mesh.position.x, camera.position.z - l.mesh.position.z)
         l.shadow.scale.setScalar(l.mesh.scale.x)
       }
       const mat = l.mesh.material as THREE.MeshStandardMaterial
