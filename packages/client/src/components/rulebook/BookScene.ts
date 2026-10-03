@@ -51,6 +51,8 @@ interface Turn {
   moved: boolean;
 }
 
+const REVEAL_MAX_MS = 2500; // never keep you waiting longer than this for the pictures
+
 export interface BookOptions {
   count: number;
   tabs: string[]; // the label of each chapter's index tab
@@ -58,6 +60,7 @@ export interface BookOptions {
   pages: PageTextures;
   onPage: (page: number) => void;
   onTurnStart: () => void;
+  onReveal?: () => void; // the booklet comes into view (its first pages are ready)
   reducedMotion: boolean;
 }
 
@@ -201,6 +204,7 @@ export class BookScene {
   private tabs: Array<{ mesh: THREE.Mesh; on: boolean; hover: number }> = [];
   private hoverTab = -1;
   private opened = performance.now();
+  private reveal = 0; // the timer that waits for the first pages
   private camFrom = new THREE.Vector3();
   private camTo = new THREE.Vector3();
   private lookAt = new THREE.Vector3();
@@ -311,9 +315,24 @@ export class BookScene {
     el.addEventListener('pointercancel', this.onUp);
     o.pages.paused = () => this.turn !== null;
 
-    // the cover opens by itself when the booklet comes up (and can be caught like any page)
-    o.pages.want(['cover', `R${o.start}`, `L${o.start}`]);
-    this.startTurn(-1, o.start, { u: 0.92, v: 0.82 }, 'auto', 0.25);
+    // The booklet comes up only once its cover and first spread are photographed (that work blocks
+    // the page for a moment: done while the canvas is still transparent it can't make the opening
+    // stutter); then it fades in, you lean over it and the cover opens by itself (it can be caught
+    // like any page).
+    const first = ['cover', `R${o.start}`, `L${o.start}`];
+    o.pages.want(first);
+    r.domElement.style.opacity = '0';
+    r.domElement.style.transition = 'opacity 0.45s ease-out';
+    const waited = performance.now();
+    this.reveal = window.setInterval(() => {
+      const ready = first.every((k) => o.pages.has(k));
+      if (!ready && performance.now() - waited < REVEAL_MAX_MS) return;
+      window.clearInterval(this.reveal);
+      this.opened = performance.now(); // the lean-in starts now
+      r.domElement.style.opacity = '1';
+      o.onReveal?.();
+      this.startTurn(-1, o.start, { u: 0.92, v: 0.82 }, 'auto', 0.25);
+    }, 40);
     this.loop();
   }
 
@@ -717,6 +736,7 @@ export class BookScene {
   }
 
   dispose(): void {
+    window.clearInterval(this.reveal);
     cancelAnimationFrame(this.raf);
     this.resize.disconnect();
     const el = this.renderer.domElement;

@@ -189,8 +189,8 @@ export function Lobby() {
           <TableMenu
             input={{ label: 'Código de mesa', value: joinCode, placeholder: '······', onChange: (v) => { setJoinCode(v.replace(/[^A-Z0-9]/g, '')); setError(''); }, onSubmit: handleJoinRoom, mono: true, maxLength: 8, at: [0, 0.34] }}
             items={[
-              { id: 'entrar', label: loading ? 'Entrando…' : 'Sentarse', kind: 'stamp', at: [0.1, 0.7], disabled: loading || !isSocketConnected || !joinCode.trim(), hint: 'Entrar a la mesa con ese código', onPick: handleJoinRoom },
-              { id: 'volver', label: 'Volver', at: [-0.38, 0.66], onPick: () => { setMode('home'); setError(''); } },
+              { id: 'entrar', label: loading ? 'Entrando…' : 'Sentarse', kind: 'stamp', straighten: 0.65, at: [0.24, 0.7], disabled: loading || !isSocketConnected || !joinCode.trim(), hint: 'Entrar a la mesa con ese código', onPick: handleJoinRoom },
+              { id: 'volver', label: 'Volver', straighten: 0.65, at: [-0.24, 0.7], onPick: () => { setMode('home'); setError(''); } },
             ]}
           />
         </>

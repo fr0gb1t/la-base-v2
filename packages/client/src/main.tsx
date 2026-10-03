@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 import { audioState, startAudio } from './table3d/audio';
+import { embeddedFontCss } from './components/rulebook/rasterize';
 import { getViewSettings, setViewSettings } from './settings/viewSettings';
 
 // sound is part of the room from the first screen (the browser unmutes it at the first gesture)
@@ -21,3 +22,8 @@ void fontsReady.then(() => ReactDOM.createRoot(document.getElementById('root')!)
     <App />
   </React.StrictMode>,
 ));
+
+// the rulebook's pages are photographed with the fonts inlined: fetch them while the menu is idle,
+// so opening the booklet doesn't wait on the network
+const idle = (window as unknown as { requestIdleCallback?: (f: () => void) => void }).requestIdleCallback;
+(idle ?? ((f: () => void) => setTimeout(f, 1500)))(() => void embeddedFontCss());

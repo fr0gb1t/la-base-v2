@@ -84,7 +84,6 @@ export function Rulebook({ onClose, start = 0 }: { onClose: () => void; start?: 
   const book = useRef<BookScene | null>(null);
 
   useEffect(() => {
-    uiSound('book');
     const scene: { current: BookScene | null } = { current: null };
     const pages = new PageTextures(sheets.current!, () => scene.current?.refresh(), 8);
     scene.current = new BookScene(host.current!, {
@@ -94,6 +93,7 @@ export function Rulebook({ onClose, start = 0 }: { onClose: () => void; start?: 
       pages,
       onPage: setPage,
       onTurnStart: () => uiSound('page'),
+      onReveal: () => uiSound('book'),
       reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
     });
     book.current = scene.current;
