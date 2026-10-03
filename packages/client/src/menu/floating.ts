@@ -145,7 +145,13 @@ function texture(item: FloatItem) {
     plane(g, 64, 42, 48, g.fillStyle as string)
     g.font = `42px ${FONT}`
     g.fillText(item.label, 64, 94)
-  } else g.fillText(item.label, cv.width / 2, kind === 'chip' ? 68 : item.sub ? h * 0.4 : h / 2 + 2)
+  } else if (kind === 'chip') {
+    // centred by the ink, not by the font's baseline: the old-style figures of this face sit at
+    // different heights (the 4 hangs below the line, the 6 and the 8 rise above it)
+    const m = g.measureText(item.label)
+    g.textBaseline = 'alphabetic'
+    g.fillText(item.label, 64 - (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2, 64 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2)
+  } else g.fillText(item.label, cv.width / 2, item.sub ? h * 0.4 : h / 2 + 2)
   if (item.crossed) {
     // struck out: a red cross over the whole face, like crossing it off by hand
     g.save()
