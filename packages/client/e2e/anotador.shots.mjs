@@ -66,9 +66,11 @@ await sleep(100)
 await p.mouse.up(); await sleep(1200)
 console.log('after the flip', JSON.stringify(await p.evaluate(() => window.__table.notepadPages())))
 await p.screenshot({ path: `${out}-1d-flipped.png` })
-await p.mouse.move(np.x, np.y); await sleep(300)
+const pile = await p.evaluate(() => { const t = window.__table; const v = t.notepad.pile.getWorldPosition(t.camera.position.clone()).project(t.camera); const r = t.renderer.domElement.getBoundingClientRect(); return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height } })
+console.log('grabbing the turned leaves at', JSON.stringify(pile))
+await p.mouse.move(pile.x, pile.y); await sleep(300)
 await p.mouse.down()
-for (let i = 1; i <= 8; i++) { await p.mouse.move(np.x, np.y + i * 12); await sleep(40); if (i === 4) await p.screenshot({ path: `${out}-1e-back.png` }) }
+for (let i = 1; i <= 8; i++) { await p.mouse.move(pile.x, pile.y + i * 12); await sleep(40); if (i === 4) await p.screenshot({ path: `${out}-1e-back.png` }) }
 await p.mouse.up(); await sleep(1200)
 console.log('flipped back', JSON.stringify(await p.evaluate(() => window.__table.notepadPages())))
 await p.mouse.move(np.x, np.y); await sleep(500)

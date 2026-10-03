@@ -1518,7 +1518,7 @@ export class TableScene {
     // the slate's buttons
     const slate = this.hud.update(dt, this.raycaster, !this.drag && !this.peek && (!this.lookDrag || this.lookDrag.moved < HOLD_PX))
     // (what a set is called is written on its own glass; the LED panel keeps showing what to do)
-    this.notepad.hovered = this.padFocus < 0.05 && Boolean(!this.drag && !this.peek && (!this.lookDrag || this.lookDrag.moved < HOLD_PX) && this.raycaster.intersectObject(this.notepad.hit, false).length)
+    this.notepad.hovered = this.padFocus < 0.05 && Boolean(!this.drag && !this.peek && (!this.lookDrag || this.lookDrag.moved < HOLD_PX) && this.raycaster.intersectObjects(this.notepad.grabTargets(), false).length)
     this.renderer.domElement.style.cursor = choice || this.clock.hovered || slate || this.notepad.hovered || this.notepad.tickHovered ? 'pointer' : this.lookDrag ? 'grabbing' : 'crosshair'
     if (choice || this.choices.active) {
       this.hovered = -1

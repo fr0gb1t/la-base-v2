@@ -517,6 +517,14 @@ export class Notepad {
     return dir === 'up' ? this.idx > 0 : this.idx < this.pageCount() - 1
   }
 
+  /** What the pointer can grab: the pad, the leaves already turned (anywhere on them) and a leaf in the air. */
+  grabTargets(): THREE.Object3D[] {
+    const t: THREE.Object3D[] = [this.hit]
+    if (this.pile.visible) t.push(this.pile)
+    if (this.leaf.visible) t.push(this.leaf)
+    return t
+  }
+
   get flipping() {
     return this.flip !== null
   }
