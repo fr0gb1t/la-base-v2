@@ -2,6 +2,9 @@
 
 ## Desde `a603e36`
 
+- **El zoom al anotador espera:** antes la cámara salía hacia el anotador apenas llegaba el resumen,
+  cuando la última carta todavía se estaba apoyando. Ahora espera a que la mesa termine de mostrar
+  la última jugada, deja pasar un instante para verla, y recién ahí se acerca, más despacio (≈1,5 s).
 - **Un solo zoom para los dos resúmenes:** el de ronda y el de base se leen con el mismo zoom (desde
   tu asiento, con el zoom del clic derecho sobre el anotador); el texto del resumen de ronda se
   agrandó para leerse a esa distancia. El lápiz descansa del lado derecho del anotador. El tilde

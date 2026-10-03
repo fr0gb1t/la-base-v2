@@ -1341,8 +1341,35 @@ export class TableScene {
 
   /** A round is over: the camera comes to the notepad, which shows its report (null: back to your seat). */
   setRoundReport(report: RoundReport | null) {
-    this.notepad.setReport(report)
-    this.padFocusT = report ? 1 : 0
+    if (!report) {
+      this.pendingReport = null
+      this.notepad.setReport(null)
+      this.padFocusT = 0
+      return
+    }
+    // already on the page (the report just changed: someone got ready): update it now; a new one waits
+    // until the table has finished showing the last card, or the camera would leave before it lands
+    if (this.padFocusT > 0) this.notepad.setReport(report)
+    else {
+      if (!this.pendingReport) this.pendingSince = now()
+      this.pendingReport = report
+    }
+  }
+
+  private pendingReport: RoundReport | null = null
+  private pendingSince = 0
+
+  /** Per frame: let the last card land (and a beat to look at it) before the camera goes to the notepad. */
+  private releasePendingReport() {
+    const r = this.pendingReport
+    if (!r) return
+    const settled = this.queued === 0 && !this.busy
+    if (!settled) this.pendingSince = now() // still moving: the beat starts when it stops
+    if (settled && now() - this.pendingSince > 1.1) {
+      this.pendingReport = null
+      this.notepad.setReport(r)
+      this.padFocusT = 1
+    }
   }
 
   /** Screen position of the round report's tick (tests). */
@@ -1753,7 +1780,8 @@ export class TableScene {
     this.focus = null
     tickJobs(time)
     this.clock.update(dt)
-    this.padFocus += (this.padFocusT - this.padFocus) * Math.min(1, dt * 3.2)
+    this.releasePendingReport()
+    this.padFocus += (this.padFocusT - this.padFocus) * Math.min(1, dt * 2.1)
     if (Math.abs(this.padFocus - this.padFocusT) < 0.002) this.padFocus = this.padFocusT
     this.notepad.update(dt, this.padFocus)
     this.updatePending()

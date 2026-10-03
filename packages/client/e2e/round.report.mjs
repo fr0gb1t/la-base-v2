@@ -44,7 +44,7 @@ for (let i = 0; i < 400 && !seen; i++) {
   if (i % 20 === 0) console.log(i, host.state?.phase, host.state?.readyGate?.kind, host.state?.currentBidPlayerId === me ? 'my bid' : '', t.s?.canPlay)
 }
 console.log('round report gate:', seen)
-await sleep(2200)
+await sleep(4200)
 await p.screenshot({ path: `${out}-1-report.png` })
 const tk = await p.evaluate(() => window.__table.tickScreen())
 await p.mouse.move(tk.x, tk.y); await sleep(500)

@@ -44,8 +44,8 @@ for (let i = 0; i < 400 && !seen; i++) {
   if (i % 20 === 0) console.log(i, host.state?.phase, host.state?.readyGate?.kind, host.state?.currentBidPlayerId === me ? 'my bid' : '', t.s?.canPlay)
 }
 console.log('base report gate:', seen)
-await sleep(2200)
-console.log('focus', JSON.stringify(await p.evaluate(() => ({ f: window.__table.padFocus, t: window.__table.padFocusT, ask: window.__table.debugState().choice ?? null }))))
+for (let k = 0; k < 14; k++) { await sleep(300); console.log('t+' + (k + 1) * 0.3, JSON.stringify(await p.evaluate(() => ({ f: +window.__table.padFocus.toFixed(2), t: window.__table.padFocusT, q: window.__table.debugState().queued, busy: window.__table.debugState().busy, pend: Boolean(window.__table.pendingReport) })))) }
+console.log('focus', JSON.stringify(await p.evaluate(() => ({ f: window.__table.padFocus, t: window.__table.padFocusT, dbg: (({ queued, busy, running }) => ({ queued, busy, running }))(window.__table.debugState()) }))))
 await p.screenshot({ path: `${out}-1-report.png` })
 const tk = await p.evaluate(() => window.__table.tickScreen())
 await p.mouse.move(tk.x, tk.y); await sleep(500)
