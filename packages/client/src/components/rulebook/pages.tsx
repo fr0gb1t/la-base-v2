@@ -411,7 +411,7 @@ export const CHAPTERS: Chapter[] = [
             <b>Pedir señas</b> <GiKnockout aria-hidden className="rb-inline-icon" />: golpecitos en la mesa (<Keycap>P</Keycap>). Todos lo ven y lo oyen… y los rivales van a clavar la mirada en quien tiene que contestar.
           </li>
           <li>
-            Con la cabeza: <b>sí</b> (asentir) es «pedí al menos una, yo puedo hacer una»; <b>no</b> (negar) es «no te paso información». Las dos cuentan como respuesta cuando te piden señas.
+            Con la cabeza: <b>sí</b> (asentir) es «pedí al menos una, yo puedo hacer una»; <b>no</b> (negar) es «por mí no pidas nada»: tengo cartas bajas, o alguna alta que puedo descartar porque el otro equipo ya pidió varias bases. Las dos cuentan como respuesta cuando te piden señas.
           </li>
           <li>
             Cada cabeza muestra hacia dónde mira ese jugador: usalo para saber quién te está mirando.

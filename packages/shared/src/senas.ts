@@ -16,7 +16,7 @@ export type Sena =
   | 'porno' // mouth slightly open, like a fish (any 4–7)
   | 'nada' // close the eyes and open them again: nothing that wins (no 10/11/12, ancho de bastos or powered ace)
   | 'si' // nod: ask at least one base, I can make one
-  | 'no'; // shake the head: I'm not passing you information
+  | 'no'; // shake the head: "don't ask anything for me" (weak cards, or a high one I can shed because the rivals already asked a lot)
 
 export const SENAS: ReadonlyArray<{ id: Sena; label: string; gesture: string }> = [
   { id: 'ancho-espada', label: 'As de espadas', gesture: 'levantar las cejas' },
@@ -29,7 +29,7 @@ export const SENAS: ReadonlyArray<{ id: Sena; label: string; gesture: string }> 
   { id: 'porno', label: 'Carta porno (4 a 7)', gesture: 'boca de pescado' },
   { id: 'nada', label: 'Nada: ni figuras ni ases', gesture: 'cerrar los ojos' },
   { id: 'si', label: 'Sí: pedí al menos una', gesture: 'asentir con la cabeza' },
-  { id: 'no', label: 'No: no te paso información', gesture: 'negar con la cabeza' },
+  { id: 'no', label: 'No: por mí no pidas nada', gesture: 'negar con la cabeza' },
 ];
 
 /** Señas made with the whole head (a nod, a shake) rather than with the face. */

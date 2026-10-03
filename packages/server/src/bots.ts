@@ -36,14 +36,18 @@ const SENA_WORTH: Record<Sena, number> = {
   dos: 0.02,
   nada: 0.03, // per card: nothing that wins
   si: 1, // 'ask at least one, I can make one'
-  no: 0, // 'not telling': no information at all
+  no: 0, // 'ask nothing for me'
 };
 
 /** What a teammate's hand is worth, from their señas (null: they haven't signed anything). */
 export function partnerWorth(senas: Sena[] | undefined, handSize: number): number | null {
+  // 'no' means "don't ask anything for me": the partner counts for nothing, whatever else they signed
+  // (unless they changed their mind afterwards with a 'sí': the last of the two wins)
+  const lastNo = senas?.lastIndexOf('no') ?? -1;
+  if (lastNo >= 0 && lastNo > (senas?.lastIndexOf('si') ?? -1)) return 0;
   const cards = (senas ?? []).filter((s) => s !== 'si' && s !== 'no'); // señas about cards
   const yes = senas?.includes('si') ?? false;
-  if (!cards.length) return yes ? SENA_WORTH.si : null; // 'no' alone tells nothing
+  if (!cards.length) return yes ? SENA_WORTH.si : null;
   const worth = cards.includes('nada')
     ? handSize * SENA_WORTH.nada
     : cards.reduce((sum, s) => sum + SENA_WORTH[s], 0) + Math.max(0, handSize - cards.length) * 0.15; // the cards they didn't sign
@@ -179,15 +183,32 @@ export function chooseCard(
 }
 
 /**
- * A short answer to a partner's knock, some of the time: 'sí' when this hand can surely make a
- * base, now and then a 'no' (not telling); null = answer with the card señas as usual.
+ * A short answer to a partner's knock, some of the time. 'sí' when this hand can surely make a base;
+ * 'no' ("don't ask anything for me") when it is weak, or when the rivals (who already asked) took
+ * most of the bases and whatever high card I hold can be shed; null = answer with the card señas.
  */
-export function shortAnswer(hand: Card[], st: GameState | null, players: number, rng: () => number = Math.random): Sena | null {
+export function shortAnswer(
+  hand: Card[],
+  st: GameState | null,
+  players: number,
+  rng: () => number = Math.random,
+  myTeam?: AssignedTeam,
+): Sena | null {
   const r = rng();
   const expected = hand.reduce((sum, c) => sum + winChance(c, st?.acePowers.espadas ?? true, players), 0);
   if (r < SAY_YES && expected >= 0.8) return 'si';
-  if (r >= SAY_YES && r < SAY_YES + SAY_NO) return 'no';
+  if (r < SAY_NO && sayNo(hand.length, expected, st, myTeam)) return 'no';
   return null;
+}
+
+/** Is "don't ask anything for me" true of this hand? */
+export function sayNo(handSize: number, expected: number, st: GameState | null, myTeam?: AssignedTeam): boolean {
+  if (expected >= 0.8) return false; // a hand that can make a base: not a 'no'
+  const weak = expected < NO_WEAK * Math.max(1, handSize);
+  const max = st?.structureSequence?.[st.roundIndex] ?? 0;
+  const rivalAsked = st?.bids?.find((b) => b.team !== myTeam)?.value ?? 0;
+  const rivalsTookIt = !!myTeam && max > 0 && rivalAsked >= Math.ceil(max * 0.6); // they asked most of them: my high card is better shed
+  return weak || rivalsTookIt;
 }
 
 /** Secret proving a connection is one of our bots (only bots may flag themselves as bots). */
@@ -200,7 +221,8 @@ const ANSWER_ASK = 0.8; // chance to answer a partner's knock
 const WATCH_MS = 4000;
 const ASK_PATIENCE_MS = 20_000;
 const SAY_YES = 0.25; // answering a knock: just 'sí' (when the hand can surely make a base)
-const SAY_NO = 0.1; // …or just 'no' (not telling)
+const SAY_NO = 0.8; // answering a knock with 'no' when it is true (r below this)
+const NO_WEAK = 0.2; // a hand worth under this much per card is a 'no'
 const LET_IT_PASS = 0.75;
 const KAMIKAZE_WILL = 0.85; // how often a lopsided hand actually makes the Mano call it
 const KAMIKAZE_WEAK = 0.12; // expecting under this share of the bases: kamikaze to 0
@@ -303,7 +325,7 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
     const mates = teammates();
     if (!mates.length) return;
     // answering a knock, sometimes just a nod or a shake instead of the cards
-    const short = toward ? shortAnswer(hand, state, Math.max(4, roster.length)) : null;
+    const short = toward ? shortAnswer(hand, state, Math.max(4, roster.length), Math.random, roster.find((p) => p.id === s.id)?.team as AssignedTeam | undefined) : null;
     const list = short ? [short] : senasForHand(hand, state?.acePowers).slice(0, 2);
     await untilDealt(); // no señas about cards nobody has seen yet
     for (const sena of list) {

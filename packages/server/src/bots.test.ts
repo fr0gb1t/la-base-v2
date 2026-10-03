@@ -111,14 +111,21 @@ test('bid met and every card wins: win with the highest, so it cannot win again 
   assert.equal(chooseCard(hand, st, 'me', 'nosotros', teamOf), 0);
 });
 
-test("a partner's 'sí' promises at least one base; a 'no' tells nothing", () => {
+test("a partner's 'sí' promises at least one base; a 'no' means «don't ask anything for me»", () => {
   assert.ok(partnerWorth(['si'], 3)! >= 1);
-  assert.equal(partnerWorth(['no'], 3), null);
+  assert.equal(partnerWorth(['no'], 3), 0);
+  assert.equal(partnerWorth(['figuras', 'no'], 3), 0, 'a no overrides what else they signed');
+  assert.ok(partnerWorth(['no', 'si'], 3)! >= 1, 'the last one wins: no, then sí');
+  assert.equal(partnerWorth(['si', 'no'], 3), 0, 'the last one wins: sí, then no');
   assert.ok(partnerWorth(['si', 'nada'], 3)! >= 1);
   const hand: Card[] = [{ suit: 'oros', value: 4 }, { suit: 'copas', value: 5 }, { suit: 'oros', value: 6 }];
   const st3 = state({ structureSequence: [3] });
   assert.ok(chooseBid(hand, st3, 2, 4, [['si']]) >= 1, 'with a sí the team asks at least one');
-  assert.equal(chooseBid(hand, st3, 2, 4, [['no']]), chooseBid(hand, st3, 2, 4), "a 'no' is like no answer");
+  assert.ok(chooseBid(hand, st3, 2, 4, [['no']]) <= chooseBid(hand, st3, 2, 4), 'with a no the team does not count on the partner');
+  const rich: Card[] = [{ suit: 'bastos', value: 1 }, { suit: 'oros', value: 12 }, { suit: 'copas', value: 11 }];
+  const withNo = bidEstimate(rich, st3, 2, 4, [['no']]);
+  const withNothing = bidEstimate(rich, st3, 2, 4, [[]]);
+  assert.ok(withNo < withNothing, "a partner's no lowers what the team expects (an unknown partner counts as an average hand)");
 });
 
 test('the partner is taking the base we need and I play last: my rey goes now, over the partner (real game, round 3)', () => {
@@ -175,9 +182,15 @@ test("answering a knock, a bot sometimes just nods 'sí' (only with a hand that 
   const weak: Card[] = [{ suit: 'bastos', value: 4 }, { suit: 'oros', value: 2 }, { suit: 'copas', value: 3 }];
   const st = state();
   assert.equal(shortAnswer(strong, st, 4, () => 0.1), 'si');
-  assert.equal(shortAnswer(weak, st, 4, () => 0.1), null, 'no false promises: card señas instead');
-  assert.equal(shortAnswer(weak, st, 4, () => 0.3), 'no');
+  assert.equal(shortAnswer(weak, st, 4, () => 0.5), 'no', "a weak hand: don't ask anything for me");
+  assert.equal(shortAnswer(weak, st, 4, () => 0.1), 'no', 'no false promises of a base');
   assert.equal(shortAnswer(strong, st, 4, () => 0.9), null);
+  // a high card I can shed, because the rivals already asked most of the bases
+  const onePower: Card[] = [{ suit: 'oros', value: 12 }, { suit: 'copas', value: 4 }, { suit: 'copas', value: 5 }];
+  const rivalsAsked = state({ structureSequence: [5], roundIndex: 0, bids: [{ team: 'ellos', value: 4 }] as GameState['bids'] } as Partial<GameState>);
+  assert.equal(shortAnswer(onePower, rivalsAsked, 4, () => 0.5, 'nosotros'), 'no');
+  const rivalsAskedLittle = state({ structureSequence: [5], roundIndex: 0, bids: [{ team: 'ellos', value: 1 }] as GameState['bids'] } as Partial<GameState>);
+  assert.equal(shortAnswer(onePower, rivalsAskedLittle, 4, () => 0.5, 'nosotros'), null, 'rivals asked little: sign the cards');
 });
 
 test('the Mano calls a kamikaze on a lopsided hand: to 0 when the team has nothing, to all when it has everything', () => {

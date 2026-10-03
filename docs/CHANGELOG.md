@@ -2,6 +2,13 @@
 
 ## Desde `a603e36`
 
+- **Nuevo significado de la seña «no»:** ahora es «por mí no pidas nada» (antes era «no te paso
+  información»): cartas bajas, o alguna alta que se puede descartar porque el otro equipo ya pidió
+  varias bases. Los bots lo usan así: al responder un toque dicen «no» cuando su mano es floja o
+  cuando los rivales ya pidieron el 60 % o más de las bases y su mano no alcanza para asegurar
+  una (nunca con una mano que seguro hace una: ahí dicen «sí»), y cuando un compañero hace «no»
+  cuentan con cero bases de su parte (antes lo tomaban como un compañero cualquiera). Si hay un
+  «sí» y un «no» seguidos, vale el último. Cambiaron la etiqueta del anillo y el manual.
 - **Regla corregida: lo que puede pedir el Pie.** La regla real es que el pedido del Pie, sumado al
   de la Mano, dé **una base menos o una base más** que las de la ronda (5 bases y la Mano pide 3:
   el Pie solo puede pedir 1 o 3; 5 bases y pide 2: 2 o 4; 3 bases y pide 3: solo 1, porque no hay
