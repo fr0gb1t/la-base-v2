@@ -1,3 +1,4 @@
+import { isTouch } from '../lib/device'
 import { KamikazeDial } from './kamikazeDial'
 import { attachAudio, uiSound } from '../table3d/audio'
 import * as THREE from 'three'
@@ -126,7 +127,7 @@ export class MenuScene {
     this.post.uniforms.uExposure.value = MENU_EXPOSURE
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
-    this.renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;image-rendering:pixelated'
+    this.renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;image-rendering:pixelated;touch-action:none'
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera, this.roomGroup)
     attachAudio(this.camera) // the basement hums from the very first screen
@@ -309,6 +310,12 @@ export class MenuScene {
     this.on(window, 'pointerdown', (e: PointerEvent) => {
       // only clicks that land on the canvas itself (not on the DOM panels above it)
       if (e.target !== this.renderer.domElement && !(e.target as HTMLElement)?.dataset?.menuPassthrough) return
+      if (e.pointerType === 'touch') {
+        // a finger has no hover: aim at what it touches before acting on it
+        const r = this.renderer.domElement.getBoundingClientRect()
+        this.mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
+        this.updateHover(performance.now() / 1000)
+      }
       if (this.floatHovered) {
         const kind = this.floating.kindOf(this.floatHovered)
         uiSound(kind === 'stamp' ? 'stamp' : kind === 'chip' ? 'chip' : 'chain')
@@ -388,6 +395,16 @@ export class MenuScene {
     this.post.resize(w, h)
   }
 
+  /** A phone held upright is narrow: widen the view so the table (laid out for 16:9) still fits across. */
+  private fovFor(fov: number) {
+    const aspect = this.camera.aspect
+    if (!isTouch || aspect >= 16 / 9) return fov
+    // upright: crop the table's sides a little rather than shrink everything to a sliver
+    const ref = aspect < 1 ? 1.1 : 16 / 9
+    const half = Math.atan(Math.tan(THREE.MathUtils.degToRad(fov / 2)) * (ref / aspect))
+    return Math.min(105, THREE.MathUtils.radToDeg(half * 2))
+  }
+
   private frame(time: number, dt: number) {
     if (this.disposed) return
     this.lamp.update(time)
@@ -402,7 +419,7 @@ export class MenuScene {
     this.camTarget.lerp(shot.target, k)
     this.camera.position.copy(this.camPos)
     this.camera.lookAt(this.camTarget)
-    this.camera.fov += (shot.fov - this.camera.fov) * k
+    this.camera.fov += (this.fovFor(shot.fov) - this.camera.fov) * k
     this.camera.updateProjectionMatrix()
 
     this.updateHover(time)

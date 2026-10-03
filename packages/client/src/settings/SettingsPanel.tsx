@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare, GiMouse, GiEyeTarget } from 'react-icons/gi';
+import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare, GiMouse, GiEyeTarget, GiCompass } from 'react-icons/gi';
 import { getViewSettings, onViewSettings, setViewSettings, orderedSenas, SENS_MIN, SENS_MAX, FOV_MIN, FOV_MAX, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
 import { previewSound, audioReady, uiSound } from '../table3d/audio';
+import { isTouch } from '../lib/device';
 import { SenaFace } from '../components/senas/SenaFace';
 import { BackStage } from './BackStage';
 import { BACK_DESIGNS, backPicture, drawBackDesign, type BackDesign } from '../table3d/cardBacks';
@@ -259,6 +260,15 @@ export function SettingsHost() {
               aria-label="Campo visual en grados"
             />
           </label>
+          {isTouch && (
+            <Switch
+              on={view.gyro}
+              icon={<GiCompass aria-hidden className="setting-icon" />}
+              title="Giroscopio"
+              hint={view.gyro ? 'girá el celular para mirar alrededor (también podés arrastrar con el dedo)' : 'la vista solo se mueve arrastrando con el dedo'}
+              onToggle={() => setViewSettings({ gyro: !view.gyro })}
+            />
+          )}
           <Switch
             on={view.cameraReturn}
             icon={<GiReturnArrow aria-hidden className="setting-icon" />}

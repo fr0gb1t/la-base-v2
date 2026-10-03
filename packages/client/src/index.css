@@ -3202,3 +3202,146 @@ button {
 .setting-reset {
   margin-top: 8px;
 }
+
+/* ======== phones and tablets (touch): nothing here applies to a mouse ======== */
+@media (pointer: coarse) {
+  html,
+  body {
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  canvas {
+    touch-action: none;
+  }
+}
+
+.touch-senas,
+.rotate-hint {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .help-line {
+    display: none; /* the keys are for a keyboard */
+  }
+
+  .table-caption {
+    font-size: 14px;
+    bottom: 6px;
+    max-width: 60vw;
+    line-height: 1.15;
+  }
+
+  .phase-line {
+    bottom: 30px;
+    font-size: 15px;
+    max-width: 62vw;
+    padding: 3px 12px 4px;
+  }
+
+  /* the señas ring, from the thumb: a round chalk button on the right edge */
+  .touch-senas {
+    display: grid;
+    place-items: center;
+    position: fixed;
+    right: 10px;
+    top: 42%;
+    z-index: 30;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 2px solid var(--chalk);
+    background: rgba(20, 14, 12, 0.55);
+    color: var(--chalk);
+    font-family: var(--font-sc);
+    font-size: 13px;
+    pointer-events: auto;
+  }
+
+  .touch-senas:active {
+    background: rgba(207, 198, 168, 0.3);
+  }
+}
+
+/* landscape phone: every panel is a smaller sheet of paper, so the table stays in view */
+@media (pointer: coarse) and (max-height: 560px) {
+  .hud .pad,
+  .room-pad,
+  .tally,
+  .gate-panel,
+  .ritual-panel,
+  .log-pad,
+  .announce,
+  .menu-error,
+  .rb-nav {
+    zoom: 0.6;
+  }
+
+  .menu-settings-btn {
+    zoom: 0.8;
+  }
+
+  .menu-screen .ledger {
+    zoom: 0.62; /* the sign-in sheet fits the short screen */
+  }
+
+  .ledger.settings {
+    max-height: calc(100vh - 12px);
+    zoom: 0.8;
+  }
+}
+
+/* upright phone: panels shrink to the width, and the table asks to be turned sideways */
+@media (pointer: coarse) and (orientation: portrait) {
+  .hud .pad,
+  .room-pad,
+  .tally,
+  .gate-panel,
+  .ritual-panel,
+  .log-pad,
+  .announce {
+    zoom: 0.78;
+  }
+
+  .rotate-hint {
+    display: block;
+    position: fixed;
+    left: 50%;
+    bottom: 96px;
+    transform: translateX(-50%);
+    z-index: 29;
+    padding: 4px 12px;
+    font-family: var(--font-sc);
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--paper-grain), var(--bone);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+  .table-caption {
+    max-width: 50vw;
+    left: 38%;
+  }
+}
+
+/* the manual on a phone: a finger turns the pages, so the keyboard hint goes and the two chapter
+   buttons keep the whole footer */
+@media (pointer: coarse) {
+  .rb-hint {
+    display: none;
+  }
+
+  .rulebook .rb-nav {
+    justify-content: space-between;
+    gap: 12px;
+    width: auto;
+    max-width: 94vw;
+  }
+}

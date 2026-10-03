@@ -11,6 +11,7 @@ export interface ViewSettings {
   lookSensitivity: number // multiplier on how far the view turns per pixel dragged (0.25–3)
   fov: number // vertical field of view in degrees (FOV_MIN–FOV_MAX)
   cardBack: BackDesign // the design on the back of every card
+  gyro: boolean // phones: the phone's orientation turns the view (the finger can still drag it)
   handHeight: number // where the wheel left your fan (metres, camera space); 0 = resting
   senaOrder: string // your señas ring, comma-separated ids in your order ('' = the default order)
 }
@@ -23,7 +24,7 @@ export const SENS_MAX = 3
 export const FOV_MIN = 50
 export const FOV_MAX = 80
 const KEY = 'laBase.view'
-const DEFAULTS: ViewSettings = { cameraReturn: false, reticle: true, invertLook: false, handResetOnTurn: true, guides: true, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja', handHeight: 0, senaOrder: '' }
+const DEFAULTS: ViewSettings = { cameraReturn: false, reticle: true, invertLook: false, handResetOnTurn: true, guides: true, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja', handHeight: 0, senaOrder: '', gyro: true }
 
 function load(): ViewSettings {
   try {

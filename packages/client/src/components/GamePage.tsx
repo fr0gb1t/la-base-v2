@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { isTouch } from '../lib/device';
 import { SENAS, type Card, type GameState, type AssignedTeam, type Bid, type Sena } from '@la-base/shared';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
@@ -574,7 +575,7 @@ export function GamePage() {
     phaseLine = already + (bidder === myId ? 'te toca declarar' : `declara ${nameOf(bidder)} (${relLabel(teamOfPlayer(bidder)).toLowerCase()})`);
   } else if (gameState?.phase === 'playing') {
     phaseLine = gameState.currentTurnPlayerId === myId
-      ? 'Tu turno — click en una carta, o mantené para llevarla vos'
+      ? (isTouch ? 'Tu turno — tocá una carta, o mantené y arrastrala' : 'Tu turno — click en una carta, o mantené para llevarla vos')
       : `Juega ${nameOf(gameState.currentTurnPlayerId)} (${relLabel(teamOfPlayer(gameState.currentTurnPlayerId)).toLowerCase()})`;
   } else if (gameState?.phase === 'base_resolution' && !gate) {
     phaseLine = !gameState.pendingOrosChoice
@@ -682,6 +683,15 @@ export function GamePage() {
         ) : (
           <div />
         )}
+        <div className="rotate-hint">girá el celular para jugar mejor</div>
+        <button
+          type="button"
+          className="touch-senas"
+          aria-label="Señas"
+          onClick={() => setWheel({ x: window.innerWidth / 2, y: window.innerHeight / 2, held: false })}
+        >
+          señas
+        </button>
         <nav className="sr-only" aria-label="Controles de la partida">
           <button className="hud-tab" onClick={cycleHud} title="Tecla H"><GiScrollUnfurled aria-hidden /> anotador: {hudLabel}</button>
           <button className="hud-tab" onClick={() => setShowLog((v) => !v)} title="Tecla J"><GiBookCover aria-hidden /> historial</button>

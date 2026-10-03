@@ -11,6 +11,7 @@ import { makePost } from './post'
 import { schedule, tickJobs, wait } from './jobs'
 import { attachAudio, sfx, lampBuzz, toggleMute, uiSound } from './audio'
 import { PALETTE, hex, DUOTONES } from './look'
+import { isTouch } from '../lib/device'
 import { getViewSettings, onViewSettings, setViewSettings } from '../settings/viewSettings'
 import { NameTag, TAG_Y, TAG_R_OFFSET } from './nameTags'
 import { TableTokens } from './tableTokens'
@@ -77,6 +78,10 @@ const FACE_MARGIN = 0.01 // rad: the turn stops with the neighbour's face right 
 const PITCH_MAX = 0.25
 const HOLD_SEC = 0.18
 const HOLD_PX = 6
+// phones: two fingers swiping up/down move your hand (metres per px); three fingers tap zoom
+const TOUCH_HAND = 0.0008
+const TAP3_MS = 500 // three fingers down and up faster than this (and without sliding) is a tap
+const TAP3_PX = 40
 const FELT = new THREE.Plane(new THREE.Vector3(0, 1, 0), -TABLE_Y)
 const LOOK_HEARTBEAT = 1 // s: resend where you look even when still
 const HEAD_YAW_MAX = 1.5 // rad: a mask turns as far as any camera can (78° at 8 players) and a bit more
@@ -224,6 +229,7 @@ export class TableScene {
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;image-rendering:pixelated;cursor:crosshair'
+    this.renderer.domElement.style.touchAction = 'none' // a finger on the table is for the game, not for scrolling
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera)
     this.detachAudio = attachAudio(this.camera) // you hear the room from your seat
@@ -518,6 +524,7 @@ export class TableScene {
   private detachAudio: () => void = () => undefined
 
   dispose() {
+    this.disableGyro()
     this.hud.dispose()
     this.clock.dispose()
     this.detachAudio()
@@ -1212,26 +1219,30 @@ export class TableScene {
     const el = this.renderer.domElement
     this.on(window, 'pointermove', (e: PointerEvent) => {
       const r = el.getBoundingClientRect()
-      this.pointerEdge = e.clientX <= r.left + EDGE_PX ? -1 : e.clientX >= r.right - EDGE_PX ? 1 : 0
+      const touch = e.pointerType === 'touch'
+      this.pointerEdge = touch ? 0 : e.clientX <= r.left + EDGE_PX ? -1 : e.clientX >= r.right - EDGE_PX ? 1 : 0
       this.mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
+      // a finger has no movementX/Y of its own in every browser: measure it
+      const mv = touch ? this.touchMove(e) : { x: e.movementX, y: e.movementY }
+      if (touch && this.multiLock) return // two or three fingers: a gesture, not a pointer
       if (this.pending) {
-        this.pending.moved += Math.abs(e.movementX) + Math.abs(e.movementY)
+        this.pending.moved += Math.abs(mv.x) + Math.abs(mv.y)
         this.updatePending() // start the arm right away, don't wait for the next frame (low FPS)
       }
       if (this.drag) {
         if (this.drag.refCam) this.cursorToDrag()
         else {
-          this.drag.fwd = THREE.MathUtils.clamp(this.drag.fwd - e.movementY * ARM_SENS, HOLD_FWD, 0.8)
-          this.drag.lat = THREE.MathUtils.clamp(this.drag.lat + e.movementX * ARM_SENS, -0.35, 0.35)
+          this.drag.fwd = THREE.MathUtils.clamp(this.drag.fwd - mv.y * ARM_SENS, HOLD_FWD, 0.8)
+          this.drag.lat = THREE.MathUtils.clamp(this.drag.lat + mv.x * ARM_SENS, -0.35, 0.35)
         }
         this.cb.arm(this.drag.k, this.drag.fwd, this.drag.lat, true)
-      } else if (this.peek) this.panPeek(e.movementX, e.movementY)
+      } else if (this.peek) this.panPeek(mv.x, mv.y)
       else if (this.lookDrag) {
-        this.lookDrag.moved += Math.abs(e.movementX) + Math.abs(e.movementY)
+        this.lookDrag.moved += Math.abs(mv.x) + Math.abs(mv.y)
         const v = getViewSettings()
         const k = (v.invertLook ? -1 : 1) * v.lookSensitivity * LOOK_SENS // inverted: you drag the table, not your head
-        this.yawT = this.clampYaw(this.yawT - e.movementX * k)
-        this.pitchT = this.clampPitch(this.pitchT - e.movementY * k)
+        this.yawT = this.clampYaw(this.yawT - mv.x * k)
+        this.pitchT = this.clampPitch(this.pitchT - mv.y * k)
       }
     })
     this.on(el, 'contextmenu', (e: Event) => e.preventDefault())
@@ -1247,6 +1258,7 @@ export class TableScene {
       { passive: false },
     )
     this.on(el, 'pointerdown', (e: PointerEvent) => {
+      if (e.pointerType === 'touch' && !this.touchDown(e)) return // a second or third finger: a gesture
       if (e.button === 2) {
         if (!this.drag) this.beginPeek()
         return
@@ -1282,10 +1294,24 @@ export class TableScene {
       this.releaseDrag()
     }
     this.on(el, 'pointerup', (e: PointerEvent) => {
+      if (e.pointerType === 'touch') {
+        this.touchUp(e)
+        if (this.multiLock || this.gestureEnded) return // the end of a gesture is not a click
+        endLeft()
+        return
+      }
       if (e.button === 0) endLeft()
       if (e.button === 2) this.endPeek()
     })
-    this.on(el, 'pointercancel', endLeft)
+    this.on(el, 'pointercancel', (e: PointerEvent) => {
+      if (e.pointerType === 'touch') {
+        this.touchUp(e)
+        if (this.multiLock || this.gestureEnded) return
+      }
+      endLeft()
+    })
+    // the gyroscope: on iOS it can only be switched on from a tap
+    this.on(window, 'click', () => void this.maybeEnableGyro())
   }
 
   /** Physical tokens on the felt (dealer, who asks, asked bases + beans, kamikaze planes). */
@@ -1409,6 +1435,174 @@ export class TableScene {
     }
   }
 
+  // ------------------------------------------------------------------ touch (phones)
+  // One finger is the left mouse button (a tap is a click, holding and dragging is the same drag);
+  // two fingers swiping up/down move your hand; three fingers tapping toggle the zoom; the phone's
+  // gyroscope turns the view.
+
+  private touches = new Map<number, { x: number; y: number }>()
+  private multiLock = false // two or more fingers are down: no single-finger action until all lift
+  private gestureEnded = false // the finger that just lifted belonged to a gesture
+  private tri: { t0: number; x: number; y: number; moved: number } | null = null
+  private centroidY = 0
+  private handSaved = true
+  private ignored = new Set<number>() // fingers that landed while a card was in hand
+
+  private centroid() {
+    let x = 0
+    let y = 0
+    for (const t of this.touches.values()) {
+      x += t.x
+      y += t.y
+    }
+    const n = Math.max(1, this.touches.size)
+    return { x: x / n, y: y / n }
+  }
+
+  /** A finger lands. False when it isn't a plain click/drag (a 2nd or 3rd finger, or one while a card is in your hand). */
+  private touchDown(e: PointerEvent): boolean {
+    const el = this.renderer.domElement
+    if (this.drag) {
+      this.ignored.add(e.pointerId) // a card is in your hand: extra fingers do nothing
+      return false
+    }
+    this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    this.gestureEnded = false
+    if (this.touches.size === 1) {
+      // there is no hover with a finger: aim at what it touches, then it acts as the left click
+      const r = el.getBoundingClientRect()
+      this.mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
+      this.updateHover(now(), 1 / 60)
+      return !this.multiLock
+    }
+    // a second finger: whatever the first one had started is dropped
+    this.multiLock = true
+    this.pending = null
+    this.lookDrag = null
+    this.centroidY = this.centroid().y
+    if (this.touches.size >= 3) {
+      const c = this.centroid()
+      this.tri = { t0: now(), x: c.x, y: c.y, moved: 0 }
+    }
+    return false
+  }
+
+  /** The finger moved: its delta, and (with several down) the gesture it belongs to. */
+  private touchMove(e: PointerEvent): { x: number; y: number } {
+    const t = this.touches.get(e.pointerId)
+    if (!t) return { x: 0, y: 0 }
+    const d = { x: e.clientX - t.x, y: e.clientY - t.y }
+    t.x = e.clientX
+    t.y = e.clientY
+    if (this.multiLock && this.touches.size >= 2) {
+      const c = this.centroid()
+      if (this.touches.size === 2) {
+        // two fingers up/down: the hand (swipe up raises it, like the wheel)
+        const dy = c.y - this.centroidY
+        this.handOffsetT = THREE.MathUtils.clamp(this.handOffsetT - dy * TOUCH_HAND, HAND_MIN, HAND_MAX)
+        this.handSaved = false
+      } else if (this.tri) this.tri.moved = Math.max(this.tri.moved, Math.hypot(c.x - this.tri.x, c.y - this.tri.y))
+      this.centroidY = c.y
+    }
+    return d
+  }
+
+  private touchUp(e: PointerEvent) {
+    if (this.ignored.delete(e.pointerId)) {
+      this.gestureEnded = true // not the finger that holds the card
+      return
+    }
+    const had = this.touches.size
+    this.gestureEnded = this.multiLock
+    // three fingers tapped (down and up quickly, without sliding): the zoom switches
+    if (this.tri && had >= 3 && now() - this.tri.t0 < TAP3_MS / 1000 && this.tri.moved < TAP3_PX) {
+      const r = this.renderer.domElement.getBoundingClientRect()
+      this.mouse.set(((this.tri.x - r.left) / r.width) * 2 - 1, -((this.tri.y - r.top) / r.height) * 2 + 1)
+      if (this.peek) this.endPeek()
+      else if (!this.drag) this.beginPeek()
+    }
+    this.tri = null
+    this.touches.delete(e.pointerId)
+    if (this.touches.size === 0) {
+      this.multiLock = false
+      if (!this.handSaved) {
+        this.handSaved = true
+        setViewSettings({ handHeight: this.handOffsetT }) // the height you left it at is remembered
+      }
+    }
+    void this.maybeEnableGyro()
+  }
+
+  // ---- the gyroscope: turning the phone turns the view (the same head turn a finger drag makes)
+
+  private gyroHandler: ((e: DeviceOrientationEvent) => void) | null = null
+  private gyroLast: { yaw: number; pitch: number } | null = null
+  private gyroTried = false
+
+  get gyroActive() {
+    return this.gyroHandler !== null
+  }
+
+  /** Switches the gyroscope on (iOS asks permission, and only inside a tap). */
+  async enableGyro(): Promise<boolean> {
+    if (this.gyroHandler) return true
+    const DOE = (window as unknown as { DeviceOrientationEvent?: { requestPermission?: () => Promise<string> } }).DeviceOrientationEvent
+    if (!DOE) return false
+    if (typeof DOE.requestPermission === 'function') {
+      try {
+        if ((await DOE.requestPermission()) !== 'granted') return false
+      } catch {
+        return false
+      }
+    }
+    this.gyroHandler = (e) => this.onGyro(e)
+    this.gyroLast = null
+    window.addEventListener('deviceorientation', this.gyroHandler)
+    window.addEventListener('orientationchange', this.resetGyro)
+    return true
+  }
+
+  disableGyro() {
+    if (!this.gyroHandler) return
+    window.removeEventListener('deviceorientation', this.gyroHandler)
+    window.removeEventListener('orientationchange', this.resetGyro)
+    this.gyroHandler = null
+    this.gyroLast = null
+  }
+
+  private resetGyro = () => {
+    this.gyroLast = null
+  }
+
+  /** On a phone with the gyroscope setting on: switch it on the first time a tap allows it. */
+  private async maybeEnableGyro() {
+    if (!isTouch || this.gyroTried || !getViewSettings().gyro) return
+    this.gyroTried = true
+    if (!(await this.enableGyro())) this.gyroTried = false // refused or not there yet: a later tap may work
+  }
+
+  private onGyro(e: DeviceOrientationEvent) {
+    if (e.alpha === null || e.beta === null || e.gamma === null) return
+    const rad = Math.PI / 180
+    const screenAngle = (screen.orientation?.angle ?? (window as unknown as { orientation?: number }).orientation ?? 0) * rad
+    // the direction the phone's back camera points, in the world (the standard device-orientation maths)
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(e.beta * rad, e.alpha * rad, -e.gamma * rad, 'YXZ'))
+    q.multiply(new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)))
+    q.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -screenAngle))
+    const f = new THREE.Vector3(0, 0, -1).applyQuaternion(q)
+    const yaw = Math.atan2(-f.x, -f.z)
+    const pitch = Math.asin(THREE.MathUtils.clamp(f.y, -1, 1))
+    const last = this.gyroLast
+    this.gyroLast = { yaw, pitch }
+    if (!last || this.peek || getViewSettings().gyro === false) return
+    let dyaw = yaw - last.yaw
+    if (dyaw > Math.PI) dyaw -= Math.PI * 2
+    else if (dyaw < -Math.PI) dyaw += Math.PI * 2
+    if (Math.abs(dyaw) > 1) return // pointing straight up/down: the heading is meaningless
+    this.yawT = this.clampYaw(this.yawT + dyaw)
+    this.pitchT = this.clampPitch(this.pitchT + (pitch - last.pitch))
+  }
+
   // ------------------------------------------------------------------ camera
 
   private beginPeek() {
@@ -1462,7 +1656,7 @@ export class TableScene {
     this.baseCam.position.copy(seated)
     this.baseCam.rotation.set(this.pitch, this.baseYaw + this.yaw, 0, 'YXZ')
     this.baseCam.aspect = this.camera.aspect
-    this.baseCam.fov = getViewSettings().fov // the unzoomed view: aiming the zoom uses its rays
+    this.baseCam.fov = this.fovNow() // the unzoomed view: aiming the zoom uses its rays
     this.baseCam.updateProjectionMatrix()
     this.baseCam.updateMatrixWorld()
     const standing = this.eye.clone().addScaledVector(this.forward0, 0.34).add(new THREE.Vector3(0, 0.62, 0))
@@ -1475,9 +1669,18 @@ export class TableScene {
     }
     // the field of view is a setting: wide enough by default to see your neighbours' heads (and
     // where they look) without turning
-    const fov = getViewSettings().fov
+    const fov = this.fovNow()
     this.camera.fov = THREE.MathUtils.lerp(THREE.MathUtils.lerp(fov, 24, this.aim), 20, st)
     this.camera.updateProjectionMatrix()
+  }
+
+  /** The field of view in use: the setting; on a phone held upright it is widened so the table's width still fits. */
+  private fovNow() {
+    const fov = getViewSettings().fov
+    const aspect = this.camera.aspect
+    if (!isTouch || aspect >= 16 / 9) return fov
+    const half = Math.atan(Math.tan(THREE.MathUtils.degToRad(fov / 2)) * (16 / 9 / aspect))
+    return Math.min(100, THREE.MathUtils.radToDeg(half * 2))
   }
 
   private resize() {
@@ -1652,7 +1855,7 @@ export class TableScene {
     // your hand looks the same at any field of view: it was laid out for 50°, and stretching the
     // camera-space x/y by the ratio of the half-angle tangents projects it exactly as at 50° (a
     // wide view would otherwise shrink it, push it down and stretch the cards near the edge)
-    const k = Math.tan(THREE.MathUtils.degToRad(getViewSettings().fov / 2)) / Math.tan(THREE.MathUtils.degToRad(HAND_FOV / 2))
+    const k = Math.tan(THREE.MathUtils.degToRad(this.fovNow() / 2)) / Math.tan(THREE.MathUtils.degToRad(HAND_FOV / 2))
     this.viewmodel.scale.set(k, k, 1)
     this.viewmodel.position.set(
       (Math.sin(time * 1.3) * 0.003 - 0.04 * this.lowered) * k,

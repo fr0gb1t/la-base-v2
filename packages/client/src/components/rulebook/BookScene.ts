@@ -256,6 +256,7 @@ export class BookScene {
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFShadowMap;
     r.domElement.className = 'rb-canvas';
+    r.domElement.style.touchAction = 'none'; // a finger turns the pages, it doesn't scroll
     host.appendChild(r.domElement);
     this.post.uniforms.uExposure.value = EXPOSURE;
 

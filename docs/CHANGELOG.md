@@ -4,6 +4,24 @@
 
 Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), agrupado por área.
 
+### Celulares y tablets (solo con pantalla táctil; la versión de escritorio no cambia)
+- **Giroscopio:** girar el celular mueve la vista igual que arrastrar el mouse (tomando solo el
+  giro, sin importar hacia dónde apunta al empezar); se enciende solo con el primer toque (en iOS
+  pide permiso) y se apaga en Ajustes → Cámara → Giroscopio. Arrastrar con el dedo sigue
+  sumando.
+- **Un dedo = clic izquierdo:** un toque es un clic (juega la carta, aprieta botones de la mesa,
+  de la pizarra y de los menús) y mantener y arrastrar lleva la carta y mueve la vista, igual
+  que con el mouse.
+- **Dos dedos arriba/abajo:** suben y bajan las cartas (como la ruedita, y la altura queda
+  guardada). **Tres dedos, un toque:** activa el zoom donde tocaste; otro toque de tres dedos lo
+  desactiva (con el zoom activo, un dedo arrastra el punto de vista).
+- **Menús:** los botones 3D responden al toque; los paneles (anotador, sala, ajustes, ofertas,
+  manual, entrar) se achican en pantallas bajas y apaisadas; si el celular está vertical el cuadro
+  se ensancha para que entre la mesa y en la partida aparece un aviso para girarlo. Botón
+  redondo «señas» para abrir el anillo sin mouse. Se saca la ayuda de teclas.
+- Probado con emulación táctil (`e2e/mobile.shots.mjs`, `e2e/mobile.game.mjs`): toque, mantener y
+  arrastrar, dos y tres dedos, giroscopio y manual con el dedo.
+
 ### Reloj de pedidos
 - **Reloj de ajedrez:** en la configuración se elige sin tiempo, 1, 2 o 5 min por equipo para toda
   la partida (por defecto 1 min). Corre solo en los pedidos: arranca el equipo de la Mano cuando

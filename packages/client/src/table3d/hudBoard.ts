@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { PALETTE, hex } from './look'
 import { CHAIR_R } from './seats'
+import { isTouch } from '../lib/device'
 
 // The in-game controls as a slate hanging at the back of the room (anotador, historial, reglas,
 // ajustes, salir): round chalk buttons, the name written beneath the one under the pointer. It
@@ -186,7 +187,7 @@ export class HudBoard {
     label.position.set(x, -BOARD_H / 2 + 0.08, 0.03)
     base.position.set(x, 0.06, 0.03)
     hot.position.set(x, 0.06, 0.031)
-    const hit = new THREE.Mesh(new THREE.CircleGeometry(ICON_D * 0.55, 20), new THREE.MeshBasicMaterial({ visible: false }))
+    const hit = new THREE.Mesh(new THREE.CircleGeometry(ICON_D * (isTouch ? 0.8 : 0.55), 20), new THREE.MeshBasicMaterial({ visible: false }))
     hit.position.set(x, 0.06, 0.032)
     hit.userData.hudId = item.id
     this.group.add(base, hot, label, hit)
