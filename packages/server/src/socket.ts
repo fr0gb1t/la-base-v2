@@ -7,7 +7,7 @@ import { roomManager } from './rooms.js';
 import { BOT_TOKEN, botNameFor, spawnBot } from './bots.js';
 import { SenaDelivery } from './senaDelivery.js';
 import type { RoomPlayer } from './rooms.js';
-import { BID_CLOCK_OPTIONS, isPieBidRule, cardRank, clockLeft, dealAnimationMs, isSena, pressClock, startClock, type AssignedTeam, type GameState, type Card } from '@la-base/shared';
+import { BID_CLOCK_OPTIONS, CLOCK_AFTER_DEAL_MS, isPieBidRule, cardRank, clockLeft, dealAnimationMs, isSena, pressClock, startClock, type AssignedTeam, type GameState, type Card } from '@la-base/shared';
 import {
   createShuffledDeck,
   dealCards,
@@ -118,7 +118,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
         cur.bidClock = startClock(cur.bidClock, team, Date.now());
         armFlag(roomCode);
         io.to(roomCode).emit('game:state', cur);
-      }, deal) } as ClockTimers;
+      }, deal + CLOCK_AFTER_DEAL_MS) } as ClockTimers;
       clockTimers.set(roomCode, timers);
     };
 

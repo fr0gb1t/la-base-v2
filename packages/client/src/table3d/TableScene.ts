@@ -846,6 +846,16 @@ export class TableScene {
     })
     sfx('shuffle', base, 0.8)
     await wait(0.5)
+    // 1) every card is dealt face down onto the table, in a row in front of its player
+    const toTable = (s: number, k: number): HeldPose => {
+      const a = seatAngle(s, this.n)
+      const off = (k - (perPlayer - 1) / 2) * 0.056
+      return {
+        pos: polar(0.66, a, TABLE_Y + 0.002 + k * 0.0006).addScaledVector(this.rightOf(s), off),
+        quat: quatOf(FACE_DOWN, this.yawOf(s) + (((k * 7 + s * 3) % 5) - 2) * 0.012),
+      }
+    }
+    const dealt: Array<{ v: CardView; s: number; k: number }> = []
     const jobs: Promise<void>[] = []
     let step = 0
     for (let round = 0; round < perPlayer; round++)
@@ -854,6 +864,7 @@ export class TableScene {
         const k = round
         const v = stack[total - 1 - step]
         let from: HeldPose | null = null
+        const rest = toTable(s, k)
         jobs.push(
           schedule({
             delay: step * 0.11,
@@ -864,29 +875,50 @@ export class TableScene {
                 from = { pos: v.root.position.clone(), quat: v.root.quaternion.clone() }
                 sfx('toss', from.pos, 0.6)
               }
-              const to = this.heldPose(s, k)
-              v.root.position.copy(from.pos).lerp(to.pos, ease(u))
-              v.root.position.y += Math.sin(u * Math.PI) * (0.16 + from.pos.distanceTo(to.pos) * 0.1)
+              v.root.position.copy(from.pos).lerp(rest.pos, ease(u))
+              v.root.position.y += Math.sin(u * Math.PI) * (0.1 + from.pos.distanceTo(rest.pos) * 0.1)
               const spin = quatOf(FACE_DOWN, this.yawOf(dealer) + u * Math.PI * 1.5)
-              v.root.quaternion.copy(from.quat).slerp(spin, Math.min(1, u * 3)).slerp(to.quat, ease(seg(u, 0.7, 1)))
-              const dir = to.pos.clone().sub(from.pos).setY(0).normalize()
+              v.root.quaternion.copy(from.quat).slerp(spin, Math.min(1, u * 3)).slerp(rest.quat, ease(seg(u, 0.7, 1)))
+              const dir = rest.pos.clone().sub(from.pos).setY(0).normalize()
               this.poses[dealer].rightWrist = from.pos.clone().addScaledVector(dir, 0.06 + Math.sin(u * Math.PI) * 0.08).add(new THREE.Vector3(0, 0.06, 0))
               this.poses[dealer].lean = 0.4
               this.focus = from.pos
             },
             done: () => {
-              this.give(v)
-              shown[s]++
-              if (s === 0) {
-                this.layoutHand(Math.min(shown[0], this.hand.length))
-              } else this.avatars[s].setHandCount(shown[s])
-              sfx('toHand', this.heldPose(s, k).pos, 0.8)
+              v.root.position.copy(rest.pos)
+              v.root.quaternion.copy(rest.quat)
+              sfx('place', rest.pos, 0.5)
             },
           }),
         )
+        dealt.push({ v, s, k })
         step++
       }
     await Promise.all(jobs)
+    // 2) a beat with everybody's cards on the table, then everyone picks theirs up at once
+    await wait(0.5)
+    const lift = dealt.map(({ v, s, k }) => {
+      const from: HeldPose = { pos: v.root.position.clone(), quat: v.root.quaternion.clone() }
+      return schedule({
+        delay: k * 0.03,
+        dur: 0.5,
+        stepped: s !== 0,
+        update: (u) => {
+          const to = this.heldPose(s, k)
+          v.root.position.copy(from.pos).lerp(to.pos, ease(u))
+          v.root.position.y += Math.sin(u * Math.PI) * 0.07
+          v.root.quaternion.copy(from.quat).slerp(to.quat, ease(u))
+        },
+        done: () => {
+          this.give(v)
+          shown[s]++
+          if (s === 0) this.layoutHand(Math.min(shown[0], this.hand.length))
+          else this.avatars[s].setHandCount(shown[s])
+          sfx('toHand', this.heldPose(s, k).pos, 0.8)
+        },
+      })
+    })
+    await Promise.all(lift)
     this.dealing = false
     this.seatPlayers().forEach((p, s) => (this.handCounts[s] = p.handCount))
     this.layoutHand(this.hand.length)

@@ -2,6 +2,11 @@
 
 ## Desde `a603e36`
 
+- **El reparto y el reloj:** las cartas se reparten todas boca abajo sobre la mesa, en una fila
+  frente a cada jugador; cuando ya están todas, hay un respiro y todos las levantan a la vez. Recién
+  **un segundo después** de eso arranca el reloj de pedidos (antes empezaba antes de que terminara
+  el reparto). Los bots también esperan a que todos tengan sus cartas en la mano antes de hacer
+  señas o pedir.
 - **La respuesta forzada del Pie es automática:** cuando al responder queda una sola opción legal
   (la regla del Pie no deja elegir), el pedido se declara solo, enseguida (un instante después del
   aviso del rival), y no aparece el panel de pedidos. Con varias opciones todo sigue igual.

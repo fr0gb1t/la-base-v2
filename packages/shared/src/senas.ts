@@ -78,5 +78,10 @@ export function dealAnimationMs(players: number, perPlayer: number): number {
   const SHUFFLE = 500;
   const PER_CARD = 110; // one card leaves the dealer every 0.11 s…
   const FLIGHT = 420; // …and lands 0.42 s later
-  return SWEEP + SHUFFLE + players * perPlayer * PER_CARD + FLIGHT + 400;
+  const PAUSE = 500; // everybody's cards lie face down on the table before anyone lifts theirs
+  const PICKUP = 500 + 30 * 6; // everyone picks theirs up at once
+  return SWEEP + SHUFFLE + players * perPlayer * PER_CARD + FLIGHT + PAUSE + PICKUP + 400;
 }
+
+/** The bidding clock starts this long after every player has their cards in hand. */
+export const CLOCK_AFTER_DEAL_MS = 1000;
