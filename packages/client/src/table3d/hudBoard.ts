@@ -3,66 +3,131 @@ import { PALETTE, hex } from './look'
 import { CHAIR_R } from './seats'
 import { isTouch } from '../lib/device'
 
-// The in-game controls as a slate hanging at the back of the room (anotador, historial, reglas,
-// ajustes, salir): round chalk buttons, the name written beneath the one under the pointer. It
-// hangs above everybody's heads on two chains, so no seat count can stand in front of it, and is
-// lit by a little lamp of its own.
+// The game's controls, hung at the back of the room: a row of little CRT televisions on cables
+// (historial, reglas, ajustes, salir: the picture is the button, green phosphor, its name appears on
+// the glass under the pointer) and, beside them, a green seven-segment... fourteen-segment LED panel
+// that spells out what to do next. Everything sways a little on its cables, like the lamp does. It all
+// hangs above the heads of every seat, so nobody can stand in front of it.
 
 export interface HudItem {
   id: string
-  label: string // shown under the button while the pointer is on it
-  hint?: string // longer description for the caption
-  svg: string // the icon, as an SVG string (its colour is set here)
-  danger?: boolean // chalked in red
+  label: string // shown on the glass while the pointer is on it
+  hint?: string // longer description, spelled on the LED panel while the pointer is on it
+  svg: string // the icon, as an SVG string (only its path data is used)
+  danger?: boolean // phosphor in amber-red instead of green
 }
 
-const BOARD_W = 2.9
-const BOARD_H = 0.5
-const ICON_D = 0.21
-const SPACING = 0.34
-const ICONS_X = -0.82 // the middle of the row of buttons (the left half of the slate)
-const MSG_X = 0.62 // the middle of the chalked message (the right half)
-const MSG_W = 1.62
-const MSG_H = 0.34
-const FONT = '"IM Fell English SC", Georgia, serif'
-const RED = '#c2483c'
-const SLATE_Y = 1.7 // centre height: above the heads, inside the default view
-const WALL_Z = -(CHAIR_R + 0.78) // behind the far chairs
+const GREEN = '#58ff7a'
+const RED = '#ff6a3c'
+const WALL_Z = -(CHAIR_R + 0.4) // behind the far chairs
+const HANG_Y = 1.7 // the middle of the row (above the heads, inside the default view)
+const TV_X0 = -1.2 // centre of the row of televisions
+const TV_STEP = 0.5
+const LED_X = 0.95
+const LED_W = 1.56
+const LED_H = 0.4
 
-function wrap(g: CanvasRenderingContext2D, text: string, width: number): string[] {
+// ---------------------------------------------------------------------------------------------
+// the LED panel: fourteen segments per character
+
+const SEG_ORDER = 'ABCDEFGHJKLMNP' as const // A top, B/C right, D bottom, E/F left, G1/G2 middle (G, P), H/K upper diagonals, L/N lower, J/M centre
+const GLYPHS: Record<string, string> = {
+  A: 'ABCEFGP', B: 'ABCDPJM', C: 'ADEF', D: 'ABCDJM', E: 'ADEFGP', F: 'AEFGP', G: 'ACDEFP', H: 'BCEFGP',
+  I: 'ADJM', J: 'BCDE', K: 'EFGKL', L: 'DEF', M: 'BCEFHK', N: 'BCEFHN', O: 'ABCDEF', P: 'ABEFGP',
+  Q: 'ABCDEFN', R: 'ABEFGPN', S: 'ACDFGP', T: 'AJM', U: 'BCDEF', V: 'EFKL', W: 'BCEFLN', X: 'HKLN',
+  Y: 'HKM', Z: 'ADKL',
+  '0': 'ABCDEFKL', '1': 'BC', '2': 'ABDEGP', '3': 'ABCDP', '4': 'BCFGP', '5': 'ACDFGP', '6': 'ACDEFGP',
+  '7': 'ABC', '8': 'ABCDEFGP', '9': 'ABCDFGP',
+  '-': 'GP', '+': 'GPJM', '/': 'KL', ':': 'JM', '?': 'ABPM', '!': 'JM', '(': 'KN', ')': 'HL', '.': '', ',': 'L',
+  '_': 'D', ' ': '',
+}
+
+/** What the panel can show: capitals without accents, digits and a little punctuation. */
+function ledText(text: string) {
+  return text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[¿¡]/g, '')
+    .replace(/[…]/g, '...')
+    .replace(/[—–·•]/g, '-')
+    .toUpperCase()
+    .replace(/[^A-Z0-9 :.,?!()+/_-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const COLS = 25
+const ROWS = 3
+const CELL_W = 40
+const CELL_H = 76
+
+function wrapLed(text: string): string[] {
   const lines: string[] = []
   let cur = ''
   for (const word of text.split(' ')) {
     const test = cur ? `${cur} ${word}` : word
-    if (g.measureText(test).width > width && cur) {
+    if (test.length > COLS && cur) {
       lines.push(cur)
       cur = word
     } else cur = test
   }
   if (cur) lines.push(cur)
-  return lines
+  return lines.slice(0, ROWS)
 }
 
-function chalkRing(g: CanvasRenderingContext2D, size: number, color: string, w: number, seed: number) {
-  // a hand-drawn ring: two passes, slightly off, not quite closed
-  g.strokeStyle = color
+function drawGlyph(g: CanvasRenderingContext2D, ch: string, x: number, y: number, w: number, h: number) {
+  const t = w * 0.15
+  const x0 = x + t
+  const x1 = x + w - t
+  const xm = x + w / 2
+  const y0 = y + t
+  const y1 = y + h - t
+  const ym = y + h / 2
+  const seg: Record<string, [number, number, number, number]> = {
+    A: [x0 + t, y0, x1 - t, y0], D: [x0 + t, y1, x1 - t, y1],
+    B: [x1, y0 + t, x1, ym - t / 2], C: [x1, ym + t / 2, x1, y1 - t],
+    F: [x0, y0 + t, x0, ym - t / 2], E: [x0, ym + t / 2, x0, y1 - t],
+    G: [x0 + t, ym, xm - t / 2, ym], P: [xm + t / 2, ym, x1 - t, ym],
+    J: [xm, y0 + t, xm, ym - t], M: [xm, ym + t, xm, y1 - t],
+    H: [x0 + t * 1.3, y0 + t * 1.3, xm - t, ym - t], K: [x1 - t * 1.3, y0 + t * 1.3, xm + t, ym - t],
+    L: [x0 + t * 1.3, y1 - t * 1.3, xm - t, ym + t], N: [x1 - t * 1.3, y1 - t * 1.3, xm + t, ym + t],
+  }
+  const lit = GLYPHS[ch] ?? ''
   g.lineCap = 'round'
-  for (let pass = 0; pass < 2; pass++) {
-    g.lineWidth = w * (pass ? 0.55 : 1)
-    g.globalAlpha = pass ? 0.6 : 0.95
+  g.lineWidth = t * 1.1
+  // unlit segments first: the faint ghost of a real display
+  g.shadowBlur = 0
+  g.strokeStyle = 'rgba(88,255,122,0.07)'
+  for (const k of SEG_ORDER) {
+    const s = seg[k]
+    if (!s || lit.includes(k)) continue
     g.beginPath()
-    const r = size * 0.43 + pass * 3
-    for (let a = 0.25 + pass * 0.3; a < Math.PI * 2 + 0.05 + pass * 0.2; a += 0.12) {
-      const wob = Math.sin(a * 3 + seed + pass) * 2.2
-      const x = size / 2 + Math.cos(a) * (r + wob)
-      const y = size / 2 + Math.sin(a) * (r + wob)
-      if (a === 0.25 + pass * 0.3) g.moveTo(x, y)
-      else g.lineTo(x, y)
-    }
+    g.moveTo(s[0], s[1])
+    g.lineTo(s[2], s[3])
     g.stroke()
   }
-  g.globalAlpha = 1
+  g.strokeStyle = GREEN
+  g.shadowColor = GREEN
+  g.shadowBlur = 12
+  for (const k of lit) {
+    const s = seg[k]
+    if (!s) continue
+    g.beginPath()
+    g.moveTo(s[0], s[1])
+    g.lineTo(s[2], s[3])
+    g.stroke()
+  }
+  if (ch === '.' || ch === ',') {
+    g.fillStyle = GREEN
+    g.beginPath()
+    g.arc(x + w - t * 0.6, y + h - t * 0.6, t * 0.75, 0, Math.PI * 2)
+    g.fill()
+  }
+  g.shadowBlur = 0
 }
+
+// ---------------------------------------------------------------------------------------------
+// the televisions
 
 /** The `d` of every path of an icon's SVG (the icons are plain filled paths on a 512 grid). */
 function iconPaths(svg: string): { paths: string[]; box: number } {
@@ -71,82 +136,86 @@ function iconPaths(svg: string): { paths: string[]; box: number } {
   return { paths, box: vb ? Number(vb[1]) : 512 }
 }
 
-// The icon is painted straight from its path data (Path2D), not through an <img> of the SVG: no
-// asynchronous decoding, and no browser that refuses to hand a canvas with an SVG image to WebGL.
-function iconTexture(item: HudItem, hot: boolean): THREE.CanvasTexture {
-  const size = 256
+const SCREEN_W = 256
+const SCREEN_H = 200
+
+/** What the tube shows: the icon in phosphor, scanlines and a vignette; with its name when `hot`. */
+function screenTexture(item: HudItem, hot: boolean) {
   const cv = document.createElement('canvas')
-  cv.width = cv.height = size
+  cv.width = SCREEN_W
+  cv.height = SCREEN_H
   const g = cv.getContext('2d')!
-  const color = item.danger ? RED : PALETTE.chalk
-  if (hot) {
-    g.beginPath()
-    g.arc(size / 2, size / 2, size * 0.41, 0, Math.PI * 2)
-    g.fillStyle = item.danger ? 'rgba(194,72,60,0.22)' : 'rgba(207,198,168,0.2)'
-    g.fill()
-  }
-  chalkRing(g, size, color, hot ? 11 : 8, item.id.length)
+  const color = item.danger ? RED : GREEN
+  const bg = g.createRadialGradient(SCREEN_W / 2, SCREEN_H / 2, 10, SCREEN_W / 2, SCREEN_H / 2, SCREEN_W * 0.62)
+  bg.addColorStop(0, item.danger ? '#241008' : '#0b2412')
+  bg.addColorStop(1, '#020805')
+  g.fillStyle = bg
+  g.fillRect(0, 0, SCREEN_W, SCREEN_H)
   const { paths, box } = iconPaths(item.svg)
-  const s = (size * 0.5) / box
+  const size = hot ? 118 : 146
+  const s = size / box
   g.save()
-  g.translate(size / 4, size / 4)
+  g.translate((SCREEN_W - size) / 2, (SCREEN_H - size) / 2 - (hot ? 18 : 2))
   g.scale(s, s)
-  g.globalAlpha = hot ? 1 : 0.9
+  g.shadowColor = color
+  g.shadowBlur = hot ? 38 : 24
   g.fillStyle = color
+  g.globalAlpha = hot ? 1 : 0.85
   for (const d of paths) g.fill(new Path2D(d))
   g.restore()
+  if (hot) {
+    g.fillStyle = color
+    g.shadowColor = color
+    g.shadowBlur = 12
+    g.font = '34px VT323, "Courier New", monospace'
+    g.textAlign = 'center'
+    g.textBaseline = 'middle'
+    g.fillText(item.label.toUpperCase(), SCREEN_W / 2, SCREEN_H - 30)
+    g.shadowBlur = 0
+  }
+  // scanlines
+  g.fillStyle = 'rgba(0,0,0,0.3)'
+  for (let y = 0; y < SCREEN_H; y += 3) g.fillRect(0, y, SCREEN_W, 1)
+  // vignette
+  const v = g.createRadialGradient(SCREEN_W / 2, SCREEN_H / 2, SCREEN_H * 0.3, SCREEN_W / 2, SCREEN_H / 2, SCREEN_W * 0.72)
+  v.addColorStop(0, 'rgba(0,0,0,0)')
+  v.addColorStop(1, 'rgba(0,0,0,0.7)')
+  g.fillStyle = v
+  g.fillRect(0, 0, SCREEN_W, SCREEN_H)
   const tex = new THREE.CanvasTexture(cv)
   tex.colorSpace = THREE.SRGBColorSpace
   tex.anisotropy = 4
   return tex
 }
 
-function labelTexture(text: string, color: string) {
-  const cv = document.createElement('canvas')
-  const g = cv.getContext('2d')!
-  g.font = `64px ${FONT}`
-  cv.width = Math.ceil(g.measureText(text).width + 24)
-  cv.height = 88
-  g.font = `64px ${FONT}`
-  g.textAlign = 'center'
-  g.textBaseline = 'middle'
-  g.fillStyle = color
-  g.fillText(text, cv.width / 2, 46)
-  const t = new THREE.CanvasTexture(cv)
-  t.colorSpace = THREE.SRGBColorSpace
-  t.anisotropy = 4
-  return { t, aspect: cv.width / cv.height }
+/** A glass front that bulges toward you (a tube, not a flat panel). */
+function tubeGeometry(w: number, h: number, bulge: number) {
+  const geo = new THREE.PlaneGeometry(w, h, 14, 12)
+  const pos = geo.getAttribute('position')
+  for (let i = 0; i < pos.count; i++) {
+    const nx = pos.getX(i) / (w / 2)
+    const ny = pos.getY(i) / (h / 2)
+    pos.setZ(i, bulge * (1 - nx * nx * 0.9) * (1 - ny * ny * 0.9))
+  }
+  geo.computeVertexNormals()
+  return geo
 }
 
-/** The slate itself: dark with chalk-dust smudges where it has been wiped. */
-function slateTexture() {
-  const cv = document.createElement('canvas')
-  cv.width = 512
-  cv.height = 160
-  const g = cv.getContext('2d')!
-  g.fillStyle = '#2b3431'
-  g.fillRect(0, 0, 512, 160)
-  let seed = 11
-  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
-  for (let i = 0; i < 26; i++) {
-    g.fillStyle = `rgba(207,198,168,${0.025 + rnd() * 0.05})`
-    g.beginPath()
-    g.ellipse(rnd() * 512, rnd() * 160, 30 + rnd() * 90, 8 + rnd() * 24, rnd() * 3, 0, Math.PI * 2)
-    g.fill()
-  }
-  const t = new THREE.CanvasTexture(cv)
-  t.colorSpace = THREE.SRGBColorSpace
-  return t
-}
+const TV_W = 0.4
+const TV_H = 0.34
+const SCR_W = 0.29
+const SCR_H = SCR_W * (SCREEN_H / SCREEN_W)
 
 interface Live {
   item: HudItem
   key: string
-  base: THREE.Mesh
-  hot: THREE.Mesh
-  label: THREE.Mesh
+  pivot: THREE.Group // swings from its cables
+  glass: THREE.Mesh
+  idle: THREE.CanvasTexture
+  hot: THREE.CanvasTexture
   hit: THREE.Mesh
   x: number
+  phase: number
   glow: number // 0–1 eased hover
 }
 
@@ -155,100 +224,104 @@ export class HudBoard {
   hovered: string | null = null
   private live = new Map<string, Live>()
   private disposables: Array<{ dispose(): void }> = []
-  private msgCv = document.createElement('canvas')
-  private msgTex!: THREE.CanvasTexture
+  private time = 0
+  // the LED panel
+  private ledCv = document.createElement('canvas')
+  private ledTex: THREE.CanvasTexture
+  private ledPivot = new THREE.Group()
   private msg = ''
-  private written = 1 // 0–1: how much of the message has been written so far
-
-  /** The next thing to do, chalked on the slate (written left to right when it changes). */
-  setMessage(text: string) {
-    if (text === this.msg) return
-    this.msg = text
-    this.written = 0
-    this.drawMessage()
-  }
-
-  private drawMessage() {
-    const cv = this.msgCv
-    const g = cv.getContext('2d')!
-    g.clearRect(0, 0, cv.width, cv.height)
-    if (!this.msg) {
-      this.msgTex.needsUpdate = true
-      return
-    }
-    // wrap to two lines, as large as fits
-    let size = 74
-    let lines: string[] = []
-    for (; size >= 44; size -= 6) {
-      g.font = `700 ${size}px Caveat, "IM Fell English", cursive`
-      lines = wrap(g, this.msg, cv.width - 40)
-      if (lines.length * size * 1.08 <= cv.height - 10) break
-    }
-    g.save()
-    // pencil-and-chalk: a very slight lean and a soft glow
-    g.fillStyle = PALETTE.chalk
-    g.shadowColor = 'rgba(207,198,168,0.35)'
-    g.shadowBlur = 6
-    g.textBaseline = 'middle'
-    const top = cv.height / 2 - ((lines.length - 1) * size * 1.08) / 2
-    // only the written part (a soft-edged wipe from the left)
-    const reveal = Math.max(0, this.written) * (cv.width + 60)
-    g.beginPath()
-    g.rect(0, 0, reveal, cv.height)
-    g.clip()
-    lines.forEach((l, i) => {
-      g.save()
-      g.translate(24, top + i * size * 1.08)
-      g.rotate(-0.012 + i * 0.01)
-      g.fillText(l, 0, 0)
-      g.restore()
-    })
-    g.restore()
-    this.msgTex.needsUpdate = true
-  }
+  private shown = 0 // characters spelled so far
+  private ledDrawn = ''
 
   constructor() {
+    const plastic = new THREE.MeshStandardMaterial({ color: 0x2c2823, roughness: 0.55 })
     const wood = new THREE.MeshStandardMaterial({ color: hex(PALETTE.walnut), roughness: 0.6 })
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(BOARD_W + 0.08, BOARD_H + 0.08, 0.04), wood)
-    const slateTex = slateTexture()
-    const slate = new THREE.Mesh(new THREE.PlaneGeometry(BOARD_W, BOARD_H), new THREE.MeshStandardMaterial({ map: slateTex, roughness: 0.9, emissive: 0x2a3633, emissiveIntensity: 0.6 }))
-    slate.position.z = 0.022
-    this.group.add(frame, slate)
-    // what to do next, written in chalk on the right half
-    this.msgCv.width = 1024
-    this.msgCv.height = Math.round((1024 * MSG_H) / MSG_W)
-    this.msgTex = new THREE.CanvasTexture(this.msgCv)
-    this.msgTex.colorSpace = THREE.SRGBColorSpace
-    this.msgTex.anisotropy = 4
-    const msg = new THREE.Mesh(new THREE.PlaneGeometry(MSG_W, MSG_H), new THREE.MeshBasicMaterial({ map: this.msgTex, transparent: true, depthWrite: false, fog: false }))
-    msg.position.set(MSG_X, 0, 0.03)
-    this.group.add(msg)
-    this.disposables.push(this.msgTex, msg.geometry, msg.material as THREE.Material)
-    // the two chains it hangs by, lost in the dark above
-    const chain = new THREE.MeshStandardMaterial({ color: 0x3a342e, roughness: 0.5, metalness: 0.5 })
-    for (const x of [-BOARD_W * 0.42, BOARD_W * 0.42]) {
-      const c = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 2, 6), chain)
-      c.position.set(x, BOARD_H / 2 + 1, 0)
-      this.group.add(c)
-    }
-    // its own lamp, from above and in front: warm, close, small
-    for (const x of [-0.7, 0.9]) {
-      const lamp = new THREE.PointLight(hex(PALETTE.amber), 1.3, 2.6, 1.6)
-      lamp.position.set(x, BOARD_H / 2 + 0.35, 0.7)
+    const cable = new THREE.MeshStandardMaterial({ color: 0x14110f, roughness: 0.7 })
+    this.disposables.push(plastic, wood, cable)
+
+    // the LED panel: a black case with a smoked window
+    this.ledCv.width = COLS * CELL_W + 40
+    this.ledCv.height = ROWS * CELL_H + 30
+    this.ledTex = new THREE.CanvasTexture(this.ledCv)
+    this.ledTex.colorSpace = THREE.SRGBColorSpace
+    this.ledTex.anisotropy = 4
+    const body = new THREE.Mesh(new THREE.BoxGeometry(LED_W + 0.08, LED_H + 0.08, 0.08), plastic)
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(LED_W, LED_H), new THREE.MeshBasicMaterial({ map: this.ledTex, color: new THREE.Color(1.35, 1.35, 1.35), toneMapped: false, fog: false }))
+    glass.position.z = 0.041
+    this.ledPivot.add(body, glass)
+    this.ledPivot.position.set(LED_X, 0, 0)
+    this.group.add(this.ledPivot)
+    for (const x of [-LED_W * 0.4, LED_W * 0.4]) this.addCable(cable, this.ledPivot, x, LED_H / 2 + 0.04)
+    this.disposables.push(this.ledTex, body.geometry, glass.geometry, glass.material as THREE.Material)
+
+    // a lamp for the case and the sets (the slate had its own: the warm light on the wood and plastic)
+    for (const x of [-1.5, -0.6, 0.8]) {
+      const lamp = new THREE.PointLight(hex(PALETTE.amber), 2.4, 3, 1.6)
+      lamp.position.set(x, 0.55, 0.9)
       this.group.add(lamp)
     }
-    this.group.position.set(0, SLATE_Y, WALL_Z)
-    this.disposables.push(slateTex, frame.geometry, slate.geometry, wood, chain, slate.material as THREE.Material)
+    this.group.position.set(0, HANG_Y, WALL_Z)
+    this.drawLed()
   }
 
-  /** The buttons (replaces the previous set; unchanged ones keep their pictures). */
+  private addCable(mat: THREE.Material, parent: THREE.Object3D, x: number, y: number) {
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 2.2, 6), mat)
+    c.position.set(x, y + 1.1, 0)
+    parent.add(c)
+    this.disposables.push(c.geometry)
+  }
+
+  /** The next thing to do, spelled on the LED panel (a letter at a time when it changes). */
+  setMessage(text: string) {
+    const t = ledText(text)
+    if (t === this.msg) return
+    this.msg = t
+    this.shown = 0
+    this.drawLed()
+  }
+
+  private drawLed() {
+    const lines = wrapLed(this.msg)
+    let left = Math.floor(this.shown)
+    const key = `${this.msg}|${left}|${Math.floor(this.time * 2) % 2}`
+    if (key === this.ledDrawn) return
+    this.ledDrawn = key
+    const g = this.ledCv.getContext('2d')!
+    g.fillStyle = '#020a05'
+    g.fillRect(0, 0, this.ledCv.width, this.ledCv.height)
+    const blink = Math.floor(this.time * 2) % 2 === 0
+    for (let r = 0; r < ROWS; r++) {
+      const line = lines[r] ?? ''
+      for (let c = 0; c < COLS; c++) {
+        const x = 20 + c * CELL_W + 3
+        const y = 15 + r * CELL_H + 4
+        const spelled = c < line.length && left-- > 0
+        const ch = spelled ? line[c] : ' '
+        drawGlyph(g, ch, x, y, CELL_W - 8, CELL_H - 12)
+      }
+    }
+    // the cursor: an underline after the last letter spelled
+    if (blink && lines.length) {
+      let n = Math.floor(this.shown)
+      for (let r = 0; r < lines.length; r++) {
+        if (n <= lines[r].length) {
+          drawGlyph(g, '_', 20 + Math.min(n, COLS - 1) * CELL_W + 3, 15 + r * CELL_H + 4, CELL_W - 8, CELL_H - 12)
+          break
+        }
+        n -= lines[r].length
+      }
+    }
+    this.ledTex.needsUpdate = true
+  }
+
+  /** The televisions (replaces the previous set; unchanged ones keep their pictures). */
   set(items: HudItem[]) {
     const n = items.length
     const seen = new Set<string>()
     items.forEach((item, i) => {
       seen.add(item.id)
       const key = `${item.label}|${item.danger}|${item.svg.length}`
-      const x = ICONS_X + (i - (n - 1) / 2) * SPACING
+      const x = TV_X0 + (i - (n - 1) / 2) * TV_STEP
       const cur = this.live.get(item.id)
       if (cur && cur.key === key) {
         cur.item = item
@@ -256,48 +329,77 @@ export class HudBoard {
         return
       }
       if (cur) this.remove(cur)
-      this.live.set(item.id, this.build(item, key, x))
+      this.live.set(item.id, this.build(item, key, x, i))
     })
     for (const [id, l] of this.live) if (!seen.has(id)) this.remove(l)
   }
 
-  private build(item: HudItem, key: string, x: number): Live {
-    const plane = (tex: THREE.Texture | null, opacity: number) =>
-      new THREE.Mesh(new THREE.PlaneGeometry(ICON_D, ICON_D), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity, depthWrite: false, fog: false, color: new THREE.Color(0.92, 0.92, 0.92) }))
-    const base = plane(null, 1)
-    const hot = plane(null, 0)
-    ;(base.material as THREE.MeshBasicMaterial).map = iconTexture(item, false)
-    ;(hot.material as THREE.MeshBasicMaterial).map = iconTexture(item, true)
-    const { t, aspect } = labelTexture(item.label, item.danger ? RED : PALETTE.chalk)
-    const label = new THREE.Mesh(new THREE.PlaneGeometry(0.11 * aspect, 0.11), new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0, depthWrite: false, fog: false }))
-    label.position.set(x, -BOARD_H / 2 + 0.08, 0.03)
-    base.position.set(x, 0.06, 0.03)
-    hot.position.set(x, 0.06, 0.031)
-    const hit = new THREE.Mesh(new THREE.CircleGeometry(ICON_D * (isTouch ? 0.8 : 0.55), 20), new THREE.MeshBasicMaterial({ visible: false }))
-    hit.position.set(x, 0.06, 0.032)
+  private build(item: HudItem, key: string, x: number, i: number): Live {
+    const pivot = new THREE.Group() // its origin is where the cables meet the ceiling's end: it swings from here
+    pivot.position.set(x, TV_H / 2 + 0.03, 0)
+    const set = new THREE.Group()
+    set.position.y = -(TV_H / 2 + 0.03)
+    pivot.add(set)
+    const plastic = new THREE.MeshStandardMaterial({ color: item.danger ? 0x4a2a24 : 0x3a342c, roughness: 0.5 })
+    // the cabinet: a front box and a narrower tube housing behind it
+    const front = new THREE.Mesh(new THREE.BoxGeometry(TV_W, TV_H, 0.1), plastic)
+    const back = new THREE.Mesh(new THREE.BoxGeometry(TV_W * 0.72, TV_H * 0.74, 0.14), plastic)
+    back.position.z = -0.12
+    front.castShadow = back.castShadow = true
+    // the bezel round the screen, and two knobs
+    const bezel = new THREE.Mesh(new THREE.BoxGeometry(SCR_W + 0.03, SCR_H + 0.03, 0.01), new THREE.MeshStandardMaterial({ color: 0x0a0907, roughness: 0.4 }))
+    bezel.position.z = 0.052
+    const knobMat = new THREE.MeshStandardMaterial({ color: 0x8a8378, roughness: 0.4, metalness: 0.6 })
+    const knobs = [0.05, -0.02].map((y) => {
+      const k = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.0085, 0.012, 12), knobMat)
+      k.rotation.x = Math.PI / 2
+      k.position.set(TV_W / 2 - 0.026, y * 1.3, 0.056)
+      return k
+    })
+    // the glass: bulging, showing the picture
+    const idle = screenTexture(item, false)
+    const hot = screenTexture(item, true)
+    const glassGeo = tubeGeometry(SCR_W, SCR_H, 0.012)
+    const glass = new THREE.Mesh(glassGeo, new THREE.MeshBasicMaterial({ map: idle, color: new THREE.Color(1.15, 1.15, 1.15), toneMapped: false, fog: false }))
+    glass.position.z = 0.056
+    // the cables: two to the ceiling, from the top of the set
+    const cableMat = new THREE.MeshStandardMaterial({ color: 0x14110f, roughness: 0.7 })
+    for (const dx of [-TV_W * 0.34, TV_W * 0.34]) {
+      const c = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 2.2, 6), cableMat)
+      c.position.set(dx, TV_H / 2 + 1.1, 0)
+      set.add(c)
+    }
+    set.add(front, back, bezel, glass, ...knobs)
+    const hit = new THREE.Mesh(new THREE.BoxGeometry((TV_W + 0.06) * HUD_HIT_SCALE, (TV_H + 0.04) * HUD_HIT_SCALE, 0.12), new THREE.MeshBasicMaterial({ visible: false }))
     hit.userData.hudId = item.id
-    this.group.add(base, hot, label, hit)
-    return { item, key, base, hot, label, hit, x, glow: 0 }
+    set.add(hit)
+    this.group.add(pivot)
+    this.disposables.push(plastic, front.geometry, back.geometry, bezel.geometry, bezel.material as THREE.Material, knobMat, glassGeo, cableMat, hit.geometry)
+    this.disposables.push(...knobs.map((k) => k.geometry))
+    return { item, key, pivot: set.parent as THREE.Group, glass, idle, hot, hit, x, phase: i * 1.7, glow: 0 }
   }
 
   private remove(l: Live) {
-    this.group.remove(l.base, l.hot, l.label, l.hit)
-    for (const m of [l.base, l.hot, l.label]) {
-      const mat = m.material as THREE.MeshBasicMaterial
-      mat.map?.dispose()
-      mat.dispose()
-      m.geometry.dispose()
-    }
+    this.group.remove(l.pivot)
+    l.idle.dispose()
+    l.hot.dispose()
+    ;(l.glass.material as THREE.Material).dispose()
     l.hit.geometry.dispose()
     ;(l.hit.material as THREE.Material).dispose()
     this.live.delete(l.item.id)
   }
 
-  /** Per frame: ease the hover glow; returns the button under the ray (null when `enabled` is off). */
+  /** Per frame: sway, flicker, spell the message; returns the set under the ray (null when `enabled` is off). */
   update(dt: number, raycaster: THREE.Raycaster, enabled: boolean): string | null {
-    if (this.written < 1) {
-      this.written = Math.min(1, this.written + dt / 0.9) // the line takes a moment to write
-      this.drawMessage()
+    this.time += dt
+    const t = this.time
+    // everything sways a little on its cables, the way the lamp does
+    this.ledPivot.rotation.z = Math.sin(t * 0.5 + 1.3) * 0.006
+    this.ledPivot.rotation.x = Math.sin(t * 0.37) * 0.004
+    for (const l of this.live.values()) {
+      l.pivot.position.x = l.x
+      l.pivot.rotation.z = Math.sin(t * 0.62 + l.phase) * 0.02
+      l.pivot.rotation.x = Math.sin(t * 0.43 + l.phase * 1.3) * 0.012
     }
     this.group.updateMatrixWorld(true)
     const hit = enabled ? raycaster.intersectObjects([...this.live.values()].map((l) => l.hit), false)[0] : undefined
@@ -305,15 +407,18 @@ export class HudBoard {
     for (const l of this.live.values()) {
       const on = this.hovered === l.item.id
       l.glow += ((on ? 1 : 0) - l.glow) * Math.min(1, dt * 14)
-      for (const m of [l.base, l.hot, l.hit]) m.position.x = l.x
-      l.label.position.x = l.x
-      const s = 1 + l.glow * 0.1
-      l.base.scale.setScalar(s)
-      l.hot.scale.setScalar(s)
-      ;(l.hot.material as THREE.MeshBasicMaterial).opacity = l.glow
-      ;(l.base.material as THREE.MeshBasicMaterial).opacity = 1 - l.glow * 0.4
-      ;(l.label.material as THREE.MeshBasicMaterial).opacity = l.glow
+      const mat = l.glass.material as THREE.MeshBasicMaterial
+      const hotMap = l.glow > 0.5 ? l.hot : l.idle
+      if (mat.map !== hotMap) {
+        mat.map = hotMap
+        mat.needsUpdate = true
+      }
+      const flicker = 1 + Math.sin(t * 47 + l.phase) * 0.03 + Math.sin(t * 13 + l.phase * 2) * 0.03
+      mat.color.setScalar((1.1 + l.glow * 0.5) * flicker)
     }
+    // the message is spelled out, about thirty letters a second
+    if (this.shown < this.msg.length) this.shown = Math.min(this.msg.length, this.shown + dt * 30)
+    this.drawLed()
     return this.hovered
   }
 
@@ -321,7 +426,7 @@ export class HudBoard {
     return id ? this.live.get(id)?.item.hint ?? null : null
   }
 
-  /** Screen point of a button (tests). */
+  /** Screen point of a set (tests). */
   screenOf(id: string, camera: THREE.Camera, rect: DOMRect) {
     const l = this.live.get(id)
     if (!l) return null
@@ -335,3 +440,6 @@ export class HudBoard {
     this.disposables.forEach((d) => d.dispose())
   }
 }
+
+// kept for touch screens: the sets are bigger targets there
+export const HUD_HIT_SCALE = isTouch ? 1.25 : 1

@@ -42,6 +42,13 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
   (vacía = pedida, llena = lograda, roja = de más) se dibujan trazo por trazo con rough.js.
   Muestra ronda, base, sentido, puntos, lo que pidió y lleva cada equipo, kamikazes y los jugadores
   con su estado. Reemplaza al papelito fijo de la esquina y al botón de la pizarra.
+- **Pizarra reemplazada por televisores CRT y un panel LED:** historial, reglas, ajustes y salir son
+  cuatro televisores de tubo colgados de cables al fondo de la sala, con el dibujo en fósforo verde
+  (salir en ámbar) sobre vidrio abombado con líneas de barrido y titileo; al pasar el mouse el
+  televisor se enciende más y escribe su nombre en la pantalla. Todo se balancea apenas sobre sus
+  cables, como la lámpara. Al lado, un panel de LED verde de catorce segmentos deletrea qué hacer
+  (letra por letra, con cursor) y la descripción del botón bajo el mouse. Sigue sin tapar ningún
+  jugador con 4, 6 u 8. *(reemplaza a la pizarra de tiza de abajo)*
 - **La pizarra dice qué hacer:** la tira de texto sobre la mesa («Sorteo: hacé click en el
   mazo…», «Tu turno…», «Declara …») ahora está escrita con tiza en la mitad derecha de la pizarra
   (que se ensanchó), y se escribe de izquierda a derecha cada vez que cambia; también aparecen
