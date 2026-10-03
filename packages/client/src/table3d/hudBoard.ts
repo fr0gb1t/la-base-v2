@@ -16,14 +16,32 @@ export interface HudItem {
   danger?: boolean // chalked in red
 }
 
-const BOARD_W = 1.8
+const BOARD_W = 2.9
 const BOARD_H = 0.5
 const ICON_D = 0.21
 const SPACING = 0.34
+const ICONS_X = -0.82 // the middle of the row of buttons (the left half of the slate)
+const MSG_X = 0.62 // the middle of the chalked message (the right half)
+const MSG_W = 1.62
+const MSG_H = 0.34
 const FONT = '"IM Fell English SC", Georgia, serif'
 const RED = '#c2483c'
 const SLATE_Y = 1.7 // centre height: above the heads, inside the default view
 const WALL_Z = -(CHAIR_R + 0.78) // behind the far chairs
+
+function wrap(g: CanvasRenderingContext2D, text: string, width: number): string[] {
+  const lines: string[] = []
+  let cur = ''
+  for (const word of text.split(' ')) {
+    const test = cur ? `${cur} ${word}` : word
+    if (g.measureText(test).width > width && cur) {
+      lines.push(cur)
+      cur = word
+    } else cur = test
+  }
+  if (cur) lines.push(cur)
+  return lines
+}
 
 function chalkRing(g: CanvasRenderingContext2D, size: number, color: string, w: number, seed: number) {
   // a hand-drawn ring: two passes, slightly off, not quite closed
@@ -137,6 +155,57 @@ export class HudBoard {
   hovered: string | null = null
   private live = new Map<string, Live>()
   private disposables: Array<{ dispose(): void }> = []
+  private msgCv = document.createElement('canvas')
+  private msgTex!: THREE.CanvasTexture
+  private msg = ''
+  private written = 1 // 0–1: how much of the message has been written so far
+
+  /** The next thing to do, chalked on the slate (written left to right when it changes). */
+  setMessage(text: string) {
+    if (text === this.msg) return
+    this.msg = text
+    this.written = 0
+    this.drawMessage()
+  }
+
+  private drawMessage() {
+    const cv = this.msgCv
+    const g = cv.getContext('2d')!
+    g.clearRect(0, 0, cv.width, cv.height)
+    if (!this.msg) {
+      this.msgTex.needsUpdate = true
+      return
+    }
+    // wrap to two lines, as large as fits
+    let size = 74
+    let lines: string[] = []
+    for (; size >= 44; size -= 6) {
+      g.font = `700 ${size}px Caveat, "IM Fell English", cursive`
+      lines = wrap(g, this.msg, cv.width - 40)
+      if (lines.length * size * 1.08 <= cv.height - 10) break
+    }
+    g.save()
+    // pencil-and-chalk: a very slight lean and a soft glow
+    g.fillStyle = PALETTE.chalk
+    g.shadowColor = 'rgba(207,198,168,0.35)'
+    g.shadowBlur = 6
+    g.textBaseline = 'middle'
+    const top = cv.height / 2 - ((lines.length - 1) * size * 1.08) / 2
+    // only the written part (a soft-edged wipe from the left)
+    const reveal = Math.max(0, this.written) * (cv.width + 60)
+    g.beginPath()
+    g.rect(0, 0, reveal, cv.height)
+    g.clip()
+    lines.forEach((l, i) => {
+      g.save()
+      g.translate(24, top + i * size * 1.08)
+      g.rotate(-0.012 + i * 0.01)
+      g.fillText(l, 0, 0)
+      g.restore()
+    })
+    g.restore()
+    this.msgTex.needsUpdate = true
+  }
 
   constructor() {
     const wood = new THREE.MeshStandardMaterial({ color: hex(PALETTE.walnut), roughness: 0.6 })
@@ -145,6 +214,16 @@ export class HudBoard {
     const slate = new THREE.Mesh(new THREE.PlaneGeometry(BOARD_W, BOARD_H), new THREE.MeshStandardMaterial({ map: slateTex, roughness: 0.9, emissive: 0x2a3633, emissiveIntensity: 0.6 }))
     slate.position.z = 0.022
     this.group.add(frame, slate)
+    // what to do next, written in chalk on the right half
+    this.msgCv.width = 1024
+    this.msgCv.height = Math.round((1024 * MSG_H) / MSG_W)
+    this.msgTex = new THREE.CanvasTexture(this.msgCv)
+    this.msgTex.colorSpace = THREE.SRGBColorSpace
+    this.msgTex.anisotropy = 4
+    const msg = new THREE.Mesh(new THREE.PlaneGeometry(MSG_W, MSG_H), new THREE.MeshBasicMaterial({ map: this.msgTex, transparent: true, depthWrite: false, fog: false }))
+    msg.position.set(MSG_X, 0, 0.03)
+    this.group.add(msg)
+    this.disposables.push(this.msgTex, msg.geometry, msg.material as THREE.Material)
     // the two chains it hangs by, lost in the dark above
     const chain = new THREE.MeshStandardMaterial({ color: 0x3a342e, roughness: 0.5, metalness: 0.5 })
     for (const x of [-BOARD_W * 0.42, BOARD_W * 0.42]) {
@@ -153,9 +232,11 @@ export class HudBoard {
       this.group.add(c)
     }
     // its own lamp, from above and in front: warm, close, small
-    const lamp = new THREE.PointLight(hex(PALETTE.amber), 1.6, 2.4, 1.6)
-    lamp.position.set(0, BOARD_H / 2 + 0.35, 0.7)
-    this.group.add(lamp)
+    for (const x of [-0.7, 0.9]) {
+      const lamp = new THREE.PointLight(hex(PALETTE.amber), 1.3, 2.6, 1.6)
+      lamp.position.set(x, BOARD_H / 2 + 0.35, 0.7)
+      this.group.add(lamp)
+    }
     this.group.position.set(0, SLATE_Y, WALL_Z)
     this.disposables.push(slateTex, frame.geometry, slate.geometry, wood, chain, slate.material as THREE.Material)
   }
@@ -167,7 +248,7 @@ export class HudBoard {
     items.forEach((item, i) => {
       seen.add(item.id)
       const key = `${item.label}|${item.danger}|${item.svg.length}`
-      const x = (i - (n - 1) / 2) * SPACING
+      const x = ICONS_X + (i - (n - 1) / 2) * SPACING
       const cur = this.live.get(item.id)
       if (cur && cur.key === key) {
         cur.item = item
@@ -214,6 +295,10 @@ export class HudBoard {
 
   /** Per frame: ease the hover glow; returns the button under the ray (null when `enabled` is off). */
   update(dt: number, raycaster: THREE.Raycaster, enabled: boolean): string | null {
+    if (this.written < 1) {
+      this.written = Math.min(1, this.written + dt / 0.9) // the line takes a moment to write
+      this.drawMessage()
+    }
     this.group.updateMatrixWorld(true)
     const hit = enabled ? raycaster.intersectObjects([...this.live.values()].map((l) => l.hit), false)[0] : undefined
     this.hovered = hit ? (hit.object.userData.hudId as string) : null

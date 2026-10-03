@@ -35,6 +35,18 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
   jugadores, más chico y más cerca tuyo). Sin tiempo marca «-:--». `25d49ce`
 
 ### Mesa de juego
+- **El anotador es un objeto de la mesa:** un anotador de espiral con un lápiz encima, en diagonal al
+  montoncito de porotos; al pasar el mouse se levanta un poco y al hacerle clic (o con H) se abre,
+  flotando en el medio de la pantalla, una hoja rayada escrita a mano: los textos y los números se
+  escriben de izquierda a derecha en letra manuscrita, y las rayas, la separación y las estrellas
+  (vacía = pedida, llena = lograda, roja = de más) se dibujan trazo por trazo con rough.js.
+  Muestra ronda, base, sentido, puntos, lo que pidió y lleva cada equipo, kamikazes y los jugadores
+  con su estado. Reemplaza al papelito fijo de la esquina y al botón de la pizarra.
+- **La pizarra dice qué hacer:** la tira de texto sobre la mesa («Sorteo: hacé click en el
+  mazo…», «Tu turno…», «Declara …») ahora está escrita con tiza en la mitad derecha de la pizarra
+  (que se ensanchó), y se escribe de izquierda a derecha cada vez que cambia; también aparecen
+  ahí las descripciones al pasar el mouse por sus botones. El texto sigue en el HTML, oculto,
+  para lectores de pantalla.
 - **Los botones de la partida viven en una pizarra:** anotador, historial, reglas, ajustes y salir
   son cinco botones redondos de tiza sobre una pizarra colgada de dos cadenas al fondo de la sala,
   más arriba que las cabezas de todos (no la tapa ningún jugador, con 4, 6 u 8) y con su propia

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isTouch } from '../lib/device';
-import { SENAS, type Card, type GameState, type AssignedTeam, type Bid, type Sena } from '@la-base/shared';
+import { SENAS, type Card, type GameState, type AssignedTeam, type Sena } from '@la-base/shared';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 import { useGameEvents } from '../hooks/useGameEvents';
@@ -10,13 +10,14 @@ import { RoundScoringPanel } from './RoundScoringPanel';
 import { LiveBidDisplay } from './LiveBidDisplay';
 import { ToastContainer } from './ToastContainer';
 import { TableScene, type TablePlayer } from '../table3d/TableScene';
+import { Anotador, type AnotadorData, type AnotadorTeam } from './Anotador';
 import { SettingsButton, useViewSettings, openSettings } from '../settings/SettingsPanel';
 import { SenaWheel, type WheelOpen } from './senas/SenaWheel';
 import { SenaEcho, type Echo } from './senas/SenaEcho';
 import { Rulebook } from './rulebook/Rulebook';
 import { audioState, onAudioState, resumeAudio } from '../table3d/audio';
 import { GiSpeakerOff } from 'react-icons/gi';
-import { GiExitDoor, GiScrollUnfurled, GiBookCover, GiNotebook, GiBackwardTime, GiCog } from 'react-icons/gi';
+import { GiExitDoor, GiScrollUnfurled, GiBookCover, GiBackwardTime, GiCog } from 'react-icons/gi';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { HudItem } from '../table3d/hudBoard';
 
@@ -25,9 +26,6 @@ import type { HudItem } from '../table3d/hudBoard';
 // Teams are always named from YOUR point of view ("Tu equipo" / "Rivales").
 
 type CopasChoice = 'mantener' | 'invertir';
-type HudMode = 'completo' | 'basico' | 'oculto';
-const HUD_MODES: HudMode[] = ['completo', 'basico', 'oculto'];
-
 function teamName(team?: string) {
   if (team === 'nosotros') return 'Nosotros';
   if (team === 'ellos') return 'Ellos';
@@ -48,33 +46,6 @@ function dealerOf(gs: GameState | null, players: { id: string }[]) {
   const i = players.findIndex((p) => p.id === gs.currentManoPlayerId);
   if (i < 0) return null;
   return players[(i - 1 + players.length) % players.length].id;
-}
-
-const STAR = 'M12 2.2l2.9 6.5 7.1.7-5.3 4.7 1.5 7-6.2-3.6-6.2 3.6 1.5-7L2 9.4l7.1-.7z';
-/** One star of the anotador: hollow = asked, filled = won, filled red = won beyond the bid. */
-function Star({ kind }: { kind: 'owed' | 'on' | 'over' }) {
-  return (
-    <i className={kind === 'owed' ? 'poroto' : `poroto ${kind}`}>
-      <svg viewBox="0 0 24 24" aria-hidden><path d={STAR} /></svg>
-    </i>
-  );
-}
-
-/** Asked bases as stars drawn in ink: hollow = still owed, filled = won, filled red = won beyond the bid. */
-function BidPips({ bid, won }: { bid?: Bid; won: number }) {
-  if (!bid) return <span className="porotos empty">—</span>;
-  const extra = Math.max(0, won - bid.value);
-  return (
-    <span className="porotos" aria-label={`pidió ${bid.value}, lleva ${won}`}>
-      {Array.from({ length: bid.value }, (_, i) => (
-        <Star key={i} kind={i < won ? 'on' : 'owed'} />
-      ))}
-      {Array.from({ length: extra }, (_, i) => (
-        <Star key={`x${i}`} kind="over" />
-      ))}
-      {bid.value === 0 && extra === 0 && <span className="cero">cero</span>}
-    </span>
-  );
 }
 
 const gestureOf = (sena: Sena) => SENAS.find((x) => x.id === sena)?.gesture ?? sena;
@@ -128,14 +99,7 @@ export function GamePage() {
   const [announce, setAnnounce] = useState<{ title: string; sub: string; mine: boolean; key: number } | null>(null);
   // a question asked on the table itself (As de Copas / As de Oros); the DOM keeps hidden buttons
   const [tableAsk, setTableAsk] = useState<'copas' | 'oros' | null>(null);
-  const [hud, setHud] = useState<HudMode>(() => {
-    try {
-      const v = localStorage.getItem('laBase.hud') as HudMode | null;
-      return v && HUD_MODES.includes(v) ? v : 'completo';
-    } catch {
-      return 'completo';
-    }
-  });
+  const [padOpen, setPadOpen] = useState(false); // the scoresheet floating in the middle of the screen
   const myId = currentPlayer?.id || socket?.id || '';
 
   // latest values for socket handlers / scene callbacks
@@ -144,17 +108,7 @@ export function GamePage() {
 
   const flash = useCallback((text: string) => setStamp({ text, key: Date.now() }), []);
 
-  const cycleHud = useCallback(() => {
-    setHud((h) => {
-      const next = HUD_MODES[(HUD_MODES.indexOf(h) + 1) % HUD_MODES.length];
-      try {
-        localStorage.setItem('laBase.hud', next);
-      } catch {
-        /* storage unavailable: the mode just won't persist */
-      }
-      return next;
-    });
-  }, []);
+  const togglePad = useCallback(() => setPadOpen((v) => !v), []);
 
   // ---- mount the scene once
   useEffect(() => {
@@ -195,6 +149,7 @@ export function GamePage() {
       deckClick: () => drawRef.current(),
       clockPress: () => pressBidClock.current?.(),
       hudPress: (id) => hudActions.current[id]?.(),
+      notepadPress: () => setPadOpen((v) => !v),
       error: (message, stack) => {
         const code = latest.current.roomCode;
         socket?.emit('client:error', { roomCode: code, message, stack: stack?.slice(0, 2000), where: 'table3d', ua: navigator.userAgent });
@@ -470,7 +425,7 @@ export function GamePage() {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
-      if (e.key === 'h' || e.key === 'H') cycleHud();
+      if (e.key === 'h' || e.key === 'H') togglePad();
       if (e.key === 'j' || e.key === 'J') setShowLog((v) => !v);
       if (e.key === 'r' || e.key === 'R') setShowRules(true);
       if ((e.key === 'p' || e.key === 'P') && inGame) askSenas();
@@ -480,22 +435,20 @@ export function GamePage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cycleHud, gate, iAmReady, handleReady, inGame, askSenas, tableAsk]);
+  }, [togglePad, gate, iAmReady, handleReady, inGame, askSenas, tableAsk]);
 
   // ---- the controls live on a slate at the back of the room (the DOM keeps hidden buttons)
   const hudActions = useRef<Record<string, () => void>>({});
-  const hudLabel = hud === 'basico' ? 'básico' : hud === 'completo' ? 'completo' : 'oculto';
   useEffect(() => {
     const icon = (el: JSX.Element) => renderToStaticMarkup(el);
     const items: HudItem[] = [
-      { id: 'anotador', label: 'anotador', hint: `Anotador: ${hudLabel} · click para cambiar (H)`, svg: icon(<GiNotebook />) },
       { id: 'historial', label: 'historial', hint: 'Lo que pasó en la partida (J)', svg: icon(<GiBackwardTime />) },
       { id: 'reglas', label: 'reglas', hint: 'El manual de la mesa (R)', svg: icon(<GiBookCover />) },
       { id: 'ajustes', label: 'ajustes', hint: 'Sonido, cámara, dorso, señas (O)', svg: icon(<GiCog />) },
       { id: 'salir', label: 'salir', hint: 'Volver al lobby', svg: icon(<GiExitDoor />), danger: true },
     ];
     sceneRef.current?.setHud(items);
-  }, [hudLabel]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLeaveGame = () => {
     if (socket && roomCode) socket.emit('room:leave', { roomCode });
@@ -506,7 +459,7 @@ export function GamePage() {
     setPlayerHand([]);
     setCurrentPage('lobby');
   };
-  hudActions.current = { anotador: cycleHud, historial: () => setShowLog((v) => !v), reglas: () => setShowRules(true), ajustes: () => openSettings(true), salir: handleLeaveGame };
+  hudActions.current = { historial: () => setShowLog((v) => !v), reglas: () => setShowRules(true), ajustes: () => openSettings(true), salir: handleLeaveGame };
 
   const handleInitialDraw = () => {
     if (!socket || !roomCode) return;
@@ -585,32 +538,50 @@ export function GamePage() {
         : `As de Oros: elige ${nameOf(gameState.pendingOrosChoice.chooserPlayerId)}`;
   }
 
-  const column = (team: AssignedTeam) => {
+  useEffect(() => {
+    sceneRef.current?.setHudMessage(status || phaseLine);
+  }, [status, phaseLine]);
+
+  // the scoresheet's content (written by hand when the notepad opens)
+  const sheetTeam = (team: AssignedTeam): AnotadorTeam => {
     const bid = bidOf(team);
-    const won = gameState?.basesWon[team] ?? 0;
-    const acting =
-      (gameState?.phase === 'bidding' && teamOfPlayer(gameState.currentBidPlayerId) === team) ||
-      (gameState?.phase === 'playing' && teamOfPlayer(gameState.currentTurnPlayerId) === team);
-    return (
-      <div className={`pad-col ${team === myTeam ? 'mine' : 'rival'} ${acting ? 'acting' : ''}`}>
-        <div className="pad-team">
-          {relLabel(team)}
-          <small>{teamName(team)}</small>
-        </div>
-        <div className="pad-pts">{gameState?.scores[team] ?? 0}</div>
-        <div className="pad-row">
-          <span>pidió</span>
-          <b>{bid ? bid.value : gameState?.phase === 'bidding' ? '…' : '—'}</b>
-          {bid?.isKamikaze && <span className="kami">kamikaze</span>}
-        </div>
-        <div className="pad-row">
-          <span>lleva</span>
-          <b>{won}</b>
-        </div>
-        <BidPips bid={bid} won={won} />
-        {hud === 'completo' && <div className="pad-foot">kamikazes {gameState?.kamikazesRemaining[team] ?? 0}</div>}
-      </div>
-    );
+    return {
+      label: relLabel(team),
+      sub: teamName(team),
+      score: gameState?.scores[team] ?? 0,
+      asked: bid ? String(bid.value) : gameState?.phase === 'bidding' ? '…' : '—',
+      kamikaze: Boolean(bid?.isKamikaze),
+      won: gameState?.basesWon[team] ?? 0,
+      bid: bid ? bid.value : null,
+      kamikazes: gameState?.kamikazesRemaining[team] ?? 0,
+      mine: team === myTeam,
+      acting:
+        (gameState?.phase === 'bidding' && teamOfPlayer(gameState.currentBidPlayerId) === team) ||
+        (gameState?.phase === 'playing' && teamOfPlayer(gameState.currentTurnPlayerId) === team),
+    };
+  };
+  const sheet: AnotadorData = {
+    round: gameState ? gameState.roundIndex + 1 : 0,
+    rounds: gameState?.structureSequence.length ?? 0,
+    tiebreak: Boolean(gameState?.tiebreak),
+    base: Math.min(basesPlayed + (gate ? 0 : 1), maxBases),
+    bases: maxBases,
+    clockwise: gameState?.playDirection === 'horario',
+    teams: [sheetTeam(myTeam), sheetTeam(rivalTeam)],
+    players: roomPlayers.map((p) => ({
+      name: p.id === myId ? `${p.name} (vos)` : p.name,
+      cards: p.handCount ?? 0,
+      tags: [
+        p.id === gameState?.currentManoPlayerId && gameState?.phase !== 'initial_draw' ? 'mano' : '',
+        p.id === gameState?.currentTurnPlayerId && gameState?.phase === 'playing' ? 'juega' : '',
+        p.id === gameState?.currentBidPlayerId && gameState?.phase === 'bidding' ? 'declara' : '',
+        p.isBot ? 'bot' : '',
+        p.isConnected ? '' : 'se fue',
+      ].filter(Boolean).join(' · '),
+      mine: p.team === myTeam,
+      ready: gate ? gate.readyPlayerIds.includes(p.id) : null,
+    })),
+    room: roomCode || '',
   };
 
   const gateWinner = gate ? roomPlayers.find((p) => p.id === gate.winnerPlayerId) : null;
@@ -642,47 +613,7 @@ export function GamePage() {
       {wheel && inGame && <SenaWheel open={wheel} onPick={makeSena} onAsk={askSenas} onClose={closeWheel} />}
       <div ref={mountRef} className="table-canvas" />
 
-      <header className={`hud hud-${hud}`}>
-        {hud !== 'oculto' ? (
-          <div className="pad" aria-label="Anotador">
-            <div className="pad-head">
-              <span>Ronda {gameState ? gameState.roundIndex + 1 : 0}<small> de {gameState?.structureSequence.length ?? 0}{gameState?.tiebreak ? ' · desempate' : ''}</small></span>
-              <span>base {Math.min(basesPlayed + (gate ? 0 : 1), maxBases)}<small> de {maxBases}</small></span>
-              <span className="pad-dir" title={gameState?.playDirection === 'horario' ? 'sentido horario' : 'sentido antihorario'}>
-                {gameState?.playDirection === 'horario' ? '↻' : '↺'}
-              </span>
-            </div>
-            <div className="pad-cols">
-              {column(myTeam)}
-              {column(rivalTeam)}
-            </div>
-            {hud === 'completo' && (
-              <ul className="pad-players">
-                {roomPlayers.map((p) => {
-                  const tags = [
-                    p.id === gameState?.currentManoPlayerId && gameState?.phase !== 'initial_draw' ? 'mano' : '',
-                    p.id === gameState?.currentTurnPlayerId && gameState?.phase === 'playing' ? 'juega' : '',
-                    p.id === gameState?.currentBidPlayerId && gameState?.phase === 'bidding' ? 'declara' : '',
-                    p.isBot ? 'bot' : '',
-                    p.isConnected ? '' : 'se fue',
-                  ].filter(Boolean);
-                  const ready = gate ? gate.readyPlayerIds.includes(p.id) : null;
-                  return (
-                    <li key={p.id} className={p.team === myTeam ? 'mine' : 'rival'}>
-                      <span className="pad-name">{p.id === myId ? `${p.name} (vos)` : p.name}</span>
-                      <span className="pad-hand">{p.handCount ?? 0}</span>
-                      <span className="pad-tags">{tags.join(' · ')}</span>
-                      {ready !== null && <span className={ready ? 'pad-ready ok' : 'pad-ready'}>{ready ? '✓' : '…'}</span>}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            <div className="pad-foot-line">mesa {roomCode || '…'}</div>
-          </div>
-        ) : (
-          <div />
-        )}
+      <header className="hud">
         <div className="rotate-hint">girá el celular para jugar mejor</div>
         <button
           type="button"
@@ -693,13 +624,15 @@ export function GamePage() {
           señas
         </button>
         <nav className="sr-only" aria-label="Controles de la partida">
-          <button className="hud-tab" onClick={cycleHud} title="Tecla H"><GiScrollUnfurled aria-hidden /> anotador: {hudLabel}</button>
+          <button className="hud-tab" onClick={togglePad} title="Tecla H"><GiScrollUnfurled aria-hidden /> anotador</button>
           <button className="hud-tab" onClick={() => setShowLog((v) => !v)} title="Tecla J"><GiBookCover aria-hidden /> historial</button>
           <button className="hud-tab" onClick={() => setShowRules(true)} title="Tecla R"><GiScrollUnfurled aria-hidden /> reglas</button>
           <SettingsButton />
           <button className="hud-tab danger" onClick={handleLeaveGame}><GiExitDoor aria-hidden /> salir</button>
         </nav>
       </header>
+
+      {padOpen && <Anotador data={sheet} onClose={() => setPadOpen(false)} />}
 
       {showLog && (
         <aside className="pad log-pad" aria-label="Historial de la partida">
@@ -719,6 +652,7 @@ export function GamePage() {
         </aside>
       )}
 
+      {/* the text lives on the slate in the room; this copy stays for screen readers (and the tests) */}
       <div className="phase-line">{status || phaseLine}</div>
 
       {announce && (

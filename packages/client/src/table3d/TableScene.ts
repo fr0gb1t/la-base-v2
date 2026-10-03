@@ -18,6 +18,7 @@ import { TableTokens } from './tableTokens'
 import { TableChoices, type CopasChoice, type Direction } from './tableChoices'
 import { ChessClock, type ClockView } from './chessClock'
 import { HudBoard, type HudItem } from './hudBoard'
+import { Notepad } from './notepad'
 
 // ---------------------------------------------------------------------------------------------
 // The 3D table, driven by real game events. Seats follow the server's turn order with the local
@@ -46,6 +47,8 @@ export interface TableCallbacks {
   clockPress?(): void
   /** a click on a button of the slate at the back of the room (anotador, historial, …) */
   hudPress?(id: string): void
+  /** a click on the notepad lying on the table: open the scoresheet */
+  notepadPress?(): void
   /** something broke inside the table (a frame, the WebGL context): report it */
   error?(message: string, stack?: string): void
   /** the centre of your view moved onto (playerId) or off (null) someone's face */
@@ -159,6 +162,7 @@ export class TableScene {
   private centerDeck: THREE.Mesh
   private clock = new ChessClock()
   private hud = new HudBoard()
+  private notepad = new Notepad()
   private hudHint = ''
   private clockView: ClockView | null = null
   private queue: Promise<void> = Promise.resolve()
@@ -233,7 +237,7 @@ export class TableScene {
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera)
     this.detachAudio = attachAudio(this.camera) // you hear the room from your seat
-    this.scene.add(this.tokens.group, this.clock.group, this.hud.group)
+    this.scene.add(this.tokens.group, this.clock.group, this.hud.group, this.notepad.group)
     this.tokens.setGuides(this.guides)
     this.scene.add(this.choices.group)
     this.scene.add(this.roomGroup)
@@ -525,6 +529,7 @@ export class TableScene {
 
   dispose() {
     this.disableGyro()
+    this.notepad.dispose()
     this.hud.dispose()
     this.clock.dispose()
     this.detachAudio()
@@ -1331,9 +1336,21 @@ export class TableScene {
     this.deckHint = on
   }
 
+  /** Screen position of the notepad on the table (tests). */
+  notepadScreen() {
+    const p = this.notepad.hit.getWorldPosition(new THREE.Vector3()).project(this.camera)
+    const r = this.renderer.domElement.getBoundingClientRect()
+    return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
+  }
+
   /** The slate at the back of the room: the game's buttons. */
   setHud(items: HudItem[]) {
     this.hud.set(items)
+  }
+
+  /** What to do next, chalked on the slate. */
+  setHudMessage(text: string) {
+    this.hud.setMessage(text)
   }
 
   /** Screen position of a slate button (tests). */
@@ -1372,6 +1389,10 @@ export class TableScene {
 
   /** A click (no drag) on the table: the deck in the middle draws during the initial draw. */
   private tableClick() {
+    if (this.notepad.hovered && this.cb.notepadPress) {
+      this.cb.notepadPress()
+      return
+    }
     if (this.hud.hovered && this.cb.hudPress) {
       this.cb.hudPress(this.hud.hovered)
       return
@@ -1416,7 +1437,8 @@ export class TableScene {
       const hint = this.hud.hint(slate) ?? ''
       if (hint !== this.hudHint) this.cb.status((this.hudHint = hint))
     }
-    this.renderer.domElement.style.cursor = choice || this.clock.hovered || slate ? 'pointer' : this.lookDrag ? 'grabbing' : 'crosshair'
+    this.notepad.hovered = Boolean(!this.drag && !this.peek && (!this.lookDrag || this.lookDrag.moved < HOLD_PX) && this.raycaster.intersectObject(this.notepad.hit, false).length)
+    this.renderer.domElement.style.cursor = choice || this.clock.hovered || slate || this.notepad.hovered ? 'pointer' : this.lookDrag ? 'grabbing' : 'crosshair'
     if (choice || this.choices.active) {
       this.hovered = -1
       const hint = this.choices.hint() ?? ''
@@ -1702,6 +1724,7 @@ export class TableScene {
     this.focus = null
     tickJobs(time)
     this.clock.update(dt)
+    this.notepad.update(dt)
     this.updatePending()
     this.updateDrag()
     this.updateRemoteArms()

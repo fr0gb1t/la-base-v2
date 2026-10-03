@@ -68,7 +68,7 @@ await lookAtTable()
 await rival.emit('sena:make', { roomCode: room, sena: 'porno', ...toMe }); await sleep(250)
 await p.evaluate((s) => window.__table.debugAimHead(s), seat); await sleep(700) // turn to them mid-seña
 r.caughtMidSena = (await shown(rival)) === 'porno'
-await p.evaluate(() => document.querySelector('.hud-tabs button[title="Tecla J"]')?.click()); await sleep(300)
+await p.evaluate(() => document.querySelector('nav[aria-label="Controles de la partida"] button[title="Tecla J"]')?.click()); await sleep(300)
 r.log = await p.evaluate(() => [...document.querySelectorAll('.log-list .log-sena')].map((l) => l.textContent))
 console.log(JSON.stringify(r, null, 1))
 const ok = (partner ? r.partnerAlways : true) && r.rivalNotLooking && r.rivalLookedAtProfileShows && r.reticleOnFace && r.rivalTurnedAwayHidden && r.caughtMidSena
