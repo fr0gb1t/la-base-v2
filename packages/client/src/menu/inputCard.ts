@@ -19,6 +19,9 @@ const W = 600
 const H = 900
 const SIZE = 0.31 // metres, width
 
+// dims the paper under the lamp so it reads as cream, not white: the writing then keeps its contrast
+const PAPER_TINT = 0x9f9a8c
+
 export class InputCard {
   mesh: THREE.Mesh
   hit: THREE.Mesh
@@ -35,7 +38,7 @@ export class InputCard {
     this.tex.colorSpace = THREE.SRGBColorSpace
     this.tex.anisotropy = 8
     const geo = new THREE.PlaneGeometry(SIZE, (SIZE * H) / W)
-    this.mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: this.tex, emissive: 0xffffff, emissiveMap: this.tex, emissiveIntensity: 0, roughness: 0.95 }))
+    this.mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: this.tex, color: PAPER_TINT, emissive: 0xffffff, emissiveMap: this.tex, emissiveIntensity: 0, roughness: 0.95 }))
     this.mesh.castShadow = true
     this.hit = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }))
     this.hit.visible = false
@@ -110,13 +113,20 @@ export class InputCard {
     g.fillStyle = s.value ? PALETTE.ink : 'rgba(20,14,12,0.4)'
     const shown = s.mono ? text.split('').join(' ') : text
     g.fillText(shown, cx, 510)
+    if (s.value) {
+      // VT323 is hairline-thin: thicken the strokes so the lamp's glare cannot wash them out
+      g.lineJoin = 'round'
+      g.lineWidth = s.mono ? 5 : 2
+      g.strokeStyle = PALETTE.ink
+      g.strokeText(shown, cx, 510)
+    }
     if (s.focused && this.caretOn) {
       const w = s.value ? g.measureText(s.mono ? s.value.split('').join(' ') : s.value).width : 0
       g.fillStyle = PALETTE.oxblood
       g.fillRect(cx + w / 2 + 8, 470, 6, 76)
     }
     g.font = '42px "IM Fell English", Georgia, serif'
-    g.fillStyle = 'rgba(20,14,12,0.8)'
+    g.fillStyle = PALETTE.ink
     g.fillText(s.hint ?? (s.focused ? 'escribí · enter para confirmar' : 'tocá la carta para escribir'), cx, 700)
     this.tex.needsUpdate = true
   }
