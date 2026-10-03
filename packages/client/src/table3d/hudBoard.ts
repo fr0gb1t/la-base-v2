@@ -634,8 +634,8 @@ export class HudBoard {
       mat.uniforms.time.value = t
       mat.uniforms.glow.value = l.glow
     }
-    // the message is spelled out, about thirty letters a second
-    if (this.shown < this.msg.length) this.shown = Math.min(this.msg.length, this.shown + dt * 30)
+    // the message is spelled out almost at once (a whole line in about a tenth of a second): messages change fast
+    if (this.shown < this.msg.length) this.shown = Math.min(this.msg.length, this.shown + dt * 400)
     this.drawLed()
     return this.hovered
   }
