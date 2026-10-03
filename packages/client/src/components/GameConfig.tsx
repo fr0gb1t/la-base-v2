@@ -6,7 +6,7 @@ import { useSocket } from '../hooks/useSocket';
 
 // rows of the config form on the felt (table z, toward you); the aces lie at z 0.14
 // (aces: the same z as ACE_Z in MenuScene)
-const ROW = { aces: -0.1, structure: 0.34, kamikazes: 0.55, clock: 0.69, actions: 0.85 } as const;
+const ROW = { aces: -0.1, structure: 0.29, kamikazes: 0.55, clock: 0.69, actions: 0.85 } as const;
 // the form is centred on the felt: titles at the left, their options to the right, and the whole
 // block (titles included) balanced around x = 0
 const STRUCTURE_BUTTON_PX = 330; // the three structure buttons are the same size (the widest name sets it)
