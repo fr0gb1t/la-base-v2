@@ -458,7 +458,11 @@ export class MenuScene {
     const showPeople = this.station === 'sala' || this.station === 'config'
     this.avatars.forEach(({ av }, i) => {
       const a = this.avatars[i]
-      a.rise += ((showPeople ? 1 : 0) - a.rise) * k
+      // they rise slowly out of the dark, but leaving they sink fast (the same ease as arriving would
+      // keep them half visible for seconds)
+      const kRise = showPeople ? k : 1 - Math.exp(-Math.min(dt, 0.1) * (calm ? 14 : 9))
+      a.rise += ((showPeople ? 1 : 0) - a.rise) * kRise
+      if (!showPeople && a.rise < 0.12) a.rise = 0
       av.root.visible = i !== 0 && a.rise > 0.02 // seat 0 is you (the camera)
       av.root.position.y = (1 - ease(a.rise)) * -1.2
       // the name floats over the body, as at the game table; it goes quickly when you leave (the
