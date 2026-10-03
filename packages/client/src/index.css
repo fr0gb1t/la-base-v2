@@ -2826,6 +2826,21 @@ button {
   padding: 0;
   background: #050403;
   animation: rb-veil-in 0.35s ease-out;
+  transition: opacity 0.4s ease-out, visibility 0s;
+}
+
+/* the pages are photographed from their own nodes: those must stay 'visible' inside the hidden veil */
+.rb-veil.rb-parked .rb-sheets {
+  visibility: visible;
+}
+
+/* built ahead of time and waiting: laid out (so its pages can be photographed) but invisible */
+.rb-veil.rb-parked {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  animation: none;
+  transition: opacity 0.4s ease-out, visibility 0s 0.4s;
 }
 
 @keyframes rb-veil-in {

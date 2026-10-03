@@ -208,6 +208,8 @@ export class BookScene {
   private opened = performance.now();
   private introAt: number | null = null; // when the booklet started coming down onto the table
   private muteTurnSound = false;
+  private active = false; // on screen: the loop draws every frame
+  private warm = 3; // frames drawn while hidden, to compile the shaders and upload the textures
   private reveal = 0; // the timer that waits for the first pages
   private camFrom = new THREE.Vector3();
   private camTo = new THREE.Vector3();
@@ -319,22 +321,28 @@ export class BookScene {
     el.addEventListener('pointercancel', this.onUp);
     o.pages.paused = () => this.turn !== null;
 
-    // The booklet comes up only once its cover and first spread are photographed (that work blocks
-    // the page for a moment: done while the canvas is still transparent it can't make the opening
-    // stutter); then it fades in, you lean over it and the cover opens by itself (it can be caught
-    // like any page).
-    const first = ['cover', `R${o.start}`, `L${o.start}`];
-    o.pages.want(first);
+    // The booklet is built and its first pages photographed while the menu is idle (the canvas
+    // stays transparent and nothing is drawn but a couple of frames, to compile and upload);
+    // present() then only has to play the entrance.
+    o.pages.want(['cover', `R${o.start}`, `L${o.start}`]);
     r.domElement.style.opacity = '0';
     r.domElement.style.transition = `opacity ${FADE_S}s ease-out`;
+    this.loop();
+  }
+
+  /** Come up now: wait (briefly) for the cover and first spread if they are not ready, then enter. */
+  present() {
+    this.active = true;
+    const first = ['cover', `R${this.o.start}`, `L${this.o.start}`];
+    this.o.pages.want(first);
     const waited = performance.now();
+    window.clearInterval(this.reveal);
     this.reveal = window.setInterval(() => {
-      const ready = first.every((k) => o.pages.has(k));
+      const ready = first.every((k) => this.o.pages.has(k));
       if (!ready && performance.now() - waited < REVEAL_MAX_MS) return;
       window.clearInterval(this.reveal);
       this.begin();
     }, 40);
-    this.loop();
   }
 
   /**
@@ -724,6 +732,10 @@ export class BookScene {
 
   private loop = () => {
     this.raf = requestAnimationFrame(this.loop);
+    if (!this.active) {
+      if (this.warm <= 0) return; // parked: nothing to draw
+      this.warm--;
+    }
     const now = performance.now();
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;

@@ -6,7 +6,7 @@ const b = await puppeteer.launch({ executablePath: '/usr/bin/chromium', headless
 const p = await b.newPage()
 await p.goto('http://localhost:5174/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(2000)
 await p.evaluate(() => { localStorage.clear(); localStorage.setItem('guestName', 'Vos') })
-await p.reload({ waitUntil: 'domcontentloaded' }); await sleep(6000) // idle: the fonts are fetched
+await p.reload({ waitUntil: 'domcontentloaded' }); await sleep(8000) // idle: the fonts are fetched
 const r = await p.evaluate(async () => {
   const gaps = []
   let last = performance.now(); let stop = false; let visibleAt = null

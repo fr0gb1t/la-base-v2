@@ -7,6 +7,7 @@ import { GameConfig } from './components/GameConfig';
 import { GamePage } from './components/GamePage';
 import { useSocket } from './hooks/useSocket';
 import { MenuBackdrop } from './menu/MenuBackdrop';
+import { RulebookHost } from './components/rulebook/Rulebook';
 import { SettingsHost, SettingsButton } from './settings/SettingsPanel';
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
         </div>
       )}
       <SettingsHost />
+      <RulebookHost />
     </>
   );
 }

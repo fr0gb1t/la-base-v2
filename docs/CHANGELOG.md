@@ -2,6 +2,10 @@
 
 ## Desde `a603e36`
 
+- **Reglamento sin tirones:** el librito se arma de antemano (la sala 3D, los shaders y las fotos de
+  la tapa y la primera doble página) cuando el menú lleva unos segundos en reposo, y queda
+  guardado invisible; al tocar «reglas» solo se reproduce la entrada. Al cerrarlo se prepara el
+  siguiente. Al hacer clic ya no hay pausas largas (antes: 206 ms + 54 ms).
 - **Entrada del reglamento:** antes se trababa al abrir (las páginas se fotografían en ese momento
   y la tapa se abría sin su imagen: se veía la primera página en vez de la tapa). Ahora el librito
   espera a tener lista la tapa y la primera doble página (con un fundido), baja sobre la mesa desde

@@ -77,13 +77,59 @@ function Cover() {
   );
 }
 
+// ---- the booklet is built ahead of time ----------------------------------------------------------
+// Building it (a second 3D room, its shaders, the photographs of the pages) takes a few hundred
+// milliseconds: done on click it froze the menu. So RulebookHost (mounted once, in App) builds it
+// while the menu is idle and keeps it parked, invisible; <Rulebook/> (what the screens render to
+// ask for the manual) just tells the host to come up, and the entrance is only animation.
+
+type Opener = { onClose: () => void; start: number } | null;
+const hostListeners = new Set<(o: Opener) => void>();
+let requested: Opener = null;
+const request = (o: Opener) => {
+  requested = o;
+  hostListeners.forEach((l) => l(o));
+};
+
+/** Ask for the manual while mounted (what the menu and the table render to show it). */
 export function Rulebook({ onClose, start = 0 }: { onClose: () => void; start?: number }) {
-  const [page, setPage] = useState(start);
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    request({ onClose: () => close.current(), start });
+    return () => request(null);
+  }, [start]);
+  return null;
+}
+
+const IDLE_BEFORE_BUILD_MS = 2500;
+
+export function RulebookHost() {
+  const [opener, setOpener] = useState<Opener>(requested);
+  const [armed, setArmed] = useState(false); // the booklet may be built now
+  const [generation, setGeneration] = useState(0); // a new booklet after each use
+  const [page, setPage] = useState(0);
   const host = useRef<HTMLDivElement>(null);
   const sheets = useRef<HTMLDivElement>(null);
   const book = useRef<BookScene | null>(null);
+  const open = opener !== null;
 
   useEffect(() => {
+    hostListeners.add(setOpener);
+    return () => void hostListeners.delete(setOpener);
+  }, []);
+
+  // build it when the menu has been quiet for a moment (or at once if the manual is asked for first)
+  useEffect(() => {
+    if (armed) return;
+    if (open) return setArmed(true);
+    const t = window.setTimeout(() => setArmed(true), IDLE_BEFORE_BUILD_MS);
+    return () => window.clearTimeout(t);
+  }, [armed, open]);
+
+  useEffect(() => {
+    if (!armed) return;
+    const start = 0;
     const scene: { current: BookScene | null } = { current: null };
     const pages = new PageTextures(sheets.current!, () => scene.current?.refresh(), 8);
     scene.current = new BookScene(host.current!, {
@@ -97,17 +143,33 @@ export function Rulebook({ onClose, start = 0 }: { onClose: () => void; start?: 
       reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
     });
     book.current = scene.current;
-    if (new URLSearchParams(location.search).has("debug")) Object.assign(window, { __book: scene.current, __bookPages: pages });
+    setPage(start);
+    if (requested) scene.current.present(); // asked for before it was ready
+    if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __book: scene.current, __bookPages: pages });
     return () => {
       scene.current?.dispose();
       pages.dispose();
       book.current = null;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [armed, generation]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // asked for: come up; closed: put this one away and build the next one while the menu rests
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open && !wasOpen.current) book.current?.present();
+    if (!open && wasOpen.current) {
+      const t = window.setTimeout(() => setGeneration((g) => g + 1), 450); // after the fade-out
+      wasOpen.current = false;
+      return () => window.clearTimeout(t);
+    }
+    wasOpen.current = open;
+  }, [open]);
 
   const go = (to: number) => book.current?.go(to);
+  const onClose = () => opener?.onClose();
 
   useEffect(() => {
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
       if (e.key === 'ArrowRight') go(page + 1);
@@ -118,13 +180,14 @@ export function Rulebook({ onClose, start = 0 }: { onClose: () => void; start?: 
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  if (!armed) return null;
   // portaled to <body>: menus create their own stacking contexts, the booklet must cover them all
   return createPortal(
-    <div className="rb-veil" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className={`rb-veil${open ? '' : ' rb-parked'}`} onPointerDown={(e) => e.target === e.currentTarget && onClose()} aria-hidden={!open}>
       <section className="rulebook" role="dialog" aria-modal="true" aria-label="Manual de La Base">
         <nav className="sr-only" aria-label="Capítulos">
           {CHAPTERS.map((c, i) => (
-            <button key={c.id} type="button" className={`rb-tab${i === page ? ' on' : ''}`} onClick={() => go(i)} aria-current={i === page}>
+            <button key={c.id} type="button" className={`rb-tab${i === page ? ' on' : ''}`} onClick={() => go(i)} aria-current={i === page} tabIndex={open ? 0 : -1}>
               {c.tab}
             </button>
           ))}
@@ -134,11 +197,11 @@ export function Rulebook({ onClose, start = 0 }: { onClose: () => void; start?: 
           <RightPage ch={CHAPTERS[page]} n={page} />
         </div>
         <footer className="rb-nav">
-          <button type="button" className="rb-turn" onClick={() => go(page - 1)} disabled={page === 0}>← {page > 0 ? CHAPTERS[page - 1].tab : ''}</button>
+          <button type="button" className="rb-turn" onClick={() => go(page - 1)} disabled={page === 0} tabIndex={open ? 0 : -1}>← {page > 0 ? CHAPTERS[page - 1].tab : ''}</button>
           <span className="rb-hint">agarrá una hoja y arrastrala, o hacé clic · ← → · Esc para cerrar</span>
-          <button type="button" className="rb-turn" onClick={() => go(page + 1)} disabled={page === CHAPTERS.length - 1}>{page < CHAPTERS.length - 1 ? CHAPTERS[page + 1].tab : ''} →</button>
+          <button type="button" className="rb-turn" onClick={() => go(page + 1)} disabled={page === CHAPTERS.length - 1} tabIndex={open ? 0 : -1}>{page < CHAPTERS.length - 1 ? CHAPTERS[page + 1].tab : ''} →</button>
         </footer>
-        <button type="button" className="rb-close" onClick={onClose} aria-label="Cerrar el manual"><GiCrossMark aria-hidden /></button>
+        <button type="button" className="rb-close" onClick={onClose} aria-label="Cerrar el manual" tabIndex={open ? 0 : -1}><GiCrossMark aria-hidden /></button>
       </section>
       {/* the pages, laid out offscreen to be photographed into the 3D booklet */}
       <div className="rb-sheets" ref={sheets} aria-hidden>
