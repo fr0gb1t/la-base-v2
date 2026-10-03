@@ -32,7 +32,7 @@ export class NameTag {
     // and a name must always read
     const mat = new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, depthWrite: false, depthTest: false, color: new THREE.Color(0.85, 0.85, 0.85) })
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat)
-    this.mesh.renderOrder = 10
+    this.mesh.renderOrder = 9000 // names are drawn over everything (they ignore depth)
   }
 
   set(name: string, team: Team, connected: boolean) {

@@ -14,6 +14,9 @@ const Y_AXIS = new THREE.Vector3(0, 1, 0)
 
 export type { Sena }
 
+/** Drawing priority of the hands: above every card lying on the table (see CARD_ORDER in TableScene). */
+export const HAND_ORDER = 5000
+
 const mat = (c: string, rough = 0.8) => new THREE.MeshStandardMaterial({ color: hex(c), roughness: rough })
 
 function segment(mesh: THREE.Mesh, a: THREE.Vector3, b: THREE.Vector3) {
@@ -49,7 +52,15 @@ function glove(cuff: string, sx: number) {
   const band = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.03, 10), mat(cuff))
   band.rotation.x = Math.PI / 2
   g.add(palm, fingers, thumb, band)
-  g.traverse((o) => (o.castShadow = true))
+  g.traverse((o) => {
+    o.castShadow = true
+    // the hand has the highest drawing priority: it is drawn after everything lying on the table (the
+    // cards, in the order they were laid), so it always shows over them, never through them
+    if (o instanceof THREE.Mesh) {
+      o.renderOrder = HAND_ORDER
+      ;(o.material as THREE.Material).transparent = true
+    }
+  })
   return g
 }
 
@@ -227,7 +238,7 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false): A
   setHandCount(0)
 
   const fanHold = new THREE.Vector3(FAN_X + 0.01, FAN_Y - 0.08, -0.32) // left wrist, under the fan
-  const tableRest = new THREE.Vector3(0.2, TABLE_Y + 0.052, -(CHAIR_R - (TABLE_R - 0.04))) // right wrist on the table
+  const tableRest = new THREE.Vector3(0.2, TABLE_Y + 0.03, -(CHAIR_R - (TABLE_R - 0.04))) // right wrist on the table
   const shoulderLocal = (sx: number, lean: number) => new THREE.Vector3(sx * 0.19, SHOULDER_Y - lean * 0.06, -(CHAIR_R - SHOULDER_R) - lean * LEAN_REACH)
 
   // First person: only the arms exist (the camera lives where the head would be).

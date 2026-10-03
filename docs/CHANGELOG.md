@@ -2,7 +2,14 @@
 
 ## Desde `a603e36`
 
-- **La mano tapa las pilas de bases ganadas (sin glitch):** la mano derecha en reposo atravesaba
+- **Prioridad de dibujo explícita (reemplaza a la mano elevada de abajo):** en vez de depender de
+  la altura, cada objeto tiene una prioridad. Las cartas que quedan sobre la mesa (las jugadas, las
+  del sorteo, las repartidas boca abajo y las pilas de bases ganadas) se dibujan en el orden en que
+  se apoyaron: las primeras abajo y cada nueva por encima de todas las anteriores, desde cualquier
+  ángulo, sin parpadeos entre cartas encimadas. Las manos tienen la prioridad más alta: se dibujan
+  después de todas las cartas y siempre se ven sobre ellas. La mano vuelve a descansar pegada a la
+  mesa. Los nombres de los jugadores siguen dibujándose por encima de todo.
+- **La mano tapa las pilas de bases ganadas (sin glitch) (versión anterior):** la mano derecha en reposo atravesaba
   las cartas de la pila (los dedos quedaban ~1,3 cm por debajo del tope), y según el ángulo de la
   cámara se veía la mano o la carta. Ahora la mano descansa unos 2 cm más alto y pasa por encima de
   la pila (8 mm de margen sobre el tope), así que siempre la tapa a ella y no al revés.

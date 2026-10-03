@@ -69,6 +69,7 @@ interface RemoteArm { slot: number; fwd: number; lat: number; holding: boolean; 
 
 const FACE_DOWN = Math.PI / 2
 const CARD_T = 0.0009
+const CARD_ORDER = 100 // drawing priority of the cards on the table: this + the order they were laid
 const HOLD_FWD = -0.35
 const REACH = 0.88
 const REACH_FWD = TABLE_R - PLAY_R // how far in from the edge the play ring is: a full lean there
@@ -475,8 +476,7 @@ export class TableScene {
 
   /** Where a seat's right hand rests on the table (world). */
   private restWrist(seat: number) {
-    // resting a little higher than the table: the fingers pass over the won piles (up to ~1 cm), never through them
-    return polar(TABLE_R - 0.04, seatAngle(seat, this.n), TABLE_Y + 0.052).addScaledVector(this.rightOf(seat), 0.2)
+    return polar(TABLE_R - 0.04, seatAngle(seat, this.n), TABLE_Y + 0.03).addScaledVector(this.rightOf(seat), 0.2)
   }
 
   /** The seat whose face you can read at the centre of your view (same rule as the server). */
@@ -669,7 +669,44 @@ export class TableScene {
     return v
   }
 
+  // ---- who is seen over whom: cards lying on the table are drawn in the order they were laid (the
+  // first ones lowest, each new one over all before it), and the hands over all of them
+  private laid = 0
+  private lay(v: CardView) {
+    this.priority(v, CARD_ORDER + ++this.laid)
+  }
+
+  private priority(v: CardView, order: number) {
+    v.root.traverse((o) => {
+      if (!(o instanceof THREE.Mesh)) return
+      if (!o.userData.laid) {
+        // its own copy of the material (the real ones are shared by every card): drawn in the later
+        // pass, in renderOrder, without writing depth — priority decides, not distance
+        o.userData.sharedMat = o.material
+        const own = (o.material as THREE.Material).clone()
+        own.transparent = true
+        own.depthWrite = false
+        own.userData.ownClone = true
+        o.material = own
+        o.userData.laid = true
+      }
+      o.renderOrder = order
+    })
+  }
+
+  private unlay(v: CardView) {
+    v.root.traverse((o) => {
+      if (!(o instanceof THREE.Mesh) || !o.userData.laid) return
+      const cur = o.material as THREE.Material
+      if (cur.userData.ownClone) cur.dispose() // (a card turned face-up after it was laid has already swapped to a shared material)
+      o.material = o.userData.sharedMat as THREE.Material
+      o.userData.laid = false
+      o.renderOrder = 0
+    })
+  }
+
   private give(v: CardView) {
+    this.unlay(v)
     v.root.visible = false
     v.forget()
     this.pool.push(v)
@@ -894,6 +931,7 @@ export class TableScene {
             done: () => {
               v.root.position.copy(rest.pos)
               v.root.quaternion.copy(rest.quat)
+              this.lay(v)
               sfx('place', rest.pos, 0.5)
             },
           }),
@@ -953,6 +991,7 @@ export class TableScene {
     await this.gesture(s, view, hold, { dur, map, reveal: card, from, blend: from ? 0.12 : 0.3 })
     this.onTable.get(s) && this.give(this.onTable.get(s)!)
     this.onTable.set(s, view)
+    this.lay(view)
   }
 
   private async animateCollect(w: number) {
@@ -986,6 +1025,7 @@ export class TableScene {
       },
     })
     sfx('place', pileAt, 0.6)
+    cards.forEach((v) => this.lay(v)) // the pile lies over everything laid before it, its cards in order
     this.wonStacks.push(cards)
     this.wonBy.push(w)
   }
@@ -1010,6 +1050,7 @@ export class TableScene {
     const slot = playSlot(s, this.n).pos
     view.setIdentity(card.suit, card.value) // the draw is public: it turns face-up in the air
     await this.flyTo(view, slot, quatOf(FACE_DOWN + Math.PI, this.yawOf(s)), 0.7, 0, s !== 0, 0.2)
+    this.lay(view)
     sfx('flip', slot)
   }
 
@@ -1107,6 +1148,7 @@ export class TableScene {
       await this.gesture(0, view, hold, { dur: PLAY_DURATION - 1.1, map: (t) => 1.1 + t, reveal: card, from: at, blend: 0.12 })
       this.onTable.get(0) && this.give(this.onTable.get(0)!)
       this.onTable.set(0, view)
+      this.lay(view)
     } else {
       await this.returnToHand(view, k)
     }
