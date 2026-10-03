@@ -100,7 +100,7 @@ export class MenuScene {
   // card, so the lift animation can't flicker the hover
   private options: Array<{ view: CardView; mesh: THREE.Mesh; hit: THREE.Mesh; lift: number }> = []
   private aces: Array<{ view: CardView; flip: number; on: boolean }> = []
-  private avatars: Array<{ av: Avatar; rise: number; name: string; tag: NameTag }> = []
+  private avatars: Array<{ av: Avatar; rise: number; name: string; tag: NameTag; tagFade: number }> = []
   private hovered = -1
   private focusIndex = -1
   private floating = new FloatingItems()
@@ -199,7 +199,7 @@ export class MenuScene {
         this.scene.add(av.root)
         const tag = new NameTag(MENU_NAME_H) // small: the waiting room must not look crowded
         this.scene.add(tag.mesh)
-        this.avatars[i] = { av, rise: 0, name: p.name, tag }
+        this.avatars[i] = { av, rise: 0, name: p.name, tag, tagFade: 0 }
       }
       this.avatars[i].tag.set(p.name, rel(p.team), true)
     })
@@ -461,8 +461,13 @@ export class MenuScene {
       a.rise += ((showPeople ? 1 : 0) - a.rise) * k
       av.root.visible = i !== 0 && a.rise > 0.02 // seat 0 is you (the camera)
       av.root.position.y = (1 - ease(a.rise)) * -1.2
-      // the name floats over the body, as at the game table
-      a.tag.mesh.visible = av.root.visible
+      // the name floats over the body, as at the game table; it goes quickly when you leave (the
+      // body sinks into the dark slowly, but a name left hanging there looks like a bug)
+      const rate = showPeople ? 0.2 : 0.6
+      a.tagFade += ((showPeople ? 1 : 0) - a.tagFade) * Math.min(1, rate * dt * 60 / 4)
+      if (!showPeople && a.tagFade < 0.04) a.tagFade = 0
+      a.tag.mesh.visible = av.root.visible && a.tagFade > 0
+      ;(a.tag.mesh.material as THREE.Material).opacity = a.tagFade
       const ang = seatAngle(i, this.seats)
       a.tag.place(polar(TABLE_R + TAG_R_OFFSET, ang, TAG_Y + av.root.position.y), Math.PI / 2 - ang, this.camera)
       av.pose({
