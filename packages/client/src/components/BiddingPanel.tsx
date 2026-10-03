@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 import { GiDynamite, GiKnockout } from 'react-icons/gi';
@@ -109,11 +109,27 @@ export function BiddingPanel({ onAskSenas }: { onAskSenas?: () => void }) {
   };
 
   const isOpen = gameState?.phase === 'bidding';
+
+  // Answering with a single legal bid (the rule leaves no choice): it is declared for you, at once.
+  // There is nothing to decide, so there is no panel either (a beat first, to let the rival's bid land).
+  const forcedBid = isOpen && isPie && validBidsForPie.length === 1 ? validBidsForPie[0] : null;
+  const forcedKey = forcedBid === null ? '' : `${gameState?.roundIndex}:${gameState?.bids?.length}:${forcedBid}`;
+  const sentForced = useRef('');
+  useEffect(() => {
+    if (forcedBid === null || !socket || !roomCode || sentForced.current === forcedKey) return;
+    const t = window.setTimeout(() => {
+      sentForced.current = forcedKey;
+      socket.emit('bid:declare', { roomCode, bidValue: forcedBid, isKamikaze: false }, (response: { success: boolean; error?: string }) => {
+        if (!response?.success) sentForced.current = ''; // refused (not our turn yet…): the next render tries again
+      });
+    }, 900);
+    return () => window.clearTimeout(t);
+  }, [forcedKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const hasClock = Boolean(gameState?.bidClock);
 
   // the clock on the table is the real way to confirm: select, then press it (kept current on
   // every render, so a press never lands between an old and a new registration)
-  pressBidClock.current = isOpen && isMyBidTurn
+  pressBidClock.current = isOpen && isMyBidTurn && forcedBid === null
     ? () => {
         if (!loading && !(isPie && !isValidPieBid)) handleBid();
       }
@@ -125,7 +141,7 @@ export function BiddingPanel({ onAskSenas }: { onAskSenas?: () => void }) {
   // Only the player who has to act sees it. It never covers the table: a compact tally sheet in
   // the bottom-right corner (your cards are on the left), no backdrop, the 3D view stays usable
   // behind it so you can keep looking at your partner's face.
-  if (!(isOpen && isMyBidTurn)) return null;
+  if (!(isOpen && isMyBidTurn) || forcedBid !== null) return null;
 
   const myTeam = currentRoomPlayer?.team === 'ellos' ? 'ellos' : 'nosotros';
   const kamikazesLeft = gameState?.kamikazesRemaining?.[myTeam] ?? 0;

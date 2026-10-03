@@ -2,6 +2,9 @@
 
 ## Desde `a603e36`
 
+- **La respuesta forzada del Pie es automática:** cuando al responder queda una sola opción legal
+  (la regla del Pie no deja elegir), el pedido se declara solo, enseguida (un instante después del
+  aviso del rival), y no aparece el panel de pedidos. Con varias opciones todo sigue igual.
 - **El aviso de cada pedido es un título de verdad:** al declararse una cantidad de bases aparece un
   cartel grande (hasta 124 px) sobre una banda oscura, que cae con rebote desde grande, con brillo
   rojo si pide el rival y celeste si pide tu equipo, el destello de color de toda la pantalla (rojo
