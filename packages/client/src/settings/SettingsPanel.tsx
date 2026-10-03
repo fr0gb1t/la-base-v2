@@ -198,6 +198,13 @@ export function SettingsHost() {
             onToggle={() => setViewSettings({ handResetOnTurn: !view.handResetOnTurn })}
           />
           <Switch
+            on={view.smoothProps}
+            icon={<GiDividedSquare aria-hidden className="setting-icon" />}
+            title="Bordes suaves en los objetos"
+            hint={view.smoothProps ? 'los televisores, el anotador y el reloj se dibujan nítidos (más pesado)' : 'todo con el mismo aspecto pixelado de la mesa'}
+            onToggle={() => setViewSettings({ smoothProps: !view.smoothProps })}
+          />
+          <Switch
             on={view.guides}
             icon={<GiDividedSquare aria-hidden className="setting-icon" />}
             title="Guías en la mesa"

@@ -69,6 +69,7 @@ interface RemoteArm { slot: number; fwd: number; lat: number; holding: boolean; 
 
 const FACE_DOWN = Math.PI / 2
 const CARD_T = 0.0009
+const PROPS_LAYER = 2 // televisions, notepad and clock: drawn at full resolution with anti-aliasing
 const CARD_ORDER = 100 // drawing priority of the cards on the table: this + the order they were laid
 const HOLD_FWD = -0.35
 const REACH = 0.88
@@ -1877,6 +1878,43 @@ export class TableScene {
     return Math.min(100, THREE.MathUtils.radToDeg(half * 2))
   }
 
+  // ---- props drawn smooth (televisions, notepad, clock): their own layer, lit by the same lights
+  private propsDone = false
+  private lightsAt = -1
+  private syncPropLayers(time: number) {
+    if (!this.propsDone) {
+      this.propsDone = true
+      for (const g of [this.hud.group, this.notepad.group, this.notepad.hitRoot, this.clock.group]) g.traverse((o) => o.layers.set(PROPS_LAYER))
+      this.raycaster.layers.enable(PROPS_LAYER) // …and still pointable
+    }
+    // every light of the world also lights the props (and casts their shadows); rooms can be rebuilt, so look again from time to time
+    if (Math.floor(time) !== this.lightsAt) {
+      this.lightsAt = Math.floor(time)
+      this.scene.traverse((o) => {
+        if (!(o instanceof THREE.Light) || o.layers.isEnabled(PROPS_LAYER) && o.layers.isEnabled(0)) return
+        if (o.layers.mask === 1 << PROPS_LAYER) return // the props' own lights (inside their groups)
+        o.layers.enable(PROPS_LAYER)
+        const sh = (o as THREE.SpotLight).shadow
+        if (sh) sh.camera.layers.enable(PROPS_LAYER)
+      })
+    }
+  }
+
+  /** Hide / show the props' colours in the world pass (drawn smooth on top, so they must not show through low-res). */
+  private propMats = new Set<THREE.Material>()
+  private propsColor(on: boolean) {
+    if (!on) {
+      this.propMats.clear()
+      for (const g of [this.hud.group, this.notepad.group, this.notepad.hitRoot, this.clock.group]) {
+        g.traverse((o) => {
+          if (!(o instanceof THREE.Mesh) || !o.visible) return
+          for (const m of Array.isArray(o.material) ? o.material : [o.material]) this.propMats.add(m)
+        })
+      }
+    }
+    for (const m of this.propMats) m.colorWrite = on
+  }
+
   private resize() {
     const w = Math.max(1, this.container.clientWidth)
     const h = Math.max(1, this.container.clientHeight)
@@ -2073,7 +2111,8 @@ export class TableScene {
       if (u >= 1) this.duo = null
     } else this.post.duotone(null, 0)
 
-    this.post.render(this.scene, this.camera, time)
+    this.syncPropLayers(time)
+    this.post.render(this.scene, this.camera, time, getViewSettings().smoothProps, (on) => this.propsColor(on))
   }
 
   // ------------------------------------------------------------------ test hooks

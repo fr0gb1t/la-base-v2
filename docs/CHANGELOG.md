@@ -6,6 +6,11 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `1265ce2`)
+- **Bordes suaves en los televisores, el anotador y el reloj:** esos objetos se dibujan aparte, a
+  pantalla completa y con anti-aliasing (MSAA 4x), sobre el mundo pixelado: el texto del reloj, de
+  los LED y del anotador queda nítido y sin escalones, y el resto de la mesa conserva su estética
+  (posterizado, tramado, dado en bajos). Siguen tapados por lo que tengan delante, proyectan sombras
+  y se pueden tocar. Se apaga en Ajustes → Mesa → «Bordes suaves en los objetos».
 - **Reparto boca abajo y reloj:** las cartas se reparten todas boca abajo sobre la mesa, en una fila
   frente a cada jugador; con todas puestas hay un respiro y todos las levantan a la vez. El reloj de
   pedidos arranca **un segundo después** de que todos tienen sus cartas en la mano (antes empezaba

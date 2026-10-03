@@ -51,6 +51,9 @@ precision highp float;
 uniform sampler2D tLow;     // nearest-sampled look
 uniform sampler2D tScene;   // mipmapped raw scene → cheap bloom from its small mips
 uniform vec2 uLowRes;
+uniform sampler2D tOver;    // the smooth overlay: the props drawn at full resolution with MSAA (premultiplied)
+uniform float uOver;        // 0 = no overlay
+uniform float uExposure;
 uniform float uTime, uCA, uGrain, uVignette, uBloom;
 varying vec2 vUv;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -63,6 +66,17 @@ void main() {
   col.r = texture2D(tLow, snapUv + dir).r;
   col.g = texture2D(tLow, snapUv).g;
   col.b = texture2D(tLow, snapUv - dir).b;
+  // the props (televisions, notepad, clock): same exposure, tone map and a fine posterize as the
+  // world, but at full resolution and anti-aliased, so their text and edges stay clean
+  if (uOver > 0.5) {
+    vec4 o = texture2D(tOver, vUv);
+    if (o.a > 0.001) {
+      vec3 oc = o.rgb / o.a;
+      vec3 os = pow(clamp((oc * uExposure * (2.51 * oc * uExposure + 0.03)) / (oc * uExposure * (2.43 * oc * uExposure + 0.59) + 0.14), 0.0, 1.0), vec3(1.0 / 2.2));
+      os = floor(os * 48.0 + 0.5) / 48.0;
+      col = mix(col, pow(os, vec3(2.2)), o.a);
+    }
+  }
   vec3 bloom = vec3(0.0);
   // Thresholds are in linear HDR: only the bulb, candles and LEDs (>1.5) bloom, never the felt.
   bloom += max(textureLod(tScene, vUv, 2.0).rgb - 1.5, 0.0) * 0.5;
@@ -88,6 +102,9 @@ export function makePost(renderer: THREE.WebGLRenderer, lowHeight = 360) {
     magFilter: THREE.LinearFilter,
     samples: 0,
   })
+  // the smooth overlay: full resolution, multisampled, transparent where nothing is drawn
+  const overRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter })
+  const depthOnly = new THREE.MeshBasicMaterial({ colorWrite: false })
   const lowRT = new THREE.WebGLRenderTarget(1, 1, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, type: THREE.HalfFloatType })
   const low = new THREE.ShaderMaterial({
     vertexShader: vert,
@@ -110,6 +127,9 @@ export function makePost(renderer: THREE.WebGLRenderer, lowHeight = 360) {
     uniforms: {
       tLow: { value: lowRT.texture },
       tScene: { value: sceneRT.texture },
+      tOver: { value: overRT.texture },
+      uOver: { value: 0 },
+      uExposure: low.uniforms.uExposure, // the same object: one exposure for both passes
       uLowRes: { value: new THREE.Vector2() },
       uTime: { value: 0 },
       uCA: { value: 0.003 },
@@ -124,6 +144,7 @@ export function makePost(renderer: THREE.WebGLRenderer, lowHeight = 360) {
     const lw = Math.round((lh * w) / h)
     sceneRT.setSize(lw, lh)
     lowRT.setSize(lw, lh)
+    overRT.setSize(w, h)
     final.uniforms.uLowRes.value.set(lw, lh)
   }
 
@@ -135,9 +156,44 @@ export function makePost(renderer: THREE.WebGLRenderer, lowHeight = 360) {
     low.uniforms.uDuo.value = name ? amount : 0
   }
 
-  function render(scene: THREE.Scene, camera: THREE.Camera, time: number) {
+  /** The layer of the props drawn smooth, apart from the pixelated world. */
+  const PROPS = 2
+
+  /** `propsColor(false)` hides the props' colours from the world pass (they still cast shadows and hide what is behind them); `(true)` restores them. */
+  function render(scene: THREE.Scene, camera: THREE.Camera, time: number, smoothProps = false, propsColor: (on: boolean) => void = () => undefined) {
+    // the world: the props are in it too (their shadows, their depth), but without colour when they are drawn smooth
+    camera.layers.set(0)
+    camera.layers.enable(PROPS)
+    if (smoothProps) propsColor(false)
     renderer.setRenderTarget(sceneRT)
     renderer.render(scene, camera)
+    if (smoothProps) propsColor(true)
+    final.uniforms.uOver.value = smoothProps ? 1 : 0
+    if (smoothProps) {
+      // the props: full resolution, multisampled. First everything else as depth only (so what is in
+      // front of a prop hides it), then the props themselves, lit as in the world (shadows are reused)
+      const shadows = renderer.shadowMap.autoUpdate
+      renderer.shadowMap.autoUpdate = false
+      renderer.setRenderTarget(overRT)
+      const background = scene.background // (a background colour would clear the overlay to opaque on every render call)
+      scene.background = null
+      const clearA = renderer.getClearAlpha()
+      renderer.setClearAlpha(0)
+      renderer.clear()
+      camera.layers.set(0)
+      scene.overrideMaterial = depthOnly
+      const auto = renderer.autoClear
+      renderer.autoClear = false
+      renderer.render(scene, camera)
+      scene.overrideMaterial = null
+      camera.layers.set(PROPS)
+      renderer.render(scene, camera)
+      renderer.autoClear = auto
+      renderer.setClearAlpha(clearA)
+      scene.background = background
+      renderer.shadowMap.autoUpdate = shadows
+      camera.layers.set(0)
+    }
     quad.material = low
     renderer.setRenderTarget(lowRT)
     renderer.render(quad, cam)
@@ -146,5 +202,11 @@ export function makePost(renderer: THREE.WebGLRenderer, lowHeight = 360) {
     renderer.setRenderTarget(null)
     renderer.render(quad, cam)
   }
-  return { resize, render, duotone, uniforms: { ...low.uniforms, ...final.uniforms } }
+  /** (tests) one pixel of the overlay, in 0–1 screen coordinates */
+  const probeOver = (u: number, v: number) => {
+    const out = new Uint16Array(4)
+    renderer.readRenderTargetPixels(overRT, Math.floor(u * overRT.width), Math.floor(v * overRT.height), 1, 1, out as unknown as Uint8Array)
+    return Array.from(out)
+  }
+  return { probeOver, resize, render, duotone, uniforms: { ...low.uniforms, ...final.uniforms } }
 }
