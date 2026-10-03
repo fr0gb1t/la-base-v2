@@ -37,6 +37,13 @@ await shot('sala-con-bots', 2500)
 await click('configurar y empezar')
 await shot('config', 2500)
 await page.evaluate(() => window.__menu.onAcePick('copas'))
+// kamikaze / clock titles must sit centred under their buttons (screen x of title vs button, px)
+console.log('title offsets', JSON.stringify(await page.evaluate(() => {
+  const m = window.__menu
+  const r = m.renderer.domElement.getBoundingClientRect()
+  const px = (id) => { const v = m.floating.positionOf(id)?.clone().project(m.camera); return v ? Math.round(r.left + ((v.x + 1) / 2) * r.width) : null }
+  return { kamikazes: [px('kamikazes'), px('t-kamikazes')], reloj: [px('reloj'), px('t-reloj')] }
+})))
 await shot('config-copas-off', 700)
 await shot('config-copas-off-end', 1200)
 // the kamikaze count (the plane's exponent) turns half a turn per click: 2 → 3, caught mid-turn, then settled

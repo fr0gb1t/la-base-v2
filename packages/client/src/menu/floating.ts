@@ -18,6 +18,8 @@ export interface FloatItem {
   scale?: number // size multiplier (a tag far across the table)
   crossed?: boolean // struck out with a red cross (an option that is off)
   at: [number, number] // table x, z (a title: its LEFT edge, so titles line up — or its middle with `centred`)
+  under?: string // titles: the id of the button this title sits under; its middle lines up with the button's on screen
+  straighten?: number // 0–1: how far to turn the item back from facing the camera toward square with the screen
   centred?: boolean // titles: `at` is the middle of the text (a title under its button)
   selected?: boolean
   disabled?: boolean
@@ -197,7 +199,7 @@ export class FloatingItems {
     const seen = new Set<string>()
     for (const def of items) {
       seen.add(def.id)
-      const key = `${def.label}|${def.sub}|${def.width}|${def.centred}|${def.kind}|${def.selected}|${def.disabled}|${def.crossed}`
+      const key = `${def.label}|${def.sub}|${def.width}|${def.straighten}|${def.centred}|${def.under}|${def.kind}|${def.selected}|${def.disabled}|${def.crossed}`
       const cur = this.live.get(def.id)
       if (cur && cur.key === key) {
         cur.def = def
@@ -238,6 +240,23 @@ export class FloatingItems {
     this.live.delete(l.def.id)
   }
 
+  /** The world x at which `rest` (a title's spot) lands on the same screen column as the middle of
+   *  `named`: with the camera in perspective, a nearer title drifts sideways from the button above it. */
+  private alignedX(camera: THREE.Camera, named: Live, height: number, rest: THREE.Vector3) {
+    camera.updateMatrixWorld()
+    const goal = new THREE.Vector3(named.def.at[0], TABLE_Y + 0.025 + height / 2, named.def.at[1]).project(camera).x
+    const probe = (x: number) => new THREE.Vector3(x, rest.y, rest.z).project(camera).x - goal
+    let x0 = named.def.at[0]
+    let x1 = x0 + 0.1
+    for (let i = 0; i < 4; i++) {
+      const f0 = probe(x0)
+      const f1 = probe(x1)
+      if (Math.abs(f1 - f0) < 1e-9) break
+      ;[x0, x1] = [x1, x1 - (f1 * (x1 - x0)) / (f1 - f0)]
+    }
+    return x1
+  }
+
   /** Per frame: pose every item facing the camera; hover against the rest-pose twins. A title
    *  (what a button or setting is) stays perfectly still, level with the middle of its row and
    *  lined up with the other titles by its left edge. */
@@ -254,9 +273,12 @@ export class FloatingItems {
       const centre = isLabel ? rowHeight(l) / 2 : heightOf(l) / 2
       const w = (l.mesh.geometry as THREE.PlaneGeometry).parameters.width * k
       const rest = new THREE.Vector3(l.def.at[0] + (isLabel && !l.def.centred ? w / 2 : 0), TABLE_Y + 0.025 + centre, l.def.at[1])
+      const named = isLabel && l.def.under ? this.live.get(l.def.under) : undefined
+      if (named) rest.x = this.alignedX(camera, named, heightOf(named), rest)
       l.hit.position.copy(rest)
       l.hit.scale.setScalar(k)
       l.hit.lookAt(camera.position)
+      if (l.def.straighten) l.hit.quaternion.slerp(camera.quaternion, l.def.straighten) // a button far to a side stands less skewed
       l.hit.updateMatrixWorld()
       if (!l.def.disabled && !isLabel) targets.push(l.hit)
     }
