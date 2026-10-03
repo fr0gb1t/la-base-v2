@@ -236,6 +236,7 @@ export class Notepad {
   private pencilRest = new THREE.Vector3()
   private pencilRestQuat = new THREE.Quaternion()
   private pencilReportQuat = new THREE.Quaternion() // the pencil mirrored (it lies on the right: its tip points toward the pad)
+  private floatT = 0
   private pencilReport = new THREE.Vector3() // where it lies while a report is on the page: below the writing
   private dirty = false
   readonly tickHit: THREE.Mesh // the tick on the page, for the pointer
@@ -291,7 +292,7 @@ export class Notepad {
     this.pencilRestQuat.copy(pencil.quaternion)
     const tipDir = new THREE.Vector3(0, -1, 0).applyQuaternion(this.pencilRestQuat)
     this.pencilReportQuat.setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(-tipDir.x, tipDir.y, tipDir.z))
-    this.pencilReport.set(0.135, 0.004, 0.06) // on the table, right of the pad
+    this.pencilReport.set(0.135, 0.07, 0.04) // hovering beside the pad (the pad is tilted: lower than this and it would sink into the table) // on the table, right of the pad
     // the tick's spot on the page (a flat, invisible target)
     this.tickHit = new THREE.Mesh(new THREE.PlaneGeometry((TICK.w / PW) * W * 1.15, (TICK.h / PH) * D * 1.15), new THREE.MeshBasicMaterial({ visible: false }))
     this.tickHit.rotation.x = -Math.PI / 2
@@ -390,7 +391,10 @@ export class Notepad {
       toward = 1
     }
     const tip = new THREE.Vector3(0, -0.0745, 0).applyQuaternion(this.pencil.quaternion)
-    const goal = toward ? target.sub(tip) : this.pencilReport
+    this.floatT += dt
+    const hover = this.pencilReport.clone()
+    hover.y += Math.sin(this.floatT * 2.2) * 0.006
+    const goal = toward ? target.sub(tip) : hover
     this.pencil.position.lerp(goal, Math.min(1, dt * (toward ? 60 : 8)))
     this.pencil.quaternion.slerp(this.pencilReportQuat, Math.min(1, dt * 8))
   }
