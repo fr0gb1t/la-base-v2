@@ -153,12 +153,24 @@ export function RulebookHost() {
     };
   }, [armed, generation]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // asked for: come up; closed: put this one away and build the next one while the menu rests
+  // asked for: come up. Closed: it fades out and stays put; the next booklet is built only once the
+  // menu has been quiet again (building at the end of the fade made the exit hitch). If it is asked
+  // for again before that, the used booklet is replaced on the spot (rare: you just closed it).
   const wasOpen = useRef(false);
+  const used = useRef(false);
   useEffect(() => {
-    if (open && !wasOpen.current) book.current?.present();
+    if (open && !wasOpen.current) {
+      if (used.current) {
+        used.current = false;
+        setGeneration((g) => g + 1); // a fresh one (it presents itself: `requested` is set)
+      } else book.current?.present();
+    }
     if (!open && wasOpen.current) {
-      const t = window.setTimeout(() => setGeneration((g) => g + 1), 450); // after the fade-out
+      used.current = true;
+      const t = window.setTimeout(() => {
+        used.current = false;
+        setGeneration((g) => g + 1);
+      }, IDLE_BEFORE_BUILD_MS);
       wasOpen.current = false;
       return () => window.clearTimeout(t);
     }
