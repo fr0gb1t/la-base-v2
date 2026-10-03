@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMenuScene } from './MenuBackdrop';
 import type { FloatItem } from './floating';
+import { isTouch } from '../lib/device';
 import { uiSound } from '../table3d/audio';
 
 // Puts a screen's choices on the felt as floating buttons (and optionally a card you write on).
@@ -38,6 +39,8 @@ export function TableMenu({ items, input, note }: { items: FloatItem[]; input?: 
     scene.onInputClick = () => {
       const cur = latestInput.current;
       if (cur?.readOnly) cur.onSubmit();
+      // a finger: we are inside its click, focus now (a deferred focus never opens a phone's keyboard)
+      else if (isTouch) inputRef.current?.focus();
       // defer: the canvas mousedown that triggered this would otherwise steal the focus right back
       else window.setTimeout(() => inputRef.current?.focus(), 0);
     };

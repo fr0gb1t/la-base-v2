@@ -3345,3 +3345,20 @@ button {
     max-width: 94vw;
   }
 }
+
+/* a phone opens its keyboard only for an input it can really focus: the hidden writing field stays
+   invisible but is a real, reachable box (16px so iOS doesn't zoom in) */
+@media (pointer: coarse) {
+  .sr-only-input {
+    position: fixed !important;
+    left: 20vw;
+    bottom: 12px;
+    width: 60vw;
+    height: 36px;
+    margin: 0;
+    clip: auto;
+    font-size: 16px;
+    opacity: 0.01;
+    pointer-events: none;
+  }
+}

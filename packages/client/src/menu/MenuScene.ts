@@ -109,6 +109,7 @@ export class MenuScene {
   private inputCard = new InputCard()
   private inputAt: [number, number] = [0, 0.18]
   private inputHovered = false
+  private inputTap = false // a finger went down on the writing card: its click opens the keyboard
   private aceHovered = -1
   private aceFeet: THREE.Mesh[] = []
   private aceHits: THREE.Mesh[] = []
@@ -307,6 +308,12 @@ export class MenuScene {
       const r = this.renderer.domElement.getBoundingClientRect()
       this.mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
     })
+    this.on(window, 'click', () => {
+      if (!this.inputTap) return
+      this.inputTap = false
+      uiSound('write')
+      this.onInputClick() // inside the tap itself, so the keyboard opens
+    })
     this.on(window, 'pointerdown', (e: PointerEvent) => {
       // only clicks that land on the canvas itself (not on the DOM panels above it)
       if (e.target !== this.renderer.domElement && !(e.target as HTMLElement)?.dataset?.menuPassthrough) return
@@ -322,6 +329,11 @@ export class MenuScene {
         return this.floating.pick(this.floatHovered)
       }
       if (this.inputHovered) {
+        // a phone only opens the keyboard from a real tap: the click that follows this touch does it
+        if (e.pointerType === 'touch') {
+          this.inputTap = true
+          return
+        }
         uiSound('write')
         return this.onInputClick()
       }
