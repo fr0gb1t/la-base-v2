@@ -78,6 +78,12 @@ await tapAt(tv.x, tv.y); await sleep(700)
 console.log('tap on the settings television opens settings (reticle elsewhere):', await p.evaluate(() => Boolean(document.querySelector('.settings-veil'))), JSON.stringify(tv))
 await p.keyboard.press('Escape'); await sleep(300)
 console.log('mobile defaults', JSON.stringify(await p.evaluate(() => { const v = window.__view.get(); return { handResetOnTurn: v.handResetOnTurn, guides: v.guides, gyro: v.gyro, cameraReturn: v.cameraReturn, invertLook: v.invertLook, reticle: v.reticle } })))
+// 3c) touching the notepad directly opens it, with the reticle elsewhere
+await p.evaluate(() => { const t = window.__table; t.yawT = 0.5; t.yaw = 0.5; t.pitchT = -0.2; t.pitch = -0.2 }); await sleep(700)
+const npd = await p.evaluate(() => window.__table.notepadScreen())
+await tapAt(npd.x, npd.y); await sleep(700)
+console.log('direct tap on the notepad opens it:', await p.evaluate(() => Boolean(document.querySelector('.anotador-sheet'))), JSON.stringify(npd))
+await p.keyboard.press('Escape'); await sleep(300)
 // 4) the señas button: a second tap closes the ring (it exists once the round is being played)
 for (let i = 0; i < 400 && !['bidding', 'playing'].includes(host.state?.phase); i++) {
   await sleep(150)

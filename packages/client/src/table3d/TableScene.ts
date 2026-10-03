@@ -1693,6 +1693,7 @@ export class TableScene {
         Boolean(this.hud.hovered) ||
         this.clock.hovered ||
         (this.notepad.tickHovered && this.padFocus > 0.6) ||
+        this.notepad.hovered || // the notepad too: touched directly it takes the tap (a drag on it still leafs through its pages)
         (this.centerDeck.visible && this.raycaster.intersectObject(this.centerDeck, false).length > 0)
       return !this.multiLock
     }
