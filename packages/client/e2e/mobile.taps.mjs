@@ -71,6 +71,13 @@ console.log('zoomed target moved with the gyroscope:', JSON.stringify(t0.map((x)
 await p.screenshot({ path: `${out}-zoomed.png` })
 await tapAt(150, 120); await sleep(90); await tapAt(150, 120); await sleep(900)
 console.log('double tap again leaves the zoom:', !(await p.evaluate(() => Boolean(window.__table.peek))))
+// 3b) a tap straight on a television button wins over the reticle: aim away from it, tap it
+await p.evaluate(() => { const t = window.__table; t.yawT = 0; t.yaw = 0; t.pitchT = -0.2; t.pitch = -0.2 }); await sleep(600)
+const tv = await p.evaluate(() => window.__table.hudScreen('ajustes'))
+await tapAt(tv.x, tv.y); await sleep(700)
+console.log('tap on the settings television opens settings (reticle elsewhere):', await p.evaluate(() => Boolean(document.querySelector('.settings-veil'))), JSON.stringify(tv))
+await p.keyboard.press('Escape'); await sleep(300)
+console.log('mobile defaults', JSON.stringify(await p.evaluate(() => { const v = window.__view.get(); return { handResetOnTurn: v.handResetOnTurn, guides: v.guides, gyro: v.gyro, cameraReturn: v.cameraReturn, invertLook: v.invertLook, reticle: v.reticle } })))
 // 4) the señas button: a second tap closes the ring (it exists once the round is being played)
 for (let i = 0; i < 400 && !['bidding', 'playing'].includes(host.state?.phase); i++) {
   await sleep(150)

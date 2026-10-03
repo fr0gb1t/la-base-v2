@@ -105,7 +105,10 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   giroscopio): apuntás al anotador y tocás donde sea para abrirlo. **Doble tap = zoom** en la mira
   (otro doble tap lo desactiva), y con el zoom activo el giroscopio sigue moviendo lo que mirás. El
   zoom de tres dedos se sacó. El botón de señas (ahora arriba a la derecha) abre el anillo con un
-  tap y lo cierra con un segundo tap.
+  tap y lo cierra con un segundo tap. Los botones 3D (televisores, reloj, mazo, tilde) tienen
+  prioridad: si el dedo cae sobre uno, el tap es para él y no para la mira. Valores por defecto en
+  el celular: mano a la vista en tu turno **no**, guías **no**, giroscopio **sí**, volver a tu lugar
+  **sí**, invertir cámara **no**, punto de mira **sí**.
 - **Giroscopio** (se apaga en Ajustes → Cámara), **un dedo = clic izquierdo** (toque, mantener y
   arrastrar), **dos dedos arriba/abajo = subir/bajar las cartas**, **tres dedos = zoom**; menús y
   paneles adaptados a pantallas bajas y verticales; botón «señas»; el teclado se abre al tocar la

@@ -1,5 +1,6 @@
 // View settings: persisted per browser, observable.
 import { SENAS } from '@la-base/shared'
+import { isTouch } from '../lib/device'
 import { isBackDesign, type BackDesign } from '../table3d/backDesigns'
 
 export interface ViewSettings {
@@ -24,7 +25,8 @@ export const SENS_MAX = 3
 export const FOV_MIN = 50
 export const FOV_MAX = 80
 const KEY = 'laBase.view'
-const DEFAULTS: ViewSettings = { cameraReturn: false, reticle: true, invertLook: false, handResetOnTurn: true, guides: true, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja', handHeight: 0, senaOrder: '', gyro: true }
+// phones start with: hand not reset on your turn, no table guides, view returns to your seat (gyroscope and reticle on, camera not inverted)
+const DEFAULTS: ViewSettings = { cameraReturn: isTouch, reticle: true, invertLook: false, handResetOnTurn: !isTouch, guides: !isTouch, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja', handHeight: 0, senaOrder: '', gyro: true }
 
 function load(): ViewSettings {
   try {

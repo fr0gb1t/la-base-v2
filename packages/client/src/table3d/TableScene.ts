@@ -1626,6 +1626,7 @@ export class TableScene {
   // two fingers swiping up/down move your hand; three fingers tapping toggle the zoom; the phone's
   // gyroscope turns the view.
 
+  private touchedButton = false // the finger that just went down is on a 3D button: its tap acts there, not at the reticle
   private tapAtReticle = false // the pointer being released is a finger: its tap acts at the middle of the screen
   private lastTapT = 0
   private tapTimer = 0
@@ -1636,7 +1637,7 @@ export class TableScene {
    * taps zoom there (or leave the zoom). A lone tap waits a beat, to see whether a second one follows.
    */
   private clickAt() {
-    if (!this.tapAtReticle) return this.tableClick()
+    if (!this.tapAtReticle || this.touchedButton) return this.tableClick()
     const t = now()
     if (this.lastTapT && t - this.lastTapT < DOUBLE_TAP_S) {
       window.clearTimeout(this.tapTimer)
@@ -1687,6 +1688,12 @@ export class TableScene {
       const r = el.getBoundingClientRect()
       this.mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
       this.updateHover(now(), 1 / 60)
+      // a button under the finger (the televisions, the clock, the deck, the notepad's tick) has priority: it takes the tap itself
+      this.touchedButton =
+        Boolean(this.hud.hovered) ||
+        this.clock.hovered ||
+        (this.notepad.tickHovered && this.padFocus > 0.6) ||
+        (this.centerDeck.visible && this.raycaster.intersectObject(this.centerDeck, false).length > 0)
       return !this.multiLock
     }
     // a second finger: whatever the first one had started is dropped
