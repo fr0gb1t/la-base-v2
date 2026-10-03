@@ -2,6 +2,7 @@
 import puppeteer from 'puppeteer-core'
 import { io } from 'socket.io-client'
 const out = process.argv[2] ?? '/tmp/ano'
+const N = Number(process.argv[3] ?? 4)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const b = await puppeteer.launch({ executablePath: '/usr/bin/chromium', headless: 'new', args: ['--use-angle=vulkan', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'], defaultViewport: { width: 1280, height: 720 } })
 async function auto() {
@@ -20,8 +21,8 @@ async function auto() {
   })
   return me
 }
-const host = await auto(); const room = (await host.emit('room:create', { playerName: 'Host', playerCount: 4 })).roomCode; host.room = room
-const others = []; for (let i = 0; i < 2; i++) { const o = await auto(); o.room = room; await o.emit('room:join', { roomCode: room, playerName: `P${i}` }); others.push(o) }
+const host = await auto(); const room = (await host.emit('room:create', { playerName: 'Host', playerCount: N })).roomCode; host.room = room
+const others = []; for (let i = 0; i < N - 2; i++) { const o = await auto(); o.room = room; await o.emit('room:join', { roomCode: room, playerName: `P${i}` }); others.push(o) }
 const p = await b.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message))
 await p.goto('http://localhost:5174/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(1500)
 await p.evaluate(() => { localStorage.clear(); localStorage.setItem('guestName', 'Vos') }); await p.reload({ waitUntil: 'domcontentloaded' }); await sleep(2500)
@@ -42,10 +43,12 @@ await sleep(1500)
 const np = await p.evaluate(() => window.__table.notepadScreen())
 await p.mouse.move(np.x, np.y); await sleep(500)
 await p.screenshot({ path: `${out}-1-table.png` })
-await p.mouse.down(); await sleep(50); await p.mouse.up(); await sleep(400)
-await p.screenshot({ path: `${out}-2-opening.png` })
-await sleep(3500)
+await p.mouse.down(); await sleep(50); await p.mouse.up(); await sleep(300)
 await p.screenshot({ path: `${out}-3-open.png` })
+const fits = await p.evaluate(() => { const e = document.querySelector('.anotador-sheet'); return e ? { scroll: e.scrollHeight, client: e.clientHeight, cut: e.scrollHeight > e.clientHeight + 1 } : null })
+console.log('fits without scrolling:', JSON.stringify(fits))
+await p.evaluate(() => document.querySelector('.anotador-mode')?.click()); await sleep(250)
+await p.screenshot({ path: `${out}-4-short.png` })
 console.log('sheet open:', await p.evaluate(() => Boolean(document.querySelector('.anotador-sheet'))))
 await p.keyboard.press('Escape'); await sleep(400)
 console.log('closed with Esc:', await p.evaluate(() => !document.querySelector('.anotador-sheet')))

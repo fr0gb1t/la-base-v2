@@ -2,6 +2,13 @@
 
 ## Desde `a603e36`
 
+- **Anotador inmediato y sin cortes:** se sacó la animación de «escritura»: la hoja aparece en una
+  fracción de segundo con todo el contenido (letra manuscrita y trazos de lápiz de rough.js, ya
+  dibujados). Se arregló lo que se veía cortado: la raya del margen y la separación ahora siguen la
+  altura real de la hoja, el botón de cerrar ya no pisa el sentido de juego y, con 6 u 8
+  jugadores, la lista pasa a dos columnas para que la hoja entre sin scroll (se verificó con 4 y 8).
+  Sigue habiendo versión **reducida** (sin kamikazes ni lista de jugadores) y **completa**: un botón
+  en la hoja las alterna, y H recorre completa → reducida → cerrada; se recuerda la última que usaste.
 - **Nuevo significado de la seña «no»:** ahora es «por mí no pidas nada» (antes era «no te paso
   información»): cartas bajas, o alguna alta que se puede descartar porque el otro equipo ya pidió
   varias bases. Los bots lo usan así: al responder un toque dicen «no» cuando su mano es floja o

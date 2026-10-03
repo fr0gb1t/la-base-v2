@@ -100,6 +100,13 @@ export function GamePage() {
   // a question asked on the table itself (As de Copas / As de Oros); the DOM keeps hidden buttons
   const [tableAsk, setTableAsk] = useState<'copas' | 'oros' | null>(null);
   const [padOpen, setPadOpen] = useState(false); // the scoresheet floating in the middle of the screen
+  const [padFull, setPadFull] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('laBase.padFull') !== '0'; // the full sheet (with the players) unless you chose the short one
+    } catch {
+      return true;
+    }
+  });
   const myId = currentPlayer?.id || socket?.id || '';
 
   // latest values for socket handlers / scene callbacks
@@ -108,7 +115,27 @@ export function GamePage() {
 
   const flash = useCallback((text: string) => setStamp({ text, key: Date.now() }), []);
 
-  const togglePad = useCallback(() => setPadOpen((v) => !v), []);
+  const setFull = useCallback((full: boolean) => {
+    setPadFull(full);
+    try {
+      localStorage.setItem('laBase.padFull', full ? '1' : '0');
+    } catch {
+      /* the choice just won't persist */
+    }
+  }, []);
+  // H (and the notepad's button) go full → short → closed, as the old scoreboard did
+  const padState = useRef({ open: false, full: true });
+  padState.current = { open: padOpen, full: padFull };
+  const cyclePad = useCallback(() => {
+    const { open, full } = padState.current;
+    if (!open) setPadOpen(true);
+    else if (full) setFull(false);
+    else {
+      setPadOpen(false);
+      setFull(true);
+    }
+  }, [setFull]);
+  const togglePad = cyclePad;
 
   // ---- mount the scene once
   useEffect(() => {
@@ -632,7 +659,7 @@ export function GamePage() {
         </nav>
       </header>
 
-      {padOpen && <Anotador data={sheet} onClose={() => setPadOpen(false)} />}
+      {padOpen && <Anotador data={sheet} full={padFull} onToggleFull={() => setFull(!padFull)} onClose={() => setPadOpen(false)} />}
 
       {showLog && (
         <aside className="pad log-pad" aria-label="Historial de la partida">
