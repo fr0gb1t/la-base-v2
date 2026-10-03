@@ -9,6 +9,7 @@ import { useSocket } from '../hooks/useSocket';
 const ROW = { aces: -0.1, structure: 0.4, kamikazes: 0.55, clock: 0.69, actions: 0.85 } as const;
 // the form is centred on the felt: titles at the left, their options to the right, and the whole
 // block (titles included) balanced around x = 0
+const STRUCTURE_BUTTON_PX = 330; // the three structure buttons are the same size (the widest name sets it)
 const TITLE_X = -0.62; // the titles' left edge
 const OPT_X = 0.14; // the middle of the options column
 // the bidding clock: total per team for the whole game (0 = no clock)
@@ -109,7 +110,8 @@ export function GameConfig() {
             id: `est-${mode}`,
             label: names[mode],
             sub: `${sequences[mode].length} rondas`,
-            at: [OPT_X + (i - 1) * 0.28, ROW.structure] as [number, number],
+            width: STRUCTURE_BUTTON_PX,
+            at: [(i - 1) * 0.28, ROW.structure] as [number, number],
             selected: structure === mode,
             hint: `${names[mode]}: bases por ronda ${sequences[mode].join(' · ')}`,
             onPick: () => setStructure(mode),

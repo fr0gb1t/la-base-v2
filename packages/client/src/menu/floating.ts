@@ -14,6 +14,7 @@ export interface FloatItem {
   kind?: 'tag' | 'stamp' | 'chip' | 'label' // label: a chalked title, not a button
   icon?: 'plane' // a small engraved glyph above the label (chips)
   rowHeight?: number // labels: height of the row they name when it holds no buttons (the aces)
+  width?: number // tags/stamps: fixed width in texture pixels (a row of equal buttons)
   scale?: number // size multiplier (a tag far across the table)
   crossed?: boolean // struck out with a red cross (an option that is off)
   at: [number, number] // table x, z (a title: its LEFT edge, so titles line up)
@@ -95,7 +96,7 @@ function texture(item: FloatItem) {
   const tw = g.measureText(item.label).width
   g.font = `26px ${FONT}`
   const sw = item.sub ? g.measureText(item.sub).width : 0
-  const w = kind === 'chip' ? 128 : Math.max(tw, sw) + 70
+  const w = kind === 'chip' ? 128 : item.width ?? Math.max(tw, sw) + 70
   const h = kind === 'chip' ? 128 : item.sub ? 118 : 86
   cv.width = Math.ceil(w)
   cv.height = h
@@ -195,7 +196,7 @@ export class FloatingItems {
     const seen = new Set<string>()
     for (const def of items) {
       seen.add(def.id)
-      const key = `${def.label}|${def.sub}|${def.kind}|${def.selected}|${def.disabled}|${def.crossed}`
+      const key = `${def.label}|${def.sub}|${def.width}|${def.kind}|${def.selected}|${def.disabled}|${def.crossed}`
       const cur = this.live.get(def.id)
       if (cur && cur.key === key) {
         cur.def = def
