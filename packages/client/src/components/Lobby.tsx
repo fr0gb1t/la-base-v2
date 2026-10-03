@@ -166,7 +166,7 @@ export function Lobby() {
           <TableMenu
             note="¿cuántos se sientan? elegí y abrí la mesa"
             items={[
-              { id: 't-jugadores', label: 'Jugadores', kind: 'label', at: [-0.56, 0.34], onPick: () => undefined }, // row title on the left
+              { id: 't-jugadores', label: '¿Cuántos juegan?', kind: 'label', centred: true, under: 'n6', at: [0, 0.17], onPick: () => undefined }, // the question, centred above the numbers
               ...[4, 6, 8].map((count, i) => ({
                 id: `n${count}`,
                 label: String(count),
@@ -176,8 +176,8 @@ export function Lobby() {
                 hint: `${count} jugadores · ${count / 2} contra ${count / 2}`,
                 onPick: () => setPlayerCount(count),
               })),
-              { id: 'abrir', label: loading ? 'Abriendo…' : 'Abrir la mesa', kind: 'stamp', at: [0.08, 0.62], disabled: loading || !isSocketConnected, hint: `Crear una sala para ${playerCount}`, onPick: handleCreateRoom },
-              { id: 'volver', label: 'Volver', at: [-0.36, 0.62], onPick: () => { setMode('home'); setError(''); } },
+              { id: 'abrir', label: loading ? 'Abriendo…' : 'Abrir la mesa', kind: 'stamp', straighten: 0.65, at: [0.24, 0.62], disabled: loading || !isSocketConnected, hint: `Crear una sala para ${playerCount}`, onPick: handleCreateRoom },
+              { id: 'volver', label: 'Volver', straighten: 0.65, at: [-0.24, 0.62], onPick: () => { setMode('home'); setError(''); } },
             ]}
           />
         </>
