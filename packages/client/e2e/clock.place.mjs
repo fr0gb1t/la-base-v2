@@ -5,7 +5,7 @@ import puppeteer from 'puppeteer-core'
 import { io } from 'socket.io-client'
 const out = process.argv[2] ?? '/tmp/clockplace'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const b = await puppeteer.launch({ executablePath: '/usr/bin/chromium', headless: 'new', args: ['--use-angle=vulkan', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'], defaultViewport: { width: 1280, height: 720 } })
+const b = await puppeteer.launch({ executablePath: '/usr/bin/chromium', headless: 'new', args: ['--use-angle=vulkan', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'], defaultViewport: { width: 1280, height: 720, deviceScaleFactor: Number(process.env.DSF ?? 1) } })
 
 async function auto(room) {
   const sock = io('http://localhost:3100', { transports: ['websocket'], forceNew: true })

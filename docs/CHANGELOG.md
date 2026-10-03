@@ -42,6 +42,15 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
   (vacía = pedida, llena = lograda, roja = de más) se dibujan trazo por trazo con rough.js.
   Muestra ronda, base, sentido, puntos, lo que pidió y lleva cada equipo, kamikazes y los jugadores
   con su estado. Reemplaza al papelito fijo de la esquina y al botón de la pizarra.
+- **Televisores CRT más de verdad:** carcasa casi cuadrada de esquinas redondeadas con el tubo
+  hundido detrás de un bisel y un aro cromado, vidrio abombado en los dos sentidos con esquinas
+  redondeadas y distorsión de barril, cuerpo trasero que se achica en dos escalones con ranuras de
+  ventilación arriba, y una tira de controles a la derecha (perilla grande, perilla chica, botones y
+  rejilla) como en un televisor de los 70/80. Plástico gris oscuro y negro. Detrás del ícono hay
+  ruido de estática (cambia cada cuadro, con líneas de barrido, una banda que baja y rasgaduras
+  ocasionales). Cada televisor tiene su propio desgaste, al azar y distinto en cada partida: gris
+  de otro tono, mugre en los bordes y esquinas, rayones, desportillados, polvo, a veces una huella,
+  vidrio más o menos sucio, perillas en otra posición, cromo más o menos opaco y colgado apenas torcido.
 - **Pizarra reemplazada por televisores CRT y un panel LED:** historial, reglas, ajustes y salir son
   cuatro televisores de tubo colgados de cables al fondo de la sala, con el dibujo en fósforo verde
   (salir en ámbar) sobre vidrio abombado con líneas de barrido y titileo; al pasar el mouse el

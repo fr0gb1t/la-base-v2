@@ -139,72 +139,199 @@ function iconPaths(svg: string): { paths: string[]; box: number } {
 const SCREEN_W = 256
 const SCREEN_H = 200
 
-/** What the tube shows: the icon in phosphor, scanlines and a vignette; with its name when `hot`. */
+/** The picture on the tube, on a transparent layer: the icon in phosphor (and its name when `hot`). The static, scanlines and vignette are the glass shader's. */
 function screenTexture(item: HudItem, hot: boolean) {
   const cv = document.createElement('canvas')
   cv.width = SCREEN_W
   cv.height = SCREEN_H
   const g = cv.getContext('2d')!
   const color = item.danger ? RED : GREEN
-  const bg = g.createRadialGradient(SCREEN_W / 2, SCREEN_H / 2, 10, SCREEN_W / 2, SCREEN_H / 2, SCREEN_W * 0.62)
-  bg.addColorStop(0, item.danger ? '#241008' : '#0b2412')
-  bg.addColorStop(1, '#020805')
-  g.fillStyle = bg
-  g.fillRect(0, 0, SCREEN_W, SCREEN_H)
   const { paths, box } = iconPaths(item.svg)
-  const size = hot ? 118 : 146
+  const size = hot ? 112 : 136
   const s = size / box
   g.save()
   g.translate((SCREEN_W - size) / 2, (SCREEN_H - size) / 2 - (hot ? 18 : 2))
   g.scale(s, s)
   g.shadowColor = color
-  g.shadowBlur = hot ? 38 : 24
+  g.shadowBlur = hot ? 40 : 26
   g.fillStyle = color
-  g.globalAlpha = hot ? 1 : 0.85
   for (const d of paths) g.fill(new Path2D(d))
   g.restore()
   if (hot) {
     g.fillStyle = color
     g.shadowColor = color
     g.shadowBlur = 12
-    g.font = '34px VT323, "Courier New", monospace'
+    g.font = '36px VT323, "Courier New", monospace'
     g.textAlign = 'center'
     g.textBaseline = 'middle'
-    g.fillText(item.label.toUpperCase(), SCREEN_W / 2, SCREEN_H - 30)
-    g.shadowBlur = 0
+    g.fillText(item.label.toUpperCase(), SCREEN_W / 2, SCREEN_H - 28)
   }
-  // scanlines
-  g.fillStyle = 'rgba(0,0,0,0.3)'
-  for (let y = 0; y < SCREEN_H; y += 3) g.fillRect(0, y, SCREEN_W, 1)
-  // vignette
-  const v = g.createRadialGradient(SCREEN_W / 2, SCREEN_H / 2, SCREEN_H * 0.3, SCREEN_W / 2, SCREEN_H / 2, SCREEN_W * 0.72)
-  v.addColorStop(0, 'rgba(0,0,0,0)')
-  v.addColorStop(1, 'rgba(0,0,0,0.7)')
-  g.fillStyle = v
-  g.fillRect(0, 0, SCREEN_W, SCREEN_H)
   const tex = new THREE.CanvasTexture(cv)
   tex.colorSpace = THREE.SRGBColorSpace
   tex.anisotropy = 4
   return tex
 }
 
-/** A glass front that bulges toward you (a tube, not a flat panel). */
+/** The tube: static behind the icon, scanlines rolling, a vignette and a bright band that drifts down. */
+function glassMaterial(map: THREE.Texture, tint: THREE.Color, seed: number, wear: THREE.Vector4) {
+  return new THREE.ShaderMaterial({
+    uniforms: { map: { value: map }, time: { value: 0 }, glow: { value: 0 }, tint: { value: tint }, seed: { value: seed }, wear: { value: wear } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `
+      varying vec2 vUv; uniform sampler2D map; uniform float time; uniform float glow; uniform vec3 tint; uniform float seed; uniform vec4 wear; // x: static, y: smudge, z: roll speed, w: dead edge
+      float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+      void main(){
+        vec2 uv = vUv;
+        // barrel: the picture bows out toward the middle of the glass, as on a real tube
+        vec2 c0 = uv - 0.5;
+        uv = 0.5 + c0 * (1.0 + 0.16 * dot(c0, c0) * 4.0);
+        // the glass has rounded corners
+        vec2 q = abs(vUv - 0.5) - vec2(0.5 - 0.11, 0.5 - 0.14);
+        float edgeD = length(max(q, 0.0)) - 0.11;
+        if (edgeD > 0.0) { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
+        // a slight horizontal tear that comes and goes
+        float tear = step(0.992, hash(vec2(floor(time * 9.0), seed))) * (hash(vec2(floor(uv.y * 40.0), floor(time * 18.0))) - 0.5) * 0.05;
+        uv.x += tear;
+        float f = floor(time * 24.0);
+        vec2 cell = floor(uv * vec2(150.0, 118.0));
+        float n = hash(cell + f * 1.7 + seed);
+        float grain = 0.55 + 0.9 * n;
+        vec3 base = tint * (0.03 + 0.1 * grain * grain * wear.x) * (0.8 + glow * 0.6);
+        vec4 ic = texture2D(map, uv);
+        vec3 col = base + ic.rgb * ic.a * (1.5 + glow * 0.7);
+        // scanlines and the rolling band
+        col *= 0.78 + 0.22 * sin(uv.y * 520.0);
+        col *= 0.9 + 0.35 * smoothstep(0.0, 0.5, 0.5 - abs(fract(uv.y - time * wear.z) - 0.5));
+        // smudges and dust on the glass, different on every set
+        float sm = hash(floor(uv * 9.0) + seed) * smoothstep(0.55, 0.0, length(fract(uv * 9.0) - 0.5));
+        col += vec3(0.05, 0.06, 0.05) * sm * wear.y;
+        col *= 1.0 - smoothstep(-0.03, 0.0, edgeD) * (0.5 + wear.w);
+        // vignette (the tube's edge falls away)
+        vec2 d = uv - 0.5;
+        col *= 1.0 - 1.5 * dot(d, d);
+        // a hint of reflection, top-left
+        col += vec3(0.05) * smoothstep(0.55, 0.0, length(uv - vec2(0.2, 0.85)));
+        gl_FragColor = vec4(col * (1.0 + 0.04 * sin(time * 60.0 + seed)), 1.0);
+      }`,
+    toneMapped: false,
+    fog: false,
+  } as THREE.ShaderMaterialParameters)
+}
+
+/** A glass front that bulges toward you like a tube's face: a dome, curved both ways. */
 function tubeGeometry(w: number, h: number, bulge: number) {
-  const geo = new THREE.PlaneGeometry(w, h, 14, 12)
+  const geo = new THREE.PlaneGeometry(w, h, 22, 18)
   const pos = geo.getAttribute('position')
   for (let i = 0; i < pos.count; i++) {
     const nx = pos.getX(i) / (w / 2)
     const ny = pos.getY(i) / (h / 2)
-    pos.setZ(i, bulge * (1 - nx * nx * 0.9) * (1 - ny * ny * 0.9))
+    pos.setZ(i, bulge * Math.max(0, 1 - 0.5 * nx * nx - 0.5 * ny * ny))
   }
   geo.computeVertexNormals()
   return geo
 }
 
-const TV_W = 0.4
-const TV_H = 0.34
-const SCR_W = 0.29
+/** A small seeded generator, so each set is its own but a set never changes between frames. */
+function rng(seed: number) {
+  let t = (seed * 2654435761) >>> 0
+  return () => {
+    t = (t + 0x6d2b79f5) >>> 0
+    let r = Math.imul(t ^ (t >>> 15), 1 | t)
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/** Years of use on the front of one set: grime in the edges and corners, scratches, chips, dust and a thumbprint. Every set draws its own. */
+function wearTexture(w: number, h: number, hole: { x: number; y: number; w: number; h: number }, rnd: () => number, amount: number) {
+  const cv = document.createElement('canvas')
+  cv.width = 512
+  cv.height = Math.round((512 * h) / w)
+  const g = cv.getContext('2d')!
+  const W = cv.width
+  const H = cv.height
+  // grime gathering at the edges, heavier in a random corner
+  const cx = rnd() < 0.5 ? 0 : W
+  const cy = rnd() < 0.5 ? 0 : H
+  const edge = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.62)
+  edge.addColorStop(0, 'rgba(0,0,0,0)')
+  edge.addColorStop(1, `rgba(0,0,0,${0.3 + 0.3 * amount})`)
+  g.fillStyle = edge
+  g.fillRect(0, 0, W, H)
+  const corner = g.createRadialGradient(cx, cy, 0, cx, cy, W * (0.25 + 0.35 * rnd()))
+  corner.addColorStop(0, `rgba(10,8,6,${0.25 + 0.4 * amount})`)
+  corner.addColorStop(1, 'rgba(10,8,6,0)')
+  g.fillStyle = corner
+  g.fillRect(0, 0, W, H)
+  // sun-faded / dusty patches
+  for (let i = 0; i < 3 + Math.floor(rnd() * 5); i++) {
+    const x = rnd() * W
+    const y = rnd() * H
+    const r = 30 + rnd() * 90
+    const p = g.createRadialGradient(x, y, 0, x, y, r)
+    p.addColorStop(0, `rgba(150,146,138,${0.05 + 0.12 * rnd() * amount})`)
+    p.addColorStop(1, 'rgba(150,146,138,0)')
+    g.fillStyle = p
+    g.fillRect(x - r, y - r, r * 2, r * 2)
+  }
+  // scratches: thin pale lines, mostly short, a few long
+  g.lineCap = 'round'
+  const scratches = Math.floor(5 + rnd() * 20 * amount + rnd() * 6)
+  for (let i = 0; i < scratches; i++) {
+    const x = rnd() * W
+    const y = rnd() * H
+    const len = (rnd() < 0.2 ? 90 : 18) + rnd() * 50
+    const a = rnd() * Math.PI
+    g.strokeStyle = `rgba(190,186,176,${0.1 + 0.3 * rnd()})`
+    g.lineWidth = 0.6 + rnd() * 1.4
+    g.beginPath()
+    g.moveTo(x, y)
+    g.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len * 0.4)
+    g.stroke()
+  }
+  // chips on the corners and edges: bare lighter plastic
+  for (let i = 0; i < Math.floor(rnd() * 5 * amount + (rnd() < 0.5 ? 1 : 0)); i++) {
+    const onX = rnd() < 0.5
+    const x = onX ? (rnd() < 0.5 ? 6 : W - 6) : rnd() * W
+    const y = onX ? rnd() * H : rnd() < 0.5 ? 6 : H - 6
+    g.fillStyle = `rgba(120,116,108,${0.25 + 0.3 * rnd()})`
+    g.beginPath()
+    g.ellipse(x, y, 2 + rnd() * 6, 1.5 + rnd() * 4, rnd() * 3, 0, Math.PI * 2)
+    g.fill()
+  }
+  // dust specks
+  for (let i = 0; i < 80 + rnd() * 200; i++) {
+    g.fillStyle = `rgba(${rnd() < 0.5 ? '170,166,158' : '0,0,0'},${0.05 + 0.2 * rnd()})`
+    g.fillRect(rnd() * W, rnd() * H, 1 + rnd() * 1.5, 1 + rnd() * 1.5)
+  }
+  // a thumbprint, sometimes
+  if (rnd() < 0.55) {
+    const x = rnd() * W
+    const y = H * (0.6 + 0.3 * rnd())
+    g.strokeStyle = 'rgba(190,186,176,0.08)'
+    for (let r = 3; r < 16; r += 2.2) {
+      g.lineWidth = 1
+      g.beginPath()
+      g.ellipse(x, y, r, r * 1.3, 0.4, 0, Math.PI * 2)
+      g.stroke()
+    }
+  }
+  // the screen opening stays clear
+  g.globalCompositeOperation = 'destination-out'
+  g.fillStyle = '#000'
+  g.fillRect((hole.x / w + 0.5) * W - (hole.w / w / 2) * W, (0.5 - hole.y / h) * H - (hole.h / h / 2) * H, (hole.w / w) * W, (hole.h / h) * H)
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 4
+  return tex
+}
+
+const TV_W = 0.42
+const TV_H = 0.37
+const TV_D = 0.2 // depth of the cabinet
+const SCR_W = 0.25
 const SCR_H = SCR_W * (SCREEN_H / SCREEN_W)
+const SCR_X = -0.045 // the screen sits left of centre: the controls take the right side
 
 interface Live {
   item: HudItem
@@ -256,7 +383,7 @@ export class HudBoard {
 
     // a lamp for the case and the sets (the slate had its own: the warm light on the wood and plastic)
     for (const x of [-1.5, -0.6, 0.8]) {
-      const lamp = new THREE.PointLight(hex(PALETTE.amber), 2.4, 3, 1.6)
+      const lamp = new THREE.PointLight(0xe8e4dc, 1.5, 3, 1.6) // near-neutral: the sets must read grey and black, not brown
       lamp.position.set(x, 0.55, 0.9)
       this.group.add(lamp)
     }
@@ -335,48 +462,135 @@ export class HudBoard {
   }
 
   private build(item: HudItem, key: string, x: number, i: number): Live {
-    const pivot = new THREE.Group() // its origin is where the cables meet the ceiling's end: it swings from here
+    const pivot = new THREE.Group() // its origin is where the cables meet the cabinet: it swings from here
     pivot.position.set(x, TV_H / 2 + 0.03, 0)
     const set = new THREE.Group()
     set.position.y = -(TV_H / 2 + 0.03)
     pivot.add(set)
-    const plastic = new THREE.MeshStandardMaterial({ color: item.danger ? 0x4a2a24 : 0x3a342c, roughness: 0.5 })
-    // the cabinet: a front box and a narrower tube housing behind it
-    const front = new THREE.Mesh(new THREE.BoxGeometry(TV_W, TV_H, 0.1), plastic)
-    const back = new THREE.Mesh(new THREE.BoxGeometry(TV_W * 0.72, TV_H * 0.74, 0.14), plastic)
-    back.position.z = -0.12
-    front.castShadow = back.castShadow = true
-    // the bezel round the screen, and two knobs
-    const bezel = new THREE.Mesh(new THREE.BoxGeometry(SCR_W + 0.03, SCR_H + 0.03, 0.01), new THREE.MeshStandardMaterial({ color: 0x0a0907, roughness: 0.4 }))
-    bezel.position.z = 0.052
-    const knobMat = new THREE.MeshStandardMaterial({ color: 0x8a8378, roughness: 0.4, metalness: 0.6 })
-    const knobs = [0.05, -0.02].map((y) => {
-      const k = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.0085, 0.012, 12), knobMat)
-      k.rotation.x = Math.PI / 2
-      k.position.set(TV_W / 2 - 0.026, y * 1.3, 0.056)
-      return k
-    })
-    // the glass: bulging, showing the picture
+    const own: Array<{ dispose(): void }> = []
+    const mat = (color: number, rough = 0.45, metal = 0) => {
+      const m = new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal })
+      own.push(m)
+      return m
+    }
+        // each set has its own history: a different grey, more or less worn, a dirtier or cleaner glass
+    const rnd = rng(Math.floor(Math.random() * 1e9) + i)
+    const amount = 0.35 + rnd() * 0.65
+    const grey = 0.12 + rnd() * 0.07
+    const shell = mat(new THREE.Color(grey, grey * (0.98 + rnd() * 0.04), grey * (0.97 + rnd() * 0.05)).getHex(), 0.4 + rnd() * 0.25)
+    const trim = mat(new THREE.Color().setScalar(0.35 + rnd() * 0.25).getHex(), 0.3 + rnd() * 0.3, 0.75) // the chrome line (more or less tarnished)
+    const dark = mat(0x0a0a0a, 0.5)
+    const rounded = (w: number, h: number, r: number) => {
+      const sh = new THREE.Shape()
+      sh.moveTo(-w / 2 + r, -h / 2)
+      sh.lineTo(w / 2 - r, -h / 2)
+      sh.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r)
+      sh.lineTo(w / 2, h / 2 - r)
+      sh.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2)
+      sh.lineTo(-w / 2 + r, h / 2)
+      sh.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r)
+      sh.lineTo(-w / 2, -h / 2 + r)
+      sh.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2)
+      return sh
+    }
+    const extrude = (shape: THREE.Shape, depth: number, bevel: number) => {
+      const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 3, curveSegments: 6 })
+      own.push(g)
+      return g
+    }
+    // the front: a rounded frame with an opening for the tube
+    const frameShape = rounded(TV_W, TV_H, 0.035)
+    const hole = rounded(SCR_W + 0.02, SCR_H + 0.02, 0.05)
+    frameShape.holes.push(new THREE.Path(hole.getPoints(8).map((p) => new THREE.Vector2(p.x + SCR_X, p.y)).reverse()))
+    const frame = new THREE.Mesh(extrude(frameShape, 0.07, 0.006), shell)
+    frame.position.set(0, 0, -0.01)
+    // the front's wear: a decal over the frame, different for every set
+    const wearTex = wearTexture(TV_W, TV_H, { x: SCR_X, y: 0, w: SCR_W + 0.02, h: SCR_H + 0.02 }, rnd, amount)
+    const wearMat = new THREE.MeshBasicMaterial({ map: wearTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, fog: false })
+    const decal = new THREE.Mesh(new THREE.PlaneGeometry(TV_W, TV_H), wearMat)
+    decal.position.z = 0.0675
+    own.push(wearTex, wearMat, decal.geometry)
+    // the body behind it, stepping in like a tube cabinet: two blocks, each narrower than the last
+    const body1 = new THREE.Mesh(extrude(rounded(TV_W * 0.94, TV_H * 0.92, 0.04), TV_D * 0.5, 0.004), shell)
+    body1.position.z = -0.01 - TV_D * 0.5
+    const body2 = new THREE.Mesh(extrude(rounded(TV_W * 0.74, TV_H * 0.72, 0.04), TV_D * 0.5, 0.004), shell)
+    body2.position.z = -0.01 - TV_D
+    for (const m of [frame, body1, body2]) m.castShadow = true
+    // the tube's well: a dark tapering funnel behind the glass
+    const well = new THREE.Mesh(extrude(rounded(SCR_W + 0.04, SCR_H + 0.04, 0.05), 0.05, 0.003), dark)
+    well.position.set(SCR_X, 0, -0.04)
+    // a chrome ring round the opening, and a recessed lip
+    const ringShape = rounded(SCR_W + 0.05, SCR_H + 0.05, 0.055)
+    ringShape.holes.push(new THREE.Path(rounded(SCR_W + 0.03, SCR_H + 0.03, 0.05).getPoints(8).reverse()))
+    const ring = new THREE.Mesh(extrude(ringShape, 0.004, 0.002), trim)
+    ring.position.set(SCR_X, 0, 0.066)
+    // the glass, bulging out of the well
+    const glassGeo = tubeGeometry(SCR_W + 0.016, SCR_H + 0.016, 0.04)
     const idle = screenTexture(item, false)
     const hot = screenTexture(item, true)
-    const glassGeo = tubeGeometry(SCR_W, SCR_H, 0.012)
-    const glass = new THREE.Mesh(glassGeo, new THREE.MeshBasicMaterial({ map: idle, color: new THREE.Color(1.15, 1.15, 1.15), toneMapped: false, fog: false }))
-    glass.position.z = 0.056
-    // the cables: two to the ceiling, from the top of the set
-    const cableMat = new THREE.MeshStandardMaterial({ color: 0x14110f, roughness: 0.7 })
-    for (const dx of [-TV_W * 0.34, TV_W * 0.34]) {
+    const wear = new THREE.Vector4(0.7 + rnd() * 0.6, 0.4 + rnd() * 1.4 * amount, 0.06 + rnd() * 0.12, rnd() * 0.5)
+    const glass = new THREE.Mesh(glassGeo, glassMaterial(idle, new THREE.Color(item.danger ? '#ff7a3c' : '#4dff7a'), rnd() * 50, wear))
+    glass.position.set(SCR_X, 0, 0.012)
+    // the control strip on the right: a dark panel with a big knob, a small one, buttons and a speaker grille
+    const stripX = SCR_X + SCR_W / 2 + (TV_W / 2 - (SCR_X + SCR_W / 2)) / 2
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.07, TV_H * 0.8, 0.012), dark)
+    strip.position.set(stripX, 0, 0.066)
+    const knobMat = mat(0x6e695f, 0.35, 0.7)
+    const knob = (y: number, r: number) => {
+      const k = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.08, 0.016, 16), knobMat)
+      k.rotation.x = Math.PI / 2
+      k.position.set(stripX, y, 0.078)
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(r * 0.2, r * 1.5, 0.004), dark)
+      cap.position.set(stripX, y, 0.087)
+      cap.rotation.z = (rnd() - 0.5) * 3 // each knob stopped somewhere else
+      return [k, cap]
+    }
+    const knobs = [...knob(TV_H * 0.3, 0.016), ...knob(TV_H * 0.1, 0.011)]
+    const buttons = [-0.04, -0.075].map((dy) => {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.012, 0.01), knobMat)
+      b.position.set(stripX, dy, 0.076)
+      return b
+    })
+    const slots = Array.from({ length: 6 }, (_, k) => {
+      const sl = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.004, 0.004), shell)
+      sl.position.set(stripX, -0.1 - k * 0.011, 0.074)
+      return sl
+    })
+    // the grille under the screen
+    const grille = Array.from({ length: 5 }, (_, k) => {
+      const sl = new THREE.Mesh(new THREE.BoxGeometry(SCR_W * 0.85, 0.003, 0.004), dark)
+      sl.position.set(SCR_X, -SCR_H / 2 - 0.032 - k * 0.007, 0.066)
+      return sl
+    })
+    // vent slots on top of the body
+    const vents = Array.from({ length: 7 }, (_, k) => {
+      const v = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.003, 0.09), dark)
+      v.position.set(-TV_W * 0.3 + k * 0.018, TV_H * 0.46 + 0.003, -0.1)
+      return v
+    })
+    own.push(...vents.map((v) => v.geometry))
+    set.add(...vents)
+    const cableMat = mat(0x14110f, 0.7)
+    for (const dx of [-TV_W * 0.32, TV_W * 0.32]) {
       const c = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 2.2, 6), cableMat)
-      c.position.set(dx, TV_H / 2 + 1.1, 0)
+      c.position.set(dx, TV_H / 2 + 1.1, -0.03)
       set.add(c)
     }
-    set.add(front, back, bezel, glass, ...knobs)
-    const hit = new THREE.Mesh(new THREE.BoxGeometry((TV_W + 0.06) * HUD_HIT_SCALE, (TV_H + 0.04) * HUD_HIT_SCALE, 0.12), new THREE.MeshBasicMaterial({ visible: false }))
+    const geos = [strip, ...knobs, ...buttons, ...slots, ...grille].map((m) => m.geometry)
+    own.push(...geos, glassGeo)
+    set.add(frame, decal, body1, body2, well, ring, glass, strip, ...knobs, ...buttons, ...slots, ...grille)
+    set.traverse((o) => {
+      if (o instanceof THREE.Mesh && o !== glass) o.receiveShadow = true
+    })
+    const hit = new THREE.Mesh(new THREE.BoxGeometry((TV_W + 0.04) * HUD_HIT_SCALE, (TV_H + 0.04) * HUD_HIT_SCALE, 0.14), new THREE.MeshBasicMaterial({ visible: false }))
+    hit.position.z = -0.02
     hit.userData.hudId = item.id
     set.add(hit)
+    own.push(hit.geometry)
+    set.rotation.z = (rnd() - 0.5) * 0.03 // none hangs perfectly straight
     this.group.add(pivot)
-    this.disposables.push(plastic, front.geometry, back.geometry, bezel.geometry, bezel.material as THREE.Material, knobMat, glassGeo, cableMat, hit.geometry)
-    this.disposables.push(...knobs.map((k) => k.geometry))
-    return { item, key, pivot: set.parent as THREE.Group, glass, idle, hot, hit, x, phase: i * 1.7, glow: 0 }
+    this.disposables.push(...own)
+    return { item, key, pivot, glass, idle, hot, hit, x, phase: i * 1.7, glow: 0 }
   }
 
   private remove(l: Live) {
@@ -407,14 +621,10 @@ export class HudBoard {
     for (const l of this.live.values()) {
       const on = this.hovered === l.item.id
       l.glow += ((on ? 1 : 0) - l.glow) * Math.min(1, dt * 14)
-      const mat = l.glass.material as THREE.MeshBasicMaterial
-      const hotMap = l.glow > 0.5 ? l.hot : l.idle
-      if (mat.map !== hotMap) {
-        mat.map = hotMap
-        mat.needsUpdate = true
-      }
-      const flicker = 1 + Math.sin(t * 47 + l.phase) * 0.03 + Math.sin(t * 13 + l.phase * 2) * 0.03
-      mat.color.setScalar((1.1 + l.glow * 0.5) * flicker)
+      const mat = l.glass.material as THREE.ShaderMaterial
+      mat.uniforms.map.value = l.glow > 0.5 ? l.hot : l.idle
+      mat.uniforms.time.value = t
+      mat.uniforms.glow.value = l.glow
     }
     // the message is spelled out, about thirty letters a second
     if (this.shown < this.msg.length) this.shown = Math.min(this.msg.length, this.shown + dt * 30)
