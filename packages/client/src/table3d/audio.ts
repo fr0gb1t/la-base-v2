@@ -275,7 +275,7 @@ export const audioReady = () => Boolean(listener) && ctx?.state === 'running'
 
 // menu sounds belong to the room, not to the cards: the lamp's pull chain for a button, a chair
 // that creaks when someone sits down (scrapes when they leave); only the aces sound like cards
-export type UiSound = 'hover' | 'chain' | 'stamp' | 'chip' | 'flip' | 'write' | 'page' | 'book' | 'paper' | 'sit' | 'leave' | 'clock'
+export type UiSound = 'announce' | 'hover' | 'chain' | 'stamp' | 'chip' | 'flip' | 'write' | 'page' | 'book' | 'paper' | 'sit' | 'leave' | 'clock'
 
 let noiseBuf: AudioBuffer | null = null
 function noise() {
@@ -399,6 +399,15 @@ export function uiSound(kind: UiSound) {
     }
     case 'chain':
       return pullChain()
+    case 'announce': {
+      // a title card slammed down: a deep hit, a bright struck bell on top (two inharmonic partials) and the slap of paper
+      thump(0, 0.5)
+      tone('sine', 196, 190, 0.9, 0.2, 0.01)
+      tone('sine', 196 * 2.76, 196 * 2.74, 0.6, 0.1, 0.01)
+      tone('sine', 196 * 5.4, 196 * 5.3, 0.35, 0.05, 0.01)
+      burst(0.09, 'bandpass', 1500, 1.5, 0.3)
+      return
+    }
     case 'clock':
       // a chess clock pressed: the plunger's hard plastic clack and the lever inside
       burst(0.025, 'bandpass', 2300, 4, 0.4)

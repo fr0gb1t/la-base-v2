@@ -2,6 +2,11 @@
 
 ## Desde `a603e36`
 
+- **El aviso de cada pedido es un título de verdad:** al declararse una cantidad de bases aparece un
+  cartel grande (hasta 124 px) sobre una banda oscura, que cae con rebote desde grande, con brillo
+  rojo si pide el rival y celeste si pide tu equipo, el destello de color de toda la pantalla (rojo
+  cuando pide el rival, celeste cuando pide tu equipo y blanco y negro si es un kamikaze), el golpe
+  de la mesa y un sonido propio: golpe grave con una campana. El cambio de sentido suena igual.
 - **Bots: no esperan señas cuando no sirven de nada:** si responden y solo les queda una opción
   legal (la regla del Pie la fuerza), o si sus cartas solas alcanzan para todas las bases de la
   ronda, ya no tocan la mesa ni esperan la respuesta de los compañeros: declaran al instante.

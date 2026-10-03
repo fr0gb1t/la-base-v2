@@ -15,7 +15,7 @@ import { SettingsButton, useViewSettings, openSettings } from '../settings/Setti
 import { SenaWheel, type WheelOpen } from './senas/SenaWheel';
 import { SenaEcho, type Echo } from './senas/SenaEcho';
 import { Rulebook } from './rulebook/Rulebook';
-import { audioState, onAudioState, resumeAudio } from '../table3d/audio';
+import { audioState, onAudioState, resumeAudio, uiSound } from '../table3d/audio';
 import { GiSpeakerOff } from 'react-icons/gi';
 import { GiExitDoor, GiScrollUnfurled, GiBookCover, GiBackwardTime, GiCog } from 'react-icons/gi';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -275,6 +275,7 @@ export function GamePage() {
       logRef.current(`As de Copas: el sentido pasa a ${gameState.playDirection}`, 'event');
       scene.moment('envido');
       flash(gameState.playDirection === 'horario' ? 'SENTIDO HORARIO' : 'SENTIDO ANTIHORARIO');
+      uiSound('announce');
     }
     prevDirection.current = gameState.playDirection;
   }, [gameState, myId, flash]);
@@ -327,6 +328,8 @@ export function GamePage() {
         mine: rel === 'tu equipo',
         key: Date.now(),
       });
+      uiSound('announce'); // a bid is an event: you hear it
+      sceneRef.current?.moment(data.isKamikaze ? 'muerte' : rel === 'tu equipo' ? 'envido' : 'truco');
       logRef.current(`${who?.name ?? teamName(data.team)} pide ${data.bidValue}${data.isKamikaze ? ' · KAMIKAZE' : ''} (${rel})`, data.isKamikaze ? 'kami' : 'bid');
       if (data.isKamikaze) {
         sceneRef.current?.moment('truco');
