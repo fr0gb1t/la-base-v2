@@ -736,7 +736,7 @@ export function GamePage() {
           type="button"
           className="touch-senas"
           aria-label="Señas"
-          onClick={() => setWheel({ x: window.innerWidth / 2, y: window.innerHeight / 2, held: false })}
+          onClick={() => setWheel((w) => (w ? null : { x: window.innerWidth / 2, y: window.innerHeight / 2, held: false }))}
         >
           señas
         </button>

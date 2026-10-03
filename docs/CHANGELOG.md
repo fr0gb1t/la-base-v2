@@ -100,6 +100,12 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   la vez** al pasar rápido; hojas agarrables. `cda0486`…`383f301`
 
 ### Celulares y tablets (solo con pantalla táctil; el escritorio no cambia)
+- **Rama `mobile`: controles apuntando con la mira.** Un tap en cualquier lado que no sea una carta
+  o un botón es un clic donde está la mira (el centro de la pantalla, que se mueve con el
+  giroscopio): apuntás al anotador y tocás donde sea para abrirlo. **Doble tap = zoom** en la mira
+  (otro doble tap lo desactiva), y con el zoom activo el giroscopio sigue moviendo lo que mirás. El
+  zoom de tres dedos se sacó. El botón de señas (ahora arriba a la derecha) abre el anillo con un
+  tap y lo cierra con un segundo tap.
 - **Giroscopio** (se apaga en Ajustes → Cámara), **un dedo = clic izquierdo** (toque, mantener y
   arrastrar), **dos dedos arriba/abajo = subir/bajar las cartas**, **tres dedos = zoom**; menús y
   paneles adaptados a pantallas bajas y verticales; botón «señas»; el teclado se abre al tocar la

@@ -3264,7 +3264,7 @@ button {
     place-items: center;
     position: fixed;
     right: 10px;
-    top: 42%;
+    top: 10px; /* the top corner: the bidding sheet and the cards leave it free */
     z-index: 30;
     width: 52px;
     height: 52px;

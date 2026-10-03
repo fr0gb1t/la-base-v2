@@ -86,8 +86,7 @@ const HOLD_SEC = 0.18
 const HOLD_PX = 6
 // phones: two fingers swiping up/down move your hand (metres per px); three fingers tap zoom
 const TOUCH_HAND = 0.0008
-const TAP3_MS = 500 // three fingers down and up faster than this (and without sliding) is a tap
-const TAP3_PX = 40
+const DOUBLE_TAP_S = 0.3 // two taps closer than this zoom (at the reticle)
 const FELT = new THREE.Plane(new THREE.Vector3(0, 1, 0), -TABLE_Y)
 const LOOK_HEARTBEAT = 1 // s: resend where you look even when still
 const HEAD_YAW_MAX = 1.5 // rad: a mask turns as far as any camera can (78° at 8 players) and a bit more
@@ -1385,13 +1384,13 @@ export class TableScene {
         const d = this.padDrag
         this.padDrag = null
         if (d.started) this.notepad.releaseFlip()
-        else if (Math.abs(this.mouse.y) < 2) this.tableClick() // no drag: a click
+        else this.clickAt() // no drag: a click
         return
       }
       if (this.lookDrag) {
         const clicked = this.lookDrag.moved < HOLD_PX
         this.lookDrag = null
-        if (clicked) this.tableClick()
+        if (clicked) this.clickAt()
         else if (getViewSettings().cameraReturn) this.recenter()
         return
       }
@@ -1411,7 +1410,9 @@ export class TableScene {
       if (e.pointerType === 'touch') {
         this.touchUp(e)
         if (this.multiLock || this.gestureEnded) return // the end of a gesture is not a click
+        this.tapAtReticle = true // a tap is a click where the reticle is (aim with the gyroscope)
         endLeft()
+        this.tapAtReticle = false
         return
       }
       if (e.button === 0) endLeft()
@@ -1625,10 +1626,38 @@ export class TableScene {
   // two fingers swiping up/down move your hand; three fingers tapping toggle the zoom; the phone's
   // gyroscope turns the view.
 
+  private tapAtReticle = false // the pointer being released is a finger: its tap acts at the middle of the screen
+  private lastTapT = 0
+  private tapTimer = 0
+
+  /**
+   * A click where you point. With a mouse that is the pointer; with a finger it is the reticle in the
+   * middle of the screen (you aim by turning the phone): a tap opens what the reticle is on, two quick
+   * taps zoom there (or leave the zoom). A lone tap waits a beat, to see whether a second one follows.
+   */
+  private clickAt() {
+    if (!this.tapAtReticle) return this.tableClick()
+    const t = now()
+    if (this.lastTapT && t - this.lastTapT < DOUBLE_TAP_S) {
+      window.clearTimeout(this.tapTimer)
+      this.lastTapT = 0
+      this.mouse.set(0, 0)
+      if (this.peek) this.endPeek()
+      else if (!this.drag) this.beginPeek()
+      return
+    }
+    this.lastTapT = t
+    this.tapTimer = window.setTimeout(() => {
+      this.lastTapT = 0
+      this.mouse.set(0, 0)
+      this.updateHover(now(), 1 / 60)
+      this.tableClick()
+    }, DOUBLE_TAP_S * 1000)
+  }
+
   private touches = new Map<number, { x: number; y: number }>()
   private multiLock = false // two or more fingers are down: no single-finger action until all lift
   private gestureEnded = false // the finger that just lifted belonged to a gesture
-  private tri: { t0: number; x: number; y: number; moved: number } | null = null
   private centroidY = 0
   private handSaved = true
   private ignored = new Set<number>() // fingers that landed while a card was in hand
@@ -1665,10 +1694,6 @@ export class TableScene {
     this.pending = null
     this.lookDrag = null
     this.centroidY = this.centroid().y
-    if (this.touches.size >= 3) {
-      const c = this.centroid()
-      this.tri = { t0: now(), x: c.x, y: c.y, moved: 0 }
-    }
     return false
   }
 
@@ -1686,7 +1711,7 @@ export class TableScene {
         const dy = c.y - this.centroidY
         this.handOffsetT = THREE.MathUtils.clamp(this.handOffsetT - dy * TOUCH_HAND, HAND_MIN, HAND_MAX)
         this.handSaved = false
-      } else if (this.tri) this.tri.moved = Math.max(this.tri.moved, Math.hypot(c.x - this.tri.x, c.y - this.tri.y))
+      }
       this.centroidY = c.y
     }
     return d
@@ -1697,16 +1722,7 @@ export class TableScene {
       this.gestureEnded = true // not the finger that holds the card
       return
     }
-    const had = this.touches.size
     this.gestureEnded = this.multiLock
-    // three fingers tapped (down and up quickly, without sliding): the zoom switches
-    if (this.tri && had >= 3 && now() - this.tri.t0 < TAP3_MS / 1000 && this.tri.moved < TAP3_PX) {
-      const r = this.renderer.domElement.getBoundingClientRect()
-      this.mouse.set(((this.tri.x - r.left) / r.width) * 2 - 1, -((this.tri.y - r.top) / r.height) * 2 + 1)
-      if (this.peek) this.endPeek()
-      else if (!this.drag) this.beginPeek()
-    }
-    this.tri = null
     this.touches.delete(e.pointerId)
     if (this.touches.size === 0) {
       this.multiLock = false
@@ -1779,13 +1795,18 @@ export class TableScene {
     const pitch = Math.asin(THREE.MathUtils.clamp(f.y, -1, 1))
     const last = this.gyroLast
     this.gyroLast = { yaw, pitch }
-    if (!last || this.peek || getViewSettings().gyro === false) return
+    if (!last || getViewSettings().gyro === false) return
     let dyaw = yaw - last.yaw
     if (dyaw > Math.PI) dyaw -= Math.PI * 2
     else if (dyaw < -Math.PI) dyaw += Math.PI * 2
     if (Math.abs(dyaw) > 1) return // pointing straight up/down: the heading is meaningless
+    const dpitch = pitch - last.pitch
+    if (this.peek) {
+      this.panPeekBy(dyaw, dpitch) // zoomed in: turning the phone moves what you look at
+      return
+    }
     this.yawT = this.clampYaw(this.yawT + dyaw)
-    this.pitchT = this.clampPitch(this.pitchT + (pitch - last.pitch))
+    this.pitchT = this.clampPitch(this.pitchT + dpitch)
   }
 
   // ------------------------------------------------------------------ camera
@@ -1807,6 +1828,20 @@ export class TableScene {
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).setY(0).normalize()
     const k = PEEK_SENS * dist * getViewSettings().lookSensitivity
     this.peek.target.addScaledVector(right, dx * k).addScaledVector(fwd, -dy * k)
+    if (this.peek.target.y <= TABLE_Y + 0.01) {
+      const flat = this.peek.target.clone().setY(0)
+      if (flat.length() > 0.95) flat.setLength(0.95)
+      this.peek.target.set(flat.x, TABLE_Y, flat.z)
+    }
+  }
+
+  /** While zoomed, a turn of the phone (radians) moves the point you look at by the same angle. */
+  private panPeekBy(dyaw: number, dpitch: number) {
+    if (!this.peek) return
+    const dist = this.camera.position.distanceTo(this.peek.target)
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).setY(0).normalize()
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).setY(0).normalize()
+    this.peek.target.addScaledVector(right, -dyaw * dist).addScaledVector(fwd, dpitch * dist)
     if (this.peek.target.y <= TABLE_Y + 0.01) {
       const flat = this.peek.target.clone().setY(0)
       if (flat.length() > 0.95) flat.setLength(0.95)

@@ -58,6 +58,7 @@ export function SenaWheel({ open, onPick, onAsk, onClose }: Props) {
     };
     const onDown = (e: PointerEvent) => {
       if (held) return;
+      if ((e.target as HTMLElement | null)?.closest?.('.touch-senas')) return; // its own tap closes the ring (the click handler)
       const dx = e.clientX - x;
       const dy = e.clientY - y;
       const k = sectorAt(dx, dy, list.length);
