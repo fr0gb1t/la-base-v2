@@ -168,7 +168,7 @@ export function Anotador({ data, full, onToggleFull, onClose }: { data: Anotador
                     const kind = k >= (team.bid ?? 0) ? 'over' : k < team.won ? 'on' : 'owed';
                     return <Sketch key={k} w={30} h={30} draw={star(kind, k + 3 + i * 9)} />;
                   })}
-                {team.bid === 0 && <Ink className="anotador-zero">cero</Ink>}
+                {team.bid === 0 && team.won === 0 && <Ink className="anotador-zero">–</Ink>}
               </div>
               {full && <div className="anotador-foot"><Ink>kamikazes {team.kamikazes}</Ink></div>}
             </div>

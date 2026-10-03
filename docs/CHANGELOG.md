@@ -2,6 +2,19 @@
 
 ## Desde `a603e36`
 
+- **Anotador navegable:** las hojas de cada resumen (cada base y cada ronda, tal como quedaron
+  tildadas) se van acumulando en el anotador de la mesa, y la de arriba es siempre el marcador en
+  vivo. Se las hojea arrastrando sobre el anotador con el mouse (o el dedo): hacia arriba da vuelta
+  la hoja por el anillado, con la misma física de las hojas del manual (se dobla según de dónde la
+  agarres, sigue a la mano, cae sola o vuelve), y las hojas dadas vuelta quedan apiladas detrás de
+  los anillos; arrastrando hacia abajo las traés de vuelta. Un clic sin arrastrar sigue abriendo la
+  hoja completa. Mientras hay un resumen para tildar no se hojea (se ve siempre ese).
+- **Anotador:** el cero se marca con un guión «–»; más chico (1,6 veces el real); la tinta es más
+  oscura y gruesa y el papel un poco más apagado para que la lámpara no queme las letras; el
+  resumen de base muestra además los puntos totales del partido hasta ese momento.
+- **Panel de segmentos más directo:** solo «Tu turno» / «Turno de Ana», «Rival pide 2» / «Tu
+  equipo pide 2», «Sacá una carta», «Elegí quién abre» y «Marcá el tilde»; ya no repite los
+  mensajes de animación ni las ayudas.
 - **El anotador reducido se ve en vivo, apoyado en la mesa:** el anotador de la mesa muestra todo
   el tiempo, sin hacerle clic, el marcador reducido (ronda, base, sentido sobre la hoja; cada equipo
   con sus puntos grandes, lo que pidió, lo que lleva y las estrellas), en letra grande para leerse

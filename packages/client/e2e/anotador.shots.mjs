@@ -41,6 +41,25 @@ for (let i = 0; i < 300; i++) {
 }
 await sleep(1500)
 const np = await p.evaluate(() => window.__table.notepadScreen())
+// three finished reports (a base, a base, a round) are left in the pad as pages
+await p.evaluate(() => {
+  const mk = (kind, title, n) => ({ kind, title, lastBase: 'La gana Host (rivales) con rey de espadas', standings: [{ text: `Tu equipo lleva ${n} (pidió 1)`, mine: true }, { text: 'Rivales llevan 0 (pidieron 1)', mine: false }], totals: { mine: n, rival: -1 }, rows: kind === 'round' ? [{ label: 'Tu equipo', asked: '1', won: 1, met: true, pts: '+11', total: 11, mine: true }, { label: 'Rivales', asked: '1', won: 0, met: false, pts: '-1', total: -1, mine: false }] : [], players: [{ name: 'Host', ready: true, mine: true }, { name: 'P0', ready: true, mine: false }], ready: false })
+  for (const r of [mk('base', 'Base 1 de 3', 1), mk('base', 'Base 2 de 3', 2), mk('round', 'Ronda 1 terminada', 3)]) { window.__table.notepad.setReport(r); window.__table.notepad.setReport(null) }
+})
+await sleep(400)
+console.log('pages', JSON.stringify(await p.evaluate(() => window.__table.notepadPages())))
+await p.mouse.move(np.x, np.y); await sleep(300)
+await p.mouse.down()
+for (let i = 1; i <= 8; i++) { await p.mouse.move(np.x, np.y - i * 12); await sleep(40); if (i === 3 || i === 5 || i === 7) await p.screenshot({ path: `${out}-1c-flipping${i}.png` }) }
+await sleep(100)
+await p.mouse.up(); await sleep(1200)
+console.log('after the flip', JSON.stringify(await p.evaluate(() => window.__table.notepadPages())))
+await p.screenshot({ path: `${out}-1d-flipped.png` })
+await p.mouse.move(np.x, np.y); await sleep(300)
+await p.mouse.down()
+for (let i = 1; i <= 8; i++) { await p.mouse.move(np.x, np.y + i * 12); await sleep(40); if (i === 4) await p.screenshot({ path: `${out}-1e-back.png` }) }
+await p.mouse.up(); await sleep(1200)
+console.log('flipped back', JSON.stringify(await p.evaluate(() => window.__table.notepadPages())))
 await p.mouse.move(np.x, np.y); await sleep(500)
 await p.screenshot({ path: `${out}-1-table.png` })
 await p.mouse.down({ button: 'right' }); await sleep(1300)

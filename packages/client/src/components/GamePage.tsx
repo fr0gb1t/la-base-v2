@@ -568,9 +568,29 @@ export function GamePage() {
         : `As de Oros: elige ${nameOf(gameState.pendingOrosChoice.chooserPlayerId)}`;
   }
 
+  // The LED panel only says what matters, in as few words as possible: whose turn it is, what was
+  // asked, what you have to choose. (The longer line above stays in the page for screen readers; the
+  // transient messages — animations, hints — never go on the panel.)
+  let ledLine = '';
+  if (gameState?.phase === 'initial_draw') {
+    ledLine = initialDraw?.completed ? '' : isMyDraw ? 'Sacá una carta' : `Saca ${nameOf(initialDraw?.currentDrawerPlayerId)}`;
+  } else if (gameState?.phase === 'bidding') {
+    const first = gameState.bids[0];
+    const bidder = gameState.currentBidPlayerId;
+    ledLine = first
+      ? `${first.team === myTeam ? 'Tu equipo' : 'Rival'} pide ${first.value}${first.isKamikaze ? ' (kamikaze)' : ''}`
+      : bidder === myId
+        ? 'Tu turno'
+        : `Turno de ${nameOf(bidder)}`;
+  } else if (gameState?.phase === 'playing') {
+    ledLine = gameState.currentTurnPlayerId === myId ? 'Tu turno' : `Turno de ${nameOf(gameState.currentTurnPlayerId)}`;
+  } else if (gameState?.phase === 'base_resolution' && !gate && gameState.pendingOrosChoice) {
+    ledLine = canChooseOros ? 'Elegí quién abre' : `Elige ${nameOf(gameState.pendingOrosChoice.chooserPlayerId)}`;
+  }
+  if (gate) ledLine = 'Marcá el tilde';
   useEffect(() => {
-    sceneRef.current?.setHudMessage(status || phaseLine);
-  }, [status, phaseLine]);
+    sceneRef.current?.setHudMessage(ledLine);
+  }, [ledLine]);
 
   // the scoresheet's content (written by hand when the notepad opens)
   const sheetTeam = (team: AssignedTeam): AnotadorTeam => {
@@ -668,7 +688,7 @@ export function GamePage() {
       ]
     : null;
   const reportKey = gate
-    ? JSON.stringify([reportRows, standings, gate.readyPlayerIds, gate.kind, gate.baseNumber, gate.round?.index, roomPlayers.map((p) => p.id + p.isConnected), gateWinner?.name, gateCard])
+    ? JSON.stringify([reportRows, standings, gate.readyPlayerIds, gate.kind, gate.baseNumber, gate.round?.index, roomPlayers.map((p) => p.id + p.isConnected), gateWinner?.name, gateCard, gameState?.scores])
     : '';
   useEffect(() => {
     if (!gate || (!reportRows && !standings)) {
@@ -682,7 +702,7 @@ export function GamePage() {
     sceneRef.current?.setRoundReport(
       roundGate && reportRows
         ? { kind: 'round', title: `Ronda ${(roundGate.round?.index ?? 0) + 1} terminada`, lastBase: `Última base: ${winner}`, rows: reportRows, players, ready: iAmReady }
-        : { kind: 'base', title: `Base ${gate.baseNumber} de ${gate.basesInRound}`, lastBase: `La gana ${winner}`, standings: standings ?? [], rows: [], players, ready: iAmReady },
+        : { kind: 'base', title: `Base ${gate.baseNumber} de ${gate.basesInRound}`, lastBase: `La gana ${winner}`, standings: standings ?? [], totals: { mine: gameState?.scores[myTeam] ?? 0, rival: gameState?.scores[rivalTeam] ?? 0 }, rows: [], players, ready: iAmReady },
     );
   }, [reportKey, iAmReady]); // eslint-disable-line react-hooks/exhaustive-deps
 

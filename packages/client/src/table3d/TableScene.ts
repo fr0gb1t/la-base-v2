@@ -183,6 +183,7 @@ export class TableScene {
   private pending: { k: number; t0: number; moved: number } | null = null
   // press-and-drag on the table looks around; a press without movement is a click on the table
   private lookDrag: { moved: number } | null = null
+  private padDrag: { y0: number; started: boolean; dir: 'up' | 'down' | null } | null = null // leafing through the notepad
   private deckHint = false
   // your hand's height, set with the mouse wheel: 0 = resting, negative = lowered out of the view
   private handOffset = getViewSettings().handHeight // where you left it last time
@@ -1237,6 +1238,18 @@ export class TableScene {
         this.pending.moved += Math.abs(mv.x) + Math.abs(mv.y)
         this.updatePending() // start the arm right away, don't wait for the next frame (low FPS)
       }
+      if (this.padDrag) {
+        const dy = e.clientY - this.padDrag.y0
+        if (!this.padDrag.started && Math.abs(dy) > 9) {
+          const dir = dy < 0 ? 'up' : 'down'
+          if (this.notepad.beginFlip(dir)) {
+            this.padDrag.started = true
+            this.padDrag.dir = dir
+          }
+        }
+        if (this.padDrag.started) this.notepad.dragFlip((Math.abs(dy) - 9) / 170)
+        return
+      }
       if (this.drag) {
         if (this.drag.refCam) this.cursorToDrag()
         else {
@@ -1274,7 +1287,10 @@ export class TableScene {
       if (e.button !== 0) return
       if (this.choices.hovered && this.choices.click()) return // a decision on the table
       el.setPointerCapture(e.pointerId)
-      if (this.hovered >= 0) this.pending = { k: this.hovered, t0: now(), moved: 0 }
+      if (this.notepad.hovered && this.padFocus < 0.3 && this.hovered < 0) {
+        // the notepad: a click opens its sheet, a drag leafs through its pages (up: older)
+        this.padDrag = { y0: e.clientY, started: false, dir: null }
+      } else if (this.hovered >= 0) this.pending = { k: this.hovered, t0: now(), moved: 0 }
       else {
         this.lookDrag = { moved: 0 }
         el.style.cursor = 'grabbing'
@@ -1282,6 +1298,13 @@ export class TableScene {
     })
     const endLeft = () => {
       el.style.cursor = 'crosshair'
+      if (this.padDrag) {
+        const d = this.padDrag
+        this.padDrag = null
+        if (d.started) this.notepad.releaseFlip()
+        else if (Math.abs(this.mouse.y) < 2) this.tableClick() // no drag: a click
+        return
+      }
       if (this.lookDrag) {
         const clicked = this.lookDrag.moved < HOLD_PX
         this.lookDrag = null
@@ -1382,6 +1405,11 @@ export class TableScene {
     const p = this.notepad.tickWorld().project(this.camera)
     const r = this.renderer.domElement.getBoundingClientRect()
     return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
+  }
+
+  /** Which page of the notepad is showing, and how many it has (tests). */
+  notepadPages() {
+    return this.notepad.pageInfo()
   }
 
   /** Screen position of the notepad on the table (tests). */
@@ -1485,7 +1513,7 @@ export class TableScene {
     // the bidding clock, when it's yours to press
     this.clock.hovered = Boolean(this.clockView?.canPress && !this.drag && !this.peek && this.raycaster.intersectObject(this.clock.hit, false).length)
     // the tick on a round report, while the camera is on the notepad
-    this.notepad.tickHovered = this.padFocus > 0.6 && !this.notepad.ready() && this.raycaster.intersectObject(this.notepad.tickHit, false).length > 0
+    this.notepad.tickHovered = this.padFocus > 0.6 && this.notepad.onTop() && !this.notepad.ready() && this.raycaster.intersectObject(this.notepad.tickHit, false).length > 0
     // the slate's buttons
     const slate = this.hud.update(dt, this.raycaster, !this.drag && !this.peek && (!this.lookDrag || this.lookDrag.moved < HOLD_PX))
     // (what a set is called is written on its own glass; the LED panel keeps showing what to do)
