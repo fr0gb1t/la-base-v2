@@ -2,89 +2,86 @@
 
 ## Desde `a603e36`
 
-- **Varias hojas a la vez en el reglamento:** ya no hace falta esperar a que termine de darse vuelta
-  una hoja para dar la siguiente: con las flechas, los botones o clics seguidos en la página cada
-  hoja sale un instante después de la anterior y quedan varias en el aire a la vez, cada una con
-  su propia forma y sus dos caras. Para volver atrás, las hojas en el aire terminan de caer y
-  recién ahí sale la hoja en sentido contrario.
-- **Reglamento sin tirones:** el librito se arma de antemano (la sala 3D, los shaders y las fotos de
-  la tapa y la primera doble página) cuando el menú lleva unos segundos en reposo, y queda
-  guardado invisible; al tocar «reglas» solo se reproduce la entrada. Al cerrarlo se prepara el
-  siguiente. Al hacer clic ya no hay pausas largas (antes: 206 ms + 54 ms).
-- **Entrada del reglamento:** antes se trababa al abrir (las páginas se fotografían en ese momento
-  y la tapa se abría sin su imagen: se veía la primera página en vez de la tapa). Ahora el librito
-  espera a tener lista la tapa y la primera doble página (con un fundido), baja sobre la mesa desde
-  arriba, ladeado, y se acomoda bajo la lámpara; recién ahí la tapa se abre sola, con el sonido a
-  tiempo. Las tipografías se bajan de antemano, mientras el menú está en reposo.
-- **Kamikazes en un solo botón:** en la configuración hay un avioncito y, arriba a la derecha, su
-  cantidad como exponente (un círculo más chico, con la misma inclinación que el avión). Cada click
-  pasa de 0 a 1, 2, 3 y vuelve a 0, y el círculo da medio giro (como los ases) mostrando el nuevo
-  número. Los botones de estructura son todos iguales y quedan centrados; los poderes y la
-  estructura subieron para dejar más lugar.
-- **Números que se leen como números:** las cartas, el número de tiza de las bases pedidas, los
-  puntos del papelito y el selector de bases usan una tipografía con el 1 con bandera (Old Standard
-  TT), así el 11 ya no parece un II. El pulgar de los guantes ahora está dado vuelta sobre sí
-  mismo (abierto hacia afuera de la palma) en las dos manos.
-- **Ajustes:** al costado del panel hay una carta grande con el dorso elegido, colgada bajo una
-  lámpara que se mueve para que la luz la recorra desde distintos ángulos. El anillo de señas se
-  puede reordenar (flechas en Ajustes) y los números del teclado siguen tu orden. La altura de la
-  mano (ruedita) y el orden del anillo se guardan en el navegador junto con el resto de las
-  preferencias (cuando haya usuarios pasarán a la cuenta).
-- **Mesa y menús:** las cartas jugadas ya no se queman con la lámpara (del ~45 % de píxeles
-  quemados a ~1 %); los ases con poder del menú están inclinados hacia la luz; el menú de
-  configuración quedó centrado y más liviano (el reloj es un solo botón que cicla las opciones);
-  las mangas de los jugadores tienen el color de su equipo visto desde tu lugar (tu equipo, verde
-  azulado); se fue el "dientito" de las máscaras (la mandíbula solo aparece en la seña de la carta
-  porno). En el papelito las bases pedidas son estrellas vacías, las logradas llenas y las de más,
-  llenas y rojas.
-- **Pulgares hacia adentro y porotos más juntos:** en los guantes de los jugadores el pulgar de la
-  mano derecha estaba hacia afuera; ahora los dos apuntan hacia adentro (hacia el cuerpo). Los
-  porotos de cada base caen en un círculo más chico (media carta de ancho), así que no se dispersan.
-- **Reloj de pedidos (estilo ajedrez):** en la configuración se elige sin tiempo, 1, 2 o 5 min por
-  equipo para toda la partida. Corre solo en los pedidos: arranca el equipo de la Mano cuando
+Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), agrupado por área.
+
+### Reloj de pedidos
+- **Reloj de ajedrez:** en la configuración se elige sin tiempo, 1, 2 o 5 min por equipo para toda
+  la partida (por defecto 1 min). Corre solo en los pedidos: arranca el equipo de la Mano cuando
   terminan de repartirse las cartas, elegís cuántas bases y tocás el reloj para pasarle el turno al
   rival; el segundo pedido lo frena para los dos hasta la ronda siguiente (que empieza el otro
   equipo, porque cambia la Mano). Si a un equipo se le acaba el tiempo mientras pide, pierde la
-  partida. Es un reloj de ajedrez de torneo (caja de nogal, tapa negra basculante, pantalla LCD gris
-  con "tu equipo / rivales", botones) apoyado a tu derecha, inclinado hacia vos y fuera del paso de
-  las cartas, los porotos y las bases ganadas (con 8 jugadores, más chico y más cerca tuyo); sin
-  tiempo marca "-:--". `fb9d520`, `025d9f5`
-- **Manual sobre la mesa:** el librito está apoyado en la mesa del juego, bajo la misma lámpara y
-  con el mismo aspecto que los menús; ocupa toda la pantalla (las hojas ya no se cortan) y las
-  pestañas son papelitos que salen de las hojas: lo leído a la izquierda, lo que falta a la
-  derecha. `dd4700d`
-- **34 dorsos ilustrados** recortados de los diseños de referencia (además de los 4 dibujados);
-  el selector de Ajustes es una grilla con el nombre del elegido. `f4ddbb0`
-- **La mano se ve igual con cualquier campo visual** (antes, al ampliarlo, las cartas quedaban
-  más bajas y estiradas). Campo visual por defecto: 63°, el borde cae sobre las caras de los
-  vecinos con 4 jugadores. `8b5950a`
-- **Reordenar la mano:** la carta que movés sigue visible, adelante y bajo el cursor; se reordena
-  pasando por encima de las cartas y fuera de ellas se lleva a la mesa. `d3645de`
-- **Cartas jugadas más al centro** (0,50 m en vez de 0,66 m), visibles desde todos los lugares;
-  los jugadores se inclinan más para llegar, y los aviones de kamikaze y las fichas se corrieron
-  para no quedar debajo. `3b717bd`
-- **Número pedido:** más grande, derecho para vos, del lado de quien pidió; sigue visible mientras
-  hacés zoom sobre él. `68ff423`
-- **Sonidos de los menús** propios de la sala: cadenita de la lámpara en los botones, silla que
-  cruje cuando alguien se sienta y que se arrastra cuando se va; solo los ases suenan a carta. `6dfeaa4`
-- **Manual en 3D:** el librito es una escena 3D bajo una lámpara; cada hoja levantada proyecta
-  sombra. Las hojas se agarran y se arrastran sobre el lomo: si la tomás de una esquina, se dobla
-  la esquina; del borde, se arquea entera; del medio, la parte de afuera cuelga por su peso; si la
-  pasás rápido, el borde queda atrás. Un clic la pasa sola, y una hoja que está pasando se puede
-  volver a agarrar. Ya no tiene la tinta que "hierve". `98149c4`
-- **Dorsos nuevos** (inspirados en Bicycle): rueda roja, rueda azul, abanico y rombos; se elige en
-  Ajustes → Cartas. `399787c`
-- **Reordenar la mano:** arrastrá una carta a lo largo del abanico para cambiarla de lugar; llevala
-  a la mesa para jugarla. `8e3b45f`
-- **Campo de visión más amplio** (66°), ajustable de 50° a 80° en Ajustes → Cámara. `bf64246`
-- **Bots y kamikaze:** la Mano lo pide (a cero) cuando su mano es muy floja, o al máximo cuando es
-  muy fuerte. `5a71c6a`
-- **Sonidos en los menús:** pasar el mouse, elegir, sellar, fichas, papel. `6bf4f6c`
-- **Arreglos:** los porotos ya no caen sobre las cartas ganadas `8c65187`; la cabeza de la sota
-  quedó sobre el cuello `37f5d37`; nombres mucho más chicos en la sala y la configuración
-  `a9229cd`.
-- Los e2e corren contra un servidor (3100) y un cliente (5174) propios `c7cb215`; ideas de
-  animaciones de los personajes en `docs/V2_PLAN.md` `c2f509c`.
+  partida. `fb9d520`, `025d9f5`
+- **Diseño del reloj:** reloj de torneo (caja de nogal con veta, tapa negra basculante, pantalla
+  LCD gris con «tu equipo / rivales», triángulo del lado que corre, botones), apoyado a tu derecha,
+  inclinado hacia vos y fuera del paso de las cartas, los porotos y las bases ganadas (con 8
+  jugadores, más chico y más cerca tuyo). Sin tiempo marca «-:--». `25d49ce`
+
+### Mesa de juego
+- **Cartas jugadas sin quemarse:** la cara de las cartas ya no se quema con la lámpara (de ~45 % de
+  píxeles quemados a ~1 %), y se leen sin zoom. `ac8e036`
+- **Porotos más juntos:** caen en un círculo de media carta de ancho (antes tres cuartos). `be55c02`
+- **Número pedido y papelito:** el número de tiza y los puntos usan una tipografía con el 1 con
+  bandera (Old Standard TT), así el 11 ya no parece un II (también en las cartas y en el selector
+  de bases). En el papelito las bases pedidas son estrellas vacías, las logradas llenas y las de
+  más, llenas y rojas. `ac8e036`, `b2a5742`
+- **Jugadores:** las mangas llevan el color de tu equipo visto desde tu lugar (tu equipo, verde
+  azulado; estaban invertidas); el pulgar de los guantes apunta hacia adentro en las dos manos y
+  está dado vuelta sobre sí mismo (la derecha tenía un pulgar izquierdo); se fue el «dientito» de las
+  máscaras (era la mandíbula; ahora solo aparece en la seña de la carta porno). `be55c02`, `ac8e036`, `b2a5742`
+- **Manual sobre la mesa:** el librito está apoyado en la mesa, bajo la misma lámpara; ocupa toda
+  la pantalla y las pestañas son papelitos que salen de las hojas. `dd4700d`
+- **34 dorsos ilustrados** (además de los 4 dibujados); el selector de Ajustes es una grilla. `f4ddbb0`
+- **La mano se ve igual con cualquier campo visual** (por defecto 63°), **reordenar la mano**
+  arrastrando una carta a lo largo del abanico, **cartas jugadas más al centro** y **número
+  pedido más grande y visible con zoom**. `8b5950a`, `d3645de`, `3b717bd`, `68ff423`
+
+### Menús 3D
+- **Títulos quietos:** los títulos de cada fila o botón no flotan ni se mueven; los botones
+  conservan su perspectiva y su vaivén. `708e437`, `8b66443`
+- **Configurar y empezar:** rehecho y centrado. Poderes (los tres ases, inclinados hacia la luz) más
+  arriba, con su título pegado al primer as; los tres botones de estructura son iguales y centrados;
+  **kamikazes en un solo botón** (el avioncito) con su cantidad como exponente, un círculo más
+  chico con la misma inclinación que da medio giro por cada cambio (0 → 1 → 2 → 3 → 0), y el reloj
+  como un solo botón que cicla las opciones; kamikazes y reloj comparten fila, cada uno con su
+  título debajo, centrado respecto del botón; Volver e Iniciar partida más derechos. `ac8e036`,
+  `315838d`, `4f679ab`, `9c4922d`, `bb8c94f`, `3b11855`, `68f889b`, `8de64d7`, `0a9241c`
+- **Armar mesa y Sentarse:** «¿Cuántos juegan?» centrado arriba de los números; Volver y Abrir la
+  mesa (y Volver y Sentarse) simétricos y derechos. `4faca50`, `5feff9f`
+- **Carta con el código de mesa:** papel más oscuro y letra más gruesa y oscura: se lee con la
+  lámpara encima. `735a0d6`
+- **Salir de la sala:** los nombres se desvanecen en una fracción de segundo y los personajes se
+  hunden rápido (antes tardaban varios segundos). `ddbc375`, `4a41738`
+
+### Ajustes
+- **Carta grande del dorso:** al costado del panel, colgada bajo una lámpara que se mueve para que
+  la luz la recorra desde distintos ángulos; cambia sola al elegir otro dorso. `ac8e036`
+- **Anillo de señas reordenable** (flechas en Ajustes, con «restablecer») y los números del
+  teclado siguen tu orden; la altura de la mano (ruedita) también se guarda. Todo queda en el
+  navegador con el resto de las preferencias (cuando haya usuarios pasarán a la cuenta). `ac8e036`
+
+### Manual de reglas
+- **Entrada nueva:** se arma de antemano mientras el menú está en reposo (la sala 3D, los shaders y
+  las fotos de la tapa y la primera doble página); al tocar «reglas» solo se reproduce la entrada:
+  fundido, el librito baja ladeado sobre la mesa, se acomoda y la tapa se abre sola. Antes se
+  trababa al abrir y mostraba la primera página en vez de la tapa. Al cerrarlo, un fundido sin
+  cortes; el siguiente se prepara cuando el menú vuelve al reposo. `cda0486`, `93e47cc`, `f37e453`
+- **Varias hojas a la vez:** con las flechas, los botones o clics seguidos cada hoja sale un
+  instante después de la anterior y quedan varias en el aire, cada una con su forma y sus dos
+  caras. Para cambiar de sentido, las que están en el aire terminan de caer primero. `383f301`
+- **Manual en 3D con hojas agarrables:** la hoja se agarra y se dobla según de dónde la tomes; un
+  clic la pasa sola. `98149c4`
+
+### Antes en este tramo
+- **Sonidos de los menús** propios de la sala (cadenita, silla que cruje) `6dfeaa4`, `6bf4f6c`;
+  **dorsos nuevos** y **campo visual de 50° a 80°** `399787c`, `bf64246`; **bots:** la Mano pide
+  kamikaze según su mano `5a71c6a`; arreglos de porotos, la sota y los nombres de la sala `8c65187`,
+  `37f5d37`, `a9229cd`; los e2e corren contra un servidor (3100) y un cliente (5174) propios `c7cb215`.
+
+### Pruebas y herramientas nuevas
+- `e2e/clock.place.mjs` (ubicación del reloj con 4 y 8 jugadores), `e2e/settings.back.mjs` (Ajustes
+  con la carta del dorso), `e2e/rulebook.{open,frames,longtasks,close,multi}.mjs` (apertura, cierre
+  y hojas múltiples del manual) y pasos nuevos en `e2e/menu.shots.mjs` (giro del kamikaze, títulos
+  centrados).
 
 ---
 
