@@ -475,7 +475,8 @@ export class TableScene {
 
   /** Where a seat's right hand rests on the table (world). */
   private restWrist(seat: number) {
-    return polar(TABLE_R - 0.04, seatAngle(seat, this.n), TABLE_Y + 0.03).addScaledVector(this.rightOf(seat), 0.2)
+    // resting a little higher than the table: the fingers pass over the won piles (up to ~1 cm), never through them
+    return polar(TABLE_R - 0.04, seatAngle(seat, this.n), TABLE_Y + 0.052).addScaledVector(this.rightOf(seat), 0.2)
   }
 
   /** The seat whose face you can read at the centre of your view (same rule as the server). */

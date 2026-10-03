@@ -227,7 +227,7 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false): A
   setHandCount(0)
 
   const fanHold = new THREE.Vector3(FAN_X + 0.01, FAN_Y - 0.08, -0.32) // left wrist, under the fan
-  const tableRest = new THREE.Vector3(0.2, TABLE_Y + 0.03, -(CHAIR_R - (TABLE_R - 0.04))) // right wrist on the table
+  const tableRest = new THREE.Vector3(0.2, TABLE_Y + 0.052, -(CHAIR_R - (TABLE_R - 0.04))) // right wrist on the table
   const shoulderLocal = (sx: number, lean: number) => new THREE.Vector3(sx * 0.19, SHOULDER_Y - lean * 0.06, -(CHAIR_R - SHOULDER_R) - lean * LEAN_REACH)
 
   // First person: only the arms exist (the camera lives where the head would be).

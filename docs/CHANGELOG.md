@@ -2,6 +2,10 @@
 
 ## Desde `a603e36`
 
+- **La mano tapa las pilas de bases ganadas (sin glitch):** la mano derecha en reposo atravesaba
+  las cartas de la pila (los dedos quedaban ~1,3 cm por debajo del tope), y según el ángulo de la
+  cámara se veía la mano o la carta. Ahora la mano descansa unos 2 cm más alto y pasa por encima de
+  la pila (8 mm de margen sobre el tope), así que siempre la tapa a ella y no al revés.
 - **La carta que va ganando flota en vivo:** durante la base, la carta que gana hasta el momento
   flota (se levanta y su recuadro brilla ámbar) y el efecto pasa de carta en carta: cada vez que se
   juega una mejor, la anterior se asienta suavemente y la nueva se levanta. Al terminar la base, la
