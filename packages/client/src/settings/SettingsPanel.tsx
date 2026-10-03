@@ -200,8 +200,8 @@ export function SettingsHost() {
           <Switch
             on={view.smoothProps}
             icon={<GiDividedSquare aria-hidden className="setting-icon" />}
-            title="Bordes suaves en los objetos"
-            hint={view.smoothProps ? 'los televisores, el anotador y el reloj se dibujan nítidos (más pesado)' : 'todo con el mismo aspecto pixelado de la mesa'}
+            title="Bordes suaves (anti-aliasing)"
+            hint={view.smoothProps ? 'los televisores, el anotador y el reloj se dibujan nítidos y sin escalones (más pesado)' : 'todo con el mismo aspecto pixelado de la mesa'}
             onToggle={() => setViewSettings({ smoothProps: !view.smoothProps })}
           />
           <Switch

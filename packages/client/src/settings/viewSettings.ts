@@ -27,7 +27,7 @@ export const FOV_MIN = 50
 export const FOV_MAX = 80
 const KEY = 'laBase.view'
 // phones start with: hand not reset on your turn, no table guides, view returns to your seat (gyroscope and reticle on, camera not inverted)
-const DEFAULTS: ViewSettings = { cameraReturn: isTouch, reticle: true, invertLook: false, handResetOnTurn: !isTouch, guides: !isTouch, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja', handHeight: 0, senaOrder: '', gyro: true, smoothProps: true }
+const DEFAULTS: ViewSettings = { cameraReturn: isTouch, reticle: true, invertLook: false, handResetOnTurn: !isTouch, guides: !isTouch, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja', handHeight: 0, senaOrder: '', gyro: true, smoothProps: false }
 
 function load(): ViewSettings {
   try {
