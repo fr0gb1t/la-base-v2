@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Card, GameState } from '@la-base/shared';
-import { AVERAGE_CARD, bidEstimate, chooseBid, chooseCard, chooseKamikaze, partnerWorth, shortAnswer } from './bots.js';
+import { AVERAGE_CARD, wantsSenasBeforeBidding, bidEstimate, chooseBid, chooseCard, chooseKamikaze, partnerWorth, shortAnswer } from './bots.js';
 
 const state = (over: Partial<GameState> = {}): GameState =>
   ({
@@ -207,4 +207,16 @@ test('the Mano calls a kamikaze on a lopsided hand: to 0 when the team has nothi
   assert.equal(chooseKamikaze(weak, none, 'nosotros', () => 0), null);
   const small = state({ structureSequence: [1], kamikazesRemaining: { nosotros: 2, ellos: 2 } } as Partial<GameState>);
   assert.equal(chooseKamikaze(0, small, 'nosotros', () => 0), null);
+});
+
+test('a bot does not knock or wait for señas when they cannot change its bid', () => {
+  const weak: Card[] = [{ suit: 'oros', value: 4 }, { suit: 'copas', value: 5 }, { suit: 'oros', value: 6 }];
+  const strong: Card[] = [{ suit: 'bastos', value: 1 }];
+  // the Mano with a weak hand and bids to choose from: worth asking
+  assert.equal(wantsSenasBeforeBidding(weak, state({ structureSequence: [5], roundIndex: 0 }), 4), true);
+  // answering a bid that leaves a single legal answer (3 bases, the rivals asked 3: only 1): nothing to ask
+  const forced = state({ structureSequence: [3], roundIndex: 0, bids: [{ team: 'ellos', value: 3 }] as GameState['bids'] });
+  assert.equal(wantsSenasBeforeBidding(weak, forced, 4), false);
+  // a hand that makes every base on its own (the ancho de bastos in a 1-base round)
+  assert.equal(wantsSenasBeforeBidding(strong, state({ structureSequence: [1], roundIndex: 0 }), 4), false);
 });

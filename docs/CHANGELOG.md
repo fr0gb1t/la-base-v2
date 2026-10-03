@@ -2,6 +2,9 @@
 
 ## Desde `a603e36`
 
+- **Bots: no esperan señas cuando no sirven de nada:** si responden y solo les queda una opción
+  legal (la regla del Pie la fuerza), o si sus cartas solas alcanzan para todas las bases de la
+  ronda, ya no tocan la mesa ni esperan la respuesta de los compañeros: declaran al instante.
 - **Anotador y lápiz:** el anotador ya no se levanta al pasar el mouse (solo sube un poco el lápiz) y
   no tiembla al tocarlo desde el borde (la zona que detecta el mouse ya no se mueve con el
   anotador); la punta del lápiz estaba mal armada (un cono sobre otro) y ahora es una madera

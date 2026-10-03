@@ -74,6 +74,24 @@ export function bidEstimate(
   return Math.max(0, own + mates.reduce((a, b) => a + b, 0) - rivalShift);
 }
 
+/** The bids this bot may declare now (the Pie's are restricted by the rule in force). */
+export function bidOptions(st: GameState): number[] {
+  const max = st.structureSequence[st.roundIndex];
+  return Array.from({ length: max + 1 }, (_, v) => v).filter((v) => st.bids.length === 0 || validatePieBid(st.bids[0].value, v, max, st.pieBidRule ?? 'estricta'));
+}
+
+/**
+ * Is it worth knocking for the partners' señas (and waiting for them) before bidding? Not when the
+ * answer cannot change anything: answering with a single legal bid (forced by the rival's), or when
+ * this hand alone can already make every base of the round.
+ */
+export function wantsSenasBeforeBidding(hand: Card[], st: GameState, players: number): boolean {
+  if (bidOptions(st).length <= 1) return false;
+  const max = st.structureSequence[st.roundIndex];
+  const own = hand.reduce((sum, c) => sum + winChance(c, st.acePowers.espadas, players), 0);
+  return own < max - 0.35;
+}
+
 export function chooseBid(
   hand: Card[],
   st: GameState,
@@ -84,7 +102,7 @@ export function chooseBid(
 ): number {
   const max = st.structureSequence[st.roundIndex];
   const estimate = bidEstimate(hand, st, teamSize, players, partnerSenas, rivalSenas);
-  const options = Array.from({ length: max + 1 }, (_, v) => v).filter((v) => st.bids.length === 0 || validatePieBid(st.bids[0].value, v, max, st.pieBidRule ?? 'estricta'));
+  const options = bidOptions(st);
   return options.reduce((best, v) => (Math.abs(v - estimate) < Math.abs(best - estimate) ? v : best), options[0]);
 }
 
@@ -403,7 +421,7 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
         await untilDealt(); // see the hand land before knocking or declaring
         await sleep(1200);
         // no señas from the partners yet: knock on the table and give them a moment to answer
-        if (!askedThisRound && teammates().length && signedBy().every((l) => l.length === 0)) {
+        if (!askedThisRound && teammates().length && signedBy().every((l) => l.length === 0) && wantsSenasBeforeBidding(hand, st, Math.max(4, roster.length))) {
           askedThisRound = true;
           // knock, then wait for an answer (any seña: a 'no' counts too) from every partner, up
           // to ASK_PATIENCE_MS so a silent table doesn't stall the game
