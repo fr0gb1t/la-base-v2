@@ -64,10 +64,9 @@ export function startAudio() {
   if (listener) return
   listener = new THREE.AudioListener()
   ctx = listener.context
-  const resume = () => {
-    if (ctx.state === 'suspended') void ctx.resume()
-  }
-  for (const ev of ['pointerdown', 'keydown', 'touchstart'] as const) window.addEventListener(ev, resume, { capture: true, passive: true })
+  const resume = () => unlock()
+  // iOS only lets sound start from the END of a touch (or a click), not from touchstart/pointerdown
+  for (const ev of ['pointerdown', 'pointerup', 'keydown', 'touchstart', 'touchend', 'click'] as const) window.addEventListener(ev, resume, { capture: true, passive: true })
   ctx.addEventListener('statechange', () => stateListeners.forEach((f) => f(ctx.state)))
   void buildGraph()
 }
@@ -83,7 +82,25 @@ export function onAudioState(fn: (s: AudioContextState) => void) {
 }
 /** Ask the browser to play now (call from a click). */
 export function resumeAudio() {
-  if (ctx?.state === 'suspended') void ctx.resume()
+  unlock()
+}
+
+/**
+ * Starts sound from a user gesture. Besides resume() (a phone also leaves the context 'interrupted'
+ * after a call or a lock screen, not only 'suspended'), a silent buffer is played: that is what
+ * unlocks iOS Safari.
+ */
+function unlock() {
+  if (!ctx || ctx.state === 'running') return
+  try {
+    const src = ctx.createBufferSource()
+    src.buffer = ctx.createBuffer(1, 1, 22050)
+    src.connect(ctx.destination)
+    src.start(0)
+  } catch {
+    /* nothing to play: resume() below still tries */
+  }
+  void ctx.resume().catch(() => undefined)
 }
 
 /**
