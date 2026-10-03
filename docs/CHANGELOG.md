@@ -2,6 +2,11 @@
 
 ## Desde `a603e36`
 
+- **Entrada del reglamento:** antes se trababa al abrir (las páginas se fotografían en ese momento
+  y la tapa se abría sin su imagen: se veía la primera página en vez de la tapa). Ahora el librito
+  espera a tener lista la tapa y la primera doble página (con un fundido), baja sobre la mesa desde
+  arriba, ladeado, y se acomoda bajo la lámpara; recién ahí la tapa se abre sola, con el sonido a
+  tiempo. Las tipografías se bajan de antemano, mientras el menú está en reposo.
 - **Kamikazes en un solo botón:** en la configuración hay un avioncito y, arriba a la derecha, su
   cantidad como exponente (un círculo más chico, con la misma inclinación que el avión). Cada click
   pasa de 0 a 1, 2, 3 y vuelve a 0, y el círculo da medio giro (como los ases) mostrando el nuevo

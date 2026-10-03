@@ -51,6 +51,8 @@ interface Turn {
   moved: boolean;
 }
 
+const FADE_S = 0.5; // the room fades in
+const LAND_S = 0.8; // s the booklet takes to come down onto the table
 const REVEAL_MAX_MS = 2500; // never keep you waiting longer than this for the pictures
 
 export interface BookOptions {
@@ -204,6 +206,8 @@ export class BookScene {
   private tabs: Array<{ mesh: THREE.Mesh; on: boolean; hover: number }> = [];
   private hoverTab = -1;
   private opened = performance.now();
+  private introAt: number | null = null; // when the booklet started coming down onto the table
+  private muteTurnSound = false;
   private reveal = 0; // the timer that waits for the first pages
   private camFrom = new THREE.Vector3();
   private camTo = new THREE.Vector3();
@@ -322,18 +326,35 @@ export class BookScene {
     const first = ['cover', `R${o.start}`, `L${o.start}`];
     o.pages.want(first);
     r.domElement.style.opacity = '0';
-    r.domElement.style.transition = 'opacity 0.45s ease-out';
+    r.domElement.style.transition = `opacity ${FADE_S}s ease-out`;
     const waited = performance.now();
     this.reveal = window.setInterval(() => {
       const ready = first.every((k) => o.pages.has(k));
       if (!ready && performance.now() - waited < REVEAL_MAX_MS) return;
       window.clearInterval(this.reveal);
-      this.opened = performance.now(); // the lean-in starts now
-      r.domElement.style.opacity = '1';
-      o.onReveal?.();
-      this.startTurn(-1, o.start, { u: 0.92, v: 0.82 }, 'auto', 0.25);
+      this.begin();
     }, 40);
     this.loop();
+  }
+
+  /**
+   * The entrance. The booklet is set down on the table: it comes in from above, a little askew,
+   * and settles squared under the lamp while the room fades in and you lean over it; once it has
+   * landed the cover opens by itself (it can be caught like any page).
+   */
+  private begin() {
+    const now = performance.now();
+    this.opened = now; // the lean-in starts now
+    this.introAt = this.o.reducedMotion ? null : now;
+    const wait = this.o.reducedMotion ? 0.05 : LAND_S + 0.15;
+    // the cover lies closed (the leaf at rest, showing the cover) until the booklet has landed
+    this.muteTurnSound = true;
+    this.startTurn(-1, this.o.start, { u: 0.92, v: 0.82 }, 'auto', wait);
+    this.muteTurnSound = false;
+    window.setTimeout(() => this.o.onTurnStart(), wait * 1000);
+    this.o.onReveal?.();
+    // fade in on the next frame, once the first picture of the cover has been drawn
+    requestAnimationFrame(() => requestAnimationFrame(() => (this.renderer.domElement.style.opacity = '1')));
   }
 
   // ---- layout -------------------------------------------------------------------------------
@@ -499,6 +520,7 @@ export class BookScene {
     const keys = dir > 0 ? [`R${to}`, `L${to}`] : [`L${to}`, `R${to}`];
     this.o.pages.want(keys);
     this.leaf.visible = true;
+    this.posed = false;
     this.refresh();
   }
 
@@ -511,7 +533,7 @@ export class BookScene {
     t.target = target;
     t.t0 = performance.now() + delay * 1000;
     t.dur = this.o.reducedMotion ? 0.001 : 0.3 + (0.55 * Math.abs(target - t.a0)) / Math.PI;
-    if (target !== (t.dir > 0 ? 0 : Math.PI)) this.o.onTurnStart();
+    if (target !== (t.dir > 0 ? 0 : Math.PI) && !this.muteTurnSound) this.o.onTurnStart();
   }
 
   private finish() {
@@ -671,7 +693,13 @@ export class BookScene {
     } else {
       const now = performance.now();
       if (now < t.t0) {
-            return;
+        // waiting to start (the opening): the leaf already lies in place, so the closed booklet
+        // shows its cover instead of the first page
+        if (!this.posed) {
+          this.posed = true;
+          this.poseLeaf();
+        }
+        return;
       }
       const u = Math.min(1, (now - t.t0) / 1000 / t.dur);
       s.angle = Math.max(0, Math.min(Math.PI, hermite(t.a0, t.v0 * t.dur, t.target, u)));
@@ -681,7 +709,14 @@ export class BookScene {
       }
     }
     s.omega += ((s.angle - prev) / Math.max(dt, 1e-3) - s.omega) * Math.min(1, dt * 12);
-    shapeLeaf(s, this.frame(), this.leafPos.array as Float32Array);
+    this.poseLeaf();
+  }
+
+  private posed = false; // the waiting leaf has been shaped
+  private poseLeaf() {
+    const t = this.turn;
+    if (!t) return;
+    shapeLeaf(t.shape, this.frame(), this.leafPos.array as Float32Array);
     this.leafPos.needsUpdate = true;
     this.leaf.geometry.computeVertexNormals();
     this.leaf.geometry.computeBoundingSphere();
@@ -707,9 +742,20 @@ export class BookScene {
     const k = this.o.reducedMotion ? 1 : 1 - (1 - u) ** 3;
     this.camera.position.copy(this.camFrom).lerp(this.camTo, k);
     this.camera.lookAt(this.lookAt);
+    this.land(now);
     this.lamp.update(now / 1000);
     this.post.render(this.scene, this.camera, now / 1000);
   };
+
+  /** The booklet coming down: from above and askew to its place (ease-out, no bounce). */
+  private land(now: number) {
+    if (this.introAt === null) return;
+    const u = Math.min(1, (now - this.introAt) / 1000 / LAND_S);
+    const left = (1 - u) ** 3;
+    this.book.position.y = TABLE_Y + BOARD_T * SCALE + left * 0.3;
+    this.book.rotation.set(-0.3 * left, -0.03 + 0.55 * left, 0.08 * left);
+    if (u >= 1) this.introAt = null;
+  }
 
   /** For tests: where things are. */
   debug() {
