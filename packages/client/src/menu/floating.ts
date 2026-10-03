@@ -148,8 +148,8 @@ function texture(item: FloatItem) {
   } else if (kind === 'chip') {
     // centred by the ink, not by the font's baseline: the old-style figures of this face sit at
     // different heights (the 4 hangs below the line, the 6 and the 8 rise above it)
+    g.textBaseline = 'alphabetic' // (the ink bounds are measured from the baseline: set it before measuring)
     const m = g.measureText(item.label)
-    g.textBaseline = 'alphabetic'
     g.fillText(item.label, 64 - (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2, 64 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2)
   } else g.fillText(item.label, cv.width / 2, item.sub ? h * 0.4 : h / 2 + 2)
   if (item.crossed) {

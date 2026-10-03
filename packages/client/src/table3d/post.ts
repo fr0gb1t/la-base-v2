@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { isTouch } from '../lib/device'
 import { DARK_SNAP, DUOTONES, hex } from './look'
 
 // Pass 1 (low-res, e.g. 640×360): scene → selective dark snap + Bayer dither + duotone.
@@ -113,7 +114,7 @@ export function makePost(renderer: THREE.WebGLRenderer, lowHeight = 360) {
       uLowRes: { value: new THREE.Vector2() },
       uTime: { value: 0 },
       uCA: { value: 0.003 },
-      uGrain: { value: 0.035 },
+      uGrain: { value: isTouch ? 0 : 0.035 }, // no film grain on a phone: at its pixel density it reads as TV static
       uVignette: { value: 1.1 },
       uBloom: { value: 0.6 },
     },

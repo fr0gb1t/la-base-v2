@@ -100,6 +100,7 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   la vez** al pasar rápido; hojas agarrables. `cda0486`…`383f301`
 
 ### Celulares y tablets (solo con pantalla táctil; el escritorio no cambia)
+- **Sin grano de película en el celular:** el efecto de estática sobre toda la pantalla se quita en pantallas táctiles (en la PC se mantiene). También: los números de los botones redondos se centran por su tinta.
 - **Rama `mobile`: controles apuntando con la mira.** Un tap en cualquier lado que no sea una carta
   o un botón es un clic donde está la mira (el centro de la pantalla, que se mueve con el
   giroscopio): apuntás al anotador y tocás donde sea para abrirlo. **Doble tap = zoom** en la mira
