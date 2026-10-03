@@ -2,6 +2,11 @@
 
 ## Desde `a603e36`
 
+- **Kamikazes en un solo botón:** en la configuración hay un avioncito y, arriba a la derecha, su
+  cantidad como exponente (un círculo más chico, con la misma inclinación que el avión). Cada click
+  pasa de 0 a 1, 2, 3 y vuelve a 0, y el círculo da medio giro (como los ases) mostrando el nuevo
+  número. Los botones de estructura son todos iguales y quedan centrados; los poderes y la
+  estructura subieron para dejar más lugar.
 - **Números que se leen como números:** las cartas, el número de tiza de las bases pedidas, los
   puntos del papelito y el selector de bases usan una tipografía con el 1 con bandera (Old Standard
   TT), así el 11 ya no parece un II. El pulgar de los guantes ahora está dado vuelta sobre sí

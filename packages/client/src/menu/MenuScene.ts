@@ -1,3 +1,4 @@
+import { KamikazeDial } from './kamikazeDial'
 import { attachAudio, uiSound } from '../table3d/audio'
 import * as THREE from 'three'
 import { buildLamp, buildRoom } from '../table3d/table'
@@ -103,6 +104,7 @@ export class MenuScene {
   private hovered = -1
   private focusIndex = -1
   private floating = new FloatingItems()
+  private kamikaze = new KamikazeDial()
   private inputCard = new InputCard()
   private inputAt: [number, number] = [0, 0.18]
   private inputHovered = false
@@ -129,7 +131,7 @@ export class MenuScene {
     this.scene.add(this.camera, this.roomGroup)
     attachAudio(this.camera) // the basement hums from the very first screen
     this.setSeatCount(8)
-    this.scene.add(this.floating.group, this.inputCard.mesh, this.inputCard.hit)
+    this.scene.add(this.floating.group, this.inputCard.mesh, this.inputCard.hit, this.kamikaze.group)
     this.buildOptions()
     this.buildAces()
     this.bindInput()
@@ -208,6 +210,11 @@ export class MenuScene {
     ACE_SUITS.forEach((suit, i) => (this.aces[i].on = p[suit]))
   }
 
+  /** Config: the kamikaze counter hanging over the plane button at table spot `at`. */
+  setKamikaze(value: number, at: [number, number]) {
+    this.kamikaze.set(value, at)
+  }
+
   /** Floating buttons on the felt for the current screen (replaces the previous set). */
   setItems(items: FloatItem[]) {
     this.floating.set(items)
@@ -225,6 +232,7 @@ export class MenuScene {
   }
 
   dispose() {
+    this.kamikaze.dispose()
     this.offView()
     this.disposed = true
     this.renderer.setAnimationLoop(null)
@@ -398,6 +406,7 @@ export class MenuScene {
     this.camera.updateProjectionMatrix()
 
     this.updateHover(time)
+    this.kamikaze.update(dt, this.camera, this.station === 'config')
     this.inputCard.update(time, this.inputAt[0], this.inputAt[1], this.inputHovered)
 
     // lobby cards: lying on the felt in front of your place; hovered one lifts and turns to you
