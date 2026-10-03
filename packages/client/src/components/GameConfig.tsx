@@ -103,7 +103,7 @@ export function GameConfig() {
         items={[
           // a form laid on the felt: one row per choice, its title on the left (titles never sit
           // above or below a row, where the buttons and their shadows would cover them)
-          { id: 't-ases', label: 'Poderes', kind: 'label', at: [TITLE_X, ROW.aces], rowHeight: 0.2, onPick: () => undefined },
+          { id: 't-ases', label: 'Poderes', kind: 'label', at: [TITLE_X + 0.14, ROW.aces], rowHeight: 0.2, onPick: () => undefined },
           { id: 't-estructura', label: 'Estructura', kind: 'label', at: [TITLE_X, ROW.structure], onPick: () => undefined },
           ...(['clasica', 'alternativa', 'postpandemia'] as const).map((mode, i) => ({
             id: `est-${mode}`,
