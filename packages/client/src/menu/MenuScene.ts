@@ -43,6 +43,7 @@ export const MENU_OPTIONS: Array<{ id: 'crear' | 'unirse' | 'reglas'; title: str
   { id: 'reglas', title: 'Reglamento', suit: 'espadas', rank: 12 },
 ]
 
+const ACE_Z = -0.1 // how far toward the far side of the table the powered aces stand (room for the form below)
 const ACE_TILT = 0.42 // radians the powered aces lean back toward the lamp
 const ACE_SUITS: Array<keyof AcePowers> = ['espadas', 'copas', 'oros']
 const ACE_HINTS: Record<keyof AcePowers, string> = {
@@ -429,7 +430,7 @@ export class MenuScene {
       const over = i === this.aceHovered ? 0.02 : 0
       const bob = calm ? 0 : Math.sin(time * 1.4 + i * 2.1) * 0.004
       const x = (i - 1) * 0.22
-      const rest = new THREE.Vector3(x, TABLE_Y + 0.03 + halfH, 0.14)
+      const rest = new THREE.Vector3(x, TABLE_Y + 0.03 + halfH, ACE_Z)
       const facing = Math.atan2(this.camera.position.x - x, this.camera.position.z - rest.z)
       a.view.root.position.copy(rest).add(new THREE.Vector3(0, bob + over, 0))
       // leaning back so the lamp falls squarely on whichever side faces you (the back leans the

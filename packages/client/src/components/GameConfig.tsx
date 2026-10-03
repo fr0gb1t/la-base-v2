@@ -5,7 +5,8 @@ import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 
 // rows of the config form on the felt (table z, toward you); the aces lie at z 0.14
-const ROW = { aces: 0.12, structure: 0.4, kamikazes: 0.55, clock: 0.69, actions: 0.85 } as const;
+// (aces: the same z as ACE_Z in MenuScene)
+const ROW = { aces: -0.1, structure: 0.4, kamikazes: 0.55, clock: 0.69, actions: 0.85 } as const;
 // the form is centred on the felt: titles at the left, their options to the right, and the whole
 // block (titles included) balanced around x = 0
 const TITLE_X = -0.62; // the titles' left edge
