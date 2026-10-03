@@ -167,6 +167,7 @@ export class TableScene {
   private notepad = new Notepad()
   private padFocus = 0 // 0–1: the camera has come to read the notepad (a round just ended)
   private padFocusT = 0
+  private padKind: 'round' | 'base' = 'round' // a round's report comes close; a base's is read from your seat, as with the mouse zoom
   private clockView: ClockView | null = null
   private queue: Promise<void> = Promise.resolve()
   private queued = 0
@@ -1342,6 +1343,7 @@ export class TableScene {
   /** A round is over: the camera comes to the notepad, which shows its report (null: back to your seat). */
   setRoundReport(report: RoundReport | null) {
     this.notepad.setReport(report)
+    if (report) this.padKind = report.kind === 'base' ? 'base' : 'round'
     this.padFocusT = report ? 1 : 0
   }
 
@@ -1717,11 +1719,14 @@ export class TableScene {
       // a round just ended: the camera comes down to the notepad and stays there to read it
       const e = this.padFocus * this.padFocus * (3 - 2 * this.padFocus)
       const centre = new THREE.Vector3(NOTEPAD_AT.x, TABLE_Y + 0.06, NOTEPAD_AT.z + 0.02)
-      const pose = centre.clone().add(new THREE.Vector3(0, 0.36, 0.42))
-      this.camera.position.lerp(pose, e)
+      const base = this.padKind === 'base'
+      if (!base) {
+        const pose = centre.clone().add(new THREE.Vector3(0, 0.36, 0.42))
+        this.camera.position.lerp(pose, e)
+      }
       const m = new THREE.Matrix4().lookAt(this.camera.position, centre, new THREE.Vector3(0, 1, 0))
       this.camera.quaternion.slerp(new THREE.Quaternion().setFromRotationMatrix(m), e)
-      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, 27, e)
+      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, base ? 27 : 27, e)
     }
     this.camera.updateProjectionMatrix()
   }

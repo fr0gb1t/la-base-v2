@@ -66,8 +66,11 @@ function paperTexture() {
 
 /** What the notepad shows when a round is over: the same figures as the old «Ronda N terminada» window. */
 export interface RoundReport {
-  title: string // «Ronda 3 terminada»
-  lastBase: string // «Última base: Ana (rivales) con 3 de espadas»
+  kind?: 'round' | 'base' // a finished round (default) or just a base
+  title: string // «Ronda 3 terminada» / «Base 2 de 3»
+  lastBase: string // «Última base: Ana (rivales) con 3 de espadas» / «La gana Ana (rivales) con 3 de espadas»
+  /** a base report: how each team stands («Tu equipo lleva 1 (pidió 1)») */
+  standings?: Array<{ text: string; mine: boolean }>
   rows: Array<{ label: string; asked: string; won: number; met: boolean; pts: string; total: number; mine: boolean }>
   players: Array<{ name: string; ready: boolean; mine: boolean }>
   ready: boolean // you already pressed the tick
@@ -113,19 +116,87 @@ function wrapText(g: CanvasRenderingContext2D, text: string, width: number) {
   return lines
 }
 
+/** A wobbly, hand-made line from a to b: little offsets along the way, never the same twice per seed. */
+function wobble(a: [number, number], b: [number, number], seed: number, n = 9): Array<[number, number]> {
+  let t = seed * 9301 + 49297
+  const rnd = () => ((t = (t * 9301 + 49297) % 233280) / 233280 - 0.5)
+  const nx = -(b[1] - a[1])
+  const ny = b[0] - a[0]
+  const len = Math.hypot(nx, ny) || 1
+  return Array.from({ length: n + 1 }, (_, k) => {
+    const f = k / n
+    const off = k === 0 || k === n ? 0 : rnd() * 9
+    return [a[0] + (b[0] - a[0]) * f + (nx / len) * off, a[1] + (b[1] - a[1]) * f + (ny / len) * off] as [number, number]
+  })
+}
+
+/** The tick as a hand stroke: two uneven strokes (down, then up and past), a little off each time you press it. */
+function tickPath(cx: number, cy: number): Array<[number, number]> {
+  const down = wobble([cx - 56, cy - 2], [cx - 18, cy + 44], 3, 5)
+  const up = wobble([cx - 18, cy + 44], [cx + 66, cy - 58], 7, 8)
+  return [...down, ...up.slice(1)]
+}
+
+function strokeUpTo(g: CanvasRenderingContext2D, pts: Array<[number, number]>, frac: number, color: string, width: number) {
+  const lens = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]))
+  const total = lens.reduce((a, b) => a + b, 0)
+  let left = frac * total
+  g.strokeStyle = color
+  g.lineCap = 'round'
+  g.lineJoin = 'round'
+  for (let pass = 0; pass < 2; pass++) {
+    g.lineWidth = pass ? width * 0.45 : width
+    g.globalAlpha = pass ? 0.55 : 0.92
+    g.beginPath()
+    g.moveTo(pts[0][0] + pass * 2, pts[0][1] + pass * 1.5)
+    for (let k = 1, rem = left; k < pts.length; k++) {
+      const l = lens[k - 1]
+      if (rem >= l) {
+        g.lineTo(pts[k][0] + pass * 2, pts[k][1] + pass * 1.5)
+        rem -= l
+      } else {
+        const f = rem / l
+        g.lineTo(pts[k - 1][0] + (pts[k][0] - pts[k - 1][0]) * f + pass * 2, pts[k - 1][1] + (pts[k][1] - pts[k - 1][1]) * f + pass * 1.5)
+        break
+      }
+    }
+    g.stroke()
+  }
+  g.globalAlpha = 1
+}
+
 /** The report written by hand on the page; `tick` 0–1 is how much of the tick the pencil has drawn. */
 function drawReport(cv: HTMLCanvasElement, r: RoundReport, tick: number, hot: boolean) {
   const g = cv.getContext('2d')!
   ruledPage(g)
   g.textBaseline = 'alphabetic'
   g.fillStyle = INKC
-  g.font = `700 78px ${HAND}`
-  g.fillText(r.title, 112, 120)
-  g.font = `500 38px ${HAND}`
+  const base = r.kind === 'base'
+  g.font = `700 ${base ? 132 : 78}px ${HAND}`
+  g.fillText(r.title, 112, base ? 160 : 120)
+  g.font = `600 ${base ? 70 : 38}px ${HAND}`
   const last = wrapText(g, r.lastBase, PW - 160)
-  last.slice(0, 2).forEach((l, i) => g.fillText(l, 112, 168 + i * 40))
+  const step = base ? 74 : 40
+  last.slice(0, 3).forEach((l, i) => g.fillText(l, 112, (base ? 260 : 168) + i * step))
+  if (base) {
+    // how each team stands, big
+    let by = 480
+    for (const st of r.standings ?? []) {
+      g.fillStyle = st.mine ? '#2f5f6b' : '#8e2a22'
+      g.font = `700 66px ${HAND}`
+      const lines = wrapText(g, st.text, PW - 120)
+      lines.slice(0, 2).forEach((l, i) => g.fillText(l, 112, by + i * 68))
+      g.strokeStyle = g.fillStyle
+      g.lineWidth = 4
+      g.beginPath()
+      g.moveTo(112, by + 14 + (lines.length - 1) * 68)
+      g.quadraticCurveTo(300, by + 22 + (lines.length - 1) * 68, 640, by + 12 + (lines.length - 1) * 68)
+      g.stroke()
+      by += 110 + (lines.length - 1) * 68
+    }
+  }
   let y = 270
-  for (const row of r.rows) {
+  for (const row of base ? [] : r.rows) {
     g.fillStyle = row.mine ? '#2f5f6b' : '#8e2a22'
     g.font = `700 62px ${HAND}`
     g.fillText(row.label, 112, y)
@@ -148,48 +219,22 @@ function drawReport(cv: HTMLCanvasElement, r: RoundReport, tick: number, hot: bo
     y += 250
   }
   // who is ready
-  g.font = `600 36px ${HAND}`
-  const colW = 300
+  g.font = `600 ${base ? 54 : 36}px ${HAND}`
+  const colW = base ? 290 : 300
   r.players.forEach((p, i) => {
     const px = 112 + (i % 2) * colW
-    const py = 790 + Math.floor(i / 2) * 42
+    const py = (base ? 790 : 790) + Math.floor(i / 2) * (base ? 58 : 42)
     if (py > PH - 30) return
     g.fillStyle = p.ready ? '#3d6b3a' : 'rgba(42,38,34,0.55)'
     g.fillText(`${p.ready ? '✓' : '…'} ${p.name}`, px, py)
   })
-  // the tick button: a faint grey tick, as if switched off; the pencil makes it dark
+  // the tick button: a faint grey hand-made tick, as if switched off; the pencil goes over it in green
   const cx = TICK.x + TICK.w / 2
   const cy = TICK.y + TICK.h / 2
-  const pts: Array<[number, number]> = [[cx - 52, cy + 2], [cx - 14, cy + 40], [cx + 56, cy - 44]]
-  g.lineCap = 'round'
-  g.lineJoin = 'round'
-  g.strokeStyle = hot && !r.ready ? 'rgba(80,76,70,0.5)' : 'rgba(150,146,138,0.38)'
-  g.lineWidth = 16
-  g.beginPath()
-  g.moveTo(pts[0][0], pts[0][1])
-  g.lineTo(pts[1][0], pts[1][1])
-  g.lineTo(pts[2][0], pts[2][1])
-  g.stroke()
-  if (tick > 0) {
-    // the pencil's tick: first stroke down, then up, the length drawn so far
-    const l1 = Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1])
-    const l2 = Math.hypot(pts[2][0] - pts[1][0], pts[2][1] - pts[1][1])
-    const d = tick * (l1 + l2)
-    g.strokeStyle = INKC
-    g.lineWidth = 15
-    g.beginPath()
-    g.moveTo(pts[0][0], pts[0][1])
-    if (d <= l1) {
-      const f = d / l1
-      g.lineTo(pts[0][0] + (pts[1][0] - pts[0][0]) * f, pts[0][1] + (pts[1][1] - pts[0][1]) * f)
-    } else {
-      const f = (d - l1) / l2
-      g.lineTo(pts[1][0], pts[1][1])
-      g.lineTo(pts[1][0] + (pts[2][0] - pts[1][0]) * f, pts[1][1] + (pts[2][1] - pts[1][1]) * f)
-    }
-    g.stroke()
-  }
-  return pts
+  const pts = tickPath(cx, cy)
+  strokeUpTo(g, pts, 1, hot && !r.ready ? 'rgb(90,86,80)' : 'rgb(168,164,156)', 13)
+  if (tick > 0) strokeUpTo(g, pts, tick, '#2e7d32', 14)
+  return [pts[0], pts[5], pts[pts.length - 1]] as Array<[number, number]>
 }
 
 export class Notepad {
@@ -204,6 +249,7 @@ export class Notepad {
   private paperTex!: THREE.CanvasTexture
   private showingReport = false
   private tickT = 0 // 0–1: how much of the tick has been written
+  private tilt = 0.75 // how far the pad stands up toward the camera
   private writing = false
   private tickPts: Array<[number, number]> = []
   private pencil = new THREE.Group()
@@ -313,9 +359,15 @@ export class Notepad {
   update(dt: number, focus = 0) {
     this.lift += ((this.hovered ? 1 : 0) - this.lift) * Math.min(1, dt * 12)
     const e = focus * focus * (3 - 2 * focus)
-    this.group.position.set(NOTEPAD_AT.x + (0 - NOTEPAD_AT.x) * e * 0.0, TABLE_Y + this.lift * 0.012 + e * 0.05, NOTEPAD_AT.z + e * 0.02)
-    this.group.rotation.set(e * 0.75, YAW * (1 - e) - this.lift * 0.06 * (1 - e), 0)
-    this.group.scale.setScalar(1 + e * 0.4)
+
+    const tilt = this.report?.kind === 'base' ? 0.9 : 0.75
+    this.tilt += (tilt - this.tilt) * Math.min(1, dt * 8)
+    this.group.rotation.set(e * this.tilt, YAW * (1 - e) - this.lift * 0.06 * (1 - e), 0)
+    const scale = 1 + e * (this.report?.kind === 'base' ? 0.85 : 0.4)
+    this.group.scale.setScalar(scale)
+    // it stands up on its near edge: raised by half its depth times the sine of the tilt, or it would sink into the table
+    const lift = e * ((D / 2) * scale * Math.sin(e * this.tilt) + 0.012)
+    this.group.position.set(NOTEPAD_AT.x, TABLE_Y + this.lift * 0.012 + lift, NOTEPAD_AT.z)
     if (this.showingReport && !this.report && focus < 0.02) {
       this.showingReport = false
       this.paperMat.map = this.paperTex
@@ -330,7 +382,7 @@ export class Notepad {
     }
     // the pencil writing the tick
     if (this.writing) {
-      this.tickT = Math.min(1, this.tickT + dt / 0.55)
+      this.tickT = Math.min(1, this.tickT + dt / 0.16)
       this.dirty = true
       if (this.tickT >= 1) this.writing = false
     }
@@ -355,7 +407,7 @@ export class Notepad {
     }
     const tip = new THREE.Vector3(0, -0.0745, 0).applyQuaternion(this.pencil.quaternion)
     const goal = toward ? target.sub(tip) : this.pencilReport
-    this.pencil.position.lerp(goal, Math.min(1, dt * (toward ? 30 : 6)))
+    this.pencil.position.lerp(goal, Math.min(1, dt * (toward ? 60 : 8)))
   }
 
   private lastHot = false

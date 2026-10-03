@@ -2,6 +2,14 @@
 
 ## Desde `a603e36`
 
+- **El resumen entre bases también va en el anotador:** en vez de la ventana «Base X de Y», la
+  cámara se queda en tu asiento y apunta al anotador con el zoom del clic derecho (las cartas de la
+  base siguen a la vista, con la ganadora marcada), y el anotador se levanta de frente con la base,
+  quién la ganó y con qué, cómo va cada equipo (lleva/pidió) y quién ya está listo. Queda fijo hasta
+  que apretás el tilde. El resumen de ronda sigue acercando más la cámara.
+- **El tilde:** ahora se escribe en unos 0,15 s (antes más de medio segundo), está dibujado a mano
+  (trazos desparejos, con una segunda pasada de lápiz y distinto cada vez) y al activarse queda
+  **verde**; gris clarito mientras está apagado.
 - **Resumen de la ronda en el anotador:** al terminar una ronda la cámara hace zoom sobre el
   anotador de la mesa y se queda ahí mientras todos confirman; el anotador se acomoda de frente a
   la cámara y su hoja muestra, escrita a mano, lo mismo que la ventana «Ronda N terminada» (última
