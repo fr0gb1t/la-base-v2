@@ -163,7 +163,12 @@ export function completeBase(
   players: RoomPlayer[]
 ): { winner: RoomPlayer; winnerTeam: 'nosotros' | 'ellos' } {
   // Use shared resolveBase function
-  const winningCard = resolveBase(playedCards, gameState.acePowers, gameState.playDirection);
+  const winningCard = resolveBase(
+    playedCards,
+    gameState.acePowers,
+    gameState.playDirection,
+    players.map((p) => p.id)
+  );
 
   const winner = players.find((p) => p.id === winningCard.playerId)!;
   // By game time, all teams are assigned (random gets resolved at game start)

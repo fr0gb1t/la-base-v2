@@ -149,7 +149,7 @@ describe('Base Resolution', () => {
     ];
     const acePowers: AcePowers = { espadas: false, copas: false, oros: false };
 
-    const winner = resolveBase(playedCards, acePowers, 'antihorario');
+    const winner = resolveBase(playedCards, acePowers, 'antihorario', []);
     assert.equal(winner.playerId, '2', 'Player 2 with Rey should win');
   });
 
@@ -162,8 +162,71 @@ describe('Base Resolution', () => {
     ];
     const acePowers: AcePowers = { espadas: false, copas: false, oros: false };
 
-    const winner = resolveBase(playedCards, acePowers, 'antihorario');
+    const winner = resolveBase(playedCards, acePowers, 'antihorario', []);
     assert.equal(winner.playerId, '2', 'Ancho de Bastos should win');
+  });
+
+  // Seats in table order (index +1 = horario, index -1 = antihorario), as in the room's player list.
+  const seats = ['jorgito', 'franco', 'pepe', 'alvaro'];
+  const acePowers: AcePowers = { espadas: true, copas: true, oros: true };
+  const jorgito5 = { playerId: 'jorgito', card: { suit: 'oros', value: 5 }, order: 0 } as PlayedCard;
+  const alvaroRey = { playerId: 'alvaro', card: { suit: 'espadas', value: 12 }, order: 1 } as PlayedCard;
+  const pepeRey = { playerId: 'pepe', card: { suit: 'copas', value: 12 }, order: 2 } as PlayedCard;
+  const francoAs = { playerId: 'franco', card: { suit: 'copas', value: 1 }, order: 3 } as PlayedCard;
+
+  test('horario: the cards are read from the Mano the other way round, so the tied Rey nearer in that direction wins', () => {
+    // Antihorario they sat Jorgito, Álvaro, Pepe, Franco; Franco's As de Copas flips it to horario:
+    // reading goes Jorgito, Franco, Pepe, Álvaro → Pepe's Rey comes before Álvaro's.
+    const winner = resolveBase([jorgito5, alvaroRey, pepeRey, francoAs], acePowers, 'horario', seats);
+    assert.equal(winner.playerId, 'pepe');
+  });
+
+  test('antihorario: the same cards read in play order, first Rey wins the tie', () => {
+    const winner = resolveBase([jorgito5, alvaroRey, pepeRey, francoAs], acePowers, 'antihorario', seats);
+    assert.equal(winner.playerId, 'alvaro');
+  });
+
+  test('horario base played already in horario: reading order equals play order', () => {
+    // Mano Jorgito, then Franco, Pepe, Álvaro actually play in that order.
+    const played: PlayedCard[] = [
+      { ...jorgito5 },
+      { playerId: 'franco', card: { suit: 'oros', value: 2 }, order: 1 },
+      { playerId: 'pepe', card: { suit: 'copas', value: 12 }, order: 2 },
+      { playerId: 'alvaro', card: { suit: 'espadas', value: 12 }, order: 3 },
+    ];
+    assert.equal(resolveBase(played, acePowers, 'horario', seats).playerId, 'pepe');
+  });
+
+  test('horario: the last card played still counts (a later 5 beats an earlier 3)', () => {
+    const played: PlayedCard[] = [
+      { playerId: 'jorgito', card: { suit: 'oros', value: 3 }, order: 0 },
+      { playerId: 'franco', card: { suit: 'copas', value: 2 }, order: 1 },
+      { playerId: 'pepe', card: { suit: 'espadas', value: 4 }, order: 2 },
+      { playerId: 'alvaro', card: { suit: 'bastos', value: 5 }, order: 3 },
+    ];
+    assert.equal(resolveBase(played, acePowers, 'horario', seats).playerId, 'alvaro');
+  });
+
+  test('horario: As de Copas played mid-base, the Rey of the player read first from the Mano wins the tie', () => {
+    // Played antihorario Jorgito, Álvaro, Pepe (As, flips), then Franco (the skipped seats had played).
+    const played: PlayedCard[] = [
+      { playerId: 'jorgito', card: { suit: 'oros', value: 6 }, order: 0 },
+      { playerId: 'alvaro', card: { suit: 'espadas', value: 12 }, order: 1 },
+      { playerId: 'pepe', card: { suit: 'copas', value: 1 }, order: 2 },
+      { playerId: 'franco', card: { suit: 'bastos', value: 12 }, order: 3 },
+    ];
+    assert.equal(resolveBase(played, acePowers, 'horario', seats).playerId, 'franco');
+  });
+
+  test('horario: As de Copas second, the turn skips to Franco; the Mano wins the tie of Reyes', () => {
+    // Played Jorgito, Álvaro (As, flips), Franco (Pepe is no longer next), Pepe.
+    const played: PlayedCard[] = [
+      { playerId: 'jorgito', card: { suit: 'oros', value: 12 }, order: 0 },
+      { playerId: 'alvaro', card: { suit: 'copas', value: 1 }, order: 1 },
+      { playerId: 'franco', card: { suit: 'bastos', value: 12 }, order: 2 },
+      { playerId: 'pepe', card: { suit: 'espadas', value: 10 }, order: 3 },
+    ];
+    assert.equal(resolveBase(played, acePowers, 'horario', seats).playerId, 'jorgito');
   });
 });
 

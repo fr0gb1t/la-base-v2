@@ -134,6 +134,7 @@ export function chooseCard(
   partnersExpect: (cardsLeft: (partnerId: string) => number) => number = () => 0,
   tableSize = 4,
   rng: () => number = Math.random,
+  seatIds: string[] = [], // table order, to read the base the way the game does
 ): number {
   const byRank = hand.map((c, i) => ({ c, i })).sort((a, b) => cardRank(a.c) - cardRank(b.c));
   const lowest = byRank[0].i;
@@ -143,9 +144,9 @@ export function chooseCard(
   const played = st.currentBaseCards;
   const winsWith = (card: Card) => {
     const next: PlayedCard = { playerId: me, card, order: played.length };
-    return resolveBase([...played, next], st.acePowers, st.playDirection).playerId === me;
+    return resolveBase([...played, next], st.acePowers, st.playDirection, seatIds).playerId === me;
   };
-  const current = played.length ? resolveBase(played, st.acePowers, st.playDirection) : null;
+  const current = played.length ? resolveBase(played, st.acePowers, st.playDirection, seatIds) : null;
   const teammateWinning = current !== null && teamOf(current.playerId) === team;
   // a partner who signed the ancho de bastos and hasn't played yet will take this base
   const ace = partnerHolds('ancho-basto');
@@ -444,7 +445,7 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
       } else if (st.phase === 'playing' && st.currentTurnPlayerId === me && hand.length) {
         await sleep(900);
         const myTeam = (roster.find((p) => p.id === me)?.team ?? 'nosotros') as AssignedTeam;
-        const k = chooseCard(hand, st, me, myTeam, (id) => roster.find((p) => p.id === id)?.team, partnerHolds, partnersExpect, roster.length);
+        const k = chooseCard(hand, st, me, myTeam, (id) => roster.find((p) => p.id === id)?.team, partnerHolds, partnersExpect, roster.length, Math.random, roster.map((p) => p.id));
         const card = hand[k];
         const feint = Math.random() < 0.35;
         for (let i = 0; i <= 14; i++) {

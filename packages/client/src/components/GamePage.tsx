@@ -600,7 +600,7 @@ export function GamePage() {
     const played = gameState?.currentBaseCards ?? [];
     if (!gameState || played.length === 0 || (gameState.phase !== 'playing' && gameState.phase !== 'base_resolution')) return null;
     try {
-      return resolveBase(played, gameState.acePowers, gameState.playDirection).playerId;
+      return resolveBase(played, gameState.acePowers, gameState.playDirection, roomPlayers.map((p) => p.id)).playerId;
     } catch {
       return null;
     }
