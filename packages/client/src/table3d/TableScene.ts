@@ -241,7 +241,7 @@ export class TableScene {
     container.appendChild(this.renderer.domElement)
     this.scene.add(this.camera)
     this.detachAudio = attachAudio(this.camera) // you hear the room from your seat
-    this.scene.add(this.tokens.group, this.clock.group, this.hud.group, this.notepad.group)
+    this.scene.add(this.tokens.group, this.clock.group, this.hud.group, this.notepad.group, this.notepad.hitRoot)
     this.tokens.setGuides(this.guides)
     this.scene.add(this.choices.group)
     this.scene.add(this.roomGroup)

@@ -41,6 +41,17 @@ for (let i = 0; i < 300; i++) {
 }
 await sleep(1500)
 const np = await p.evaluate(() => window.__table.notepadScreen())
+// hover at the pad's edge must not flicker: find the edge, then watch it
+{
+  await p.mouse.move(np.x, np.y); await sleep(400)
+  let x = np.x
+  for (; x > np.x - 200; x -= 1) { await p.mouse.move(x, np.y); await sleep(8); if (!(await p.evaluate(() => window.__table.notepad.hovered))) break }
+  const flips = []
+  let last = null
+  for (let i = 0; i < 90; i++) { await p.mouse.move(x + 1.5, np.y); await sleep(16); const h = await p.evaluate(() => window.__table.notepad.hovered); if (h !== last) { flips.push(i); last = h } }
+  console.log('hover changes at the edge over 90 frames:', flips.length, '(1 = steady)')
+  await p.mouse.move(np.x, np.y + 200); await sleep(400)
+}
 // three finished reports (a base, a base, a round) are left in the pad as pages
 await p.evaluate(() => {
   const mk = (kind, title, n) => ({ kind, title, lastBase: 'La gana Host (rivales) con rey de espadas', standings: [{ text: `Tu equipo lleva ${n} (pidió 1)`, mine: true }, { text: 'Rivales llevan 0 (pidieron 1)', mine: false }], totals: { mine: n, rival: -1 }, rows: kind === 'round' ? [{ label: 'Tu equipo', asked: '1', won: 1, met: true, pts: '+11', total: 11, mine: true }, { label: 'Rivales', asked: '1', won: 0, met: false, pts: '-1', total: -1, mine: false }] : [], players: [{ name: 'Host', ready: true, mine: true }, { name: 'P0', ready: true, mine: false }], ready: false })

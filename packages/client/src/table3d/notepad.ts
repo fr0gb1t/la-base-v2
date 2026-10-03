@@ -359,6 +359,8 @@ interface Flip {
 export class Notepad {
   readonly group = new THREE.Group()
   readonly hit: THREE.Mesh
+  /** Holds the pointer target: it follows the pad's resting pose, not its hover lift (or the pad would jump out from under the pointer at its edge and shake). */
+  readonly hitRoot = new THREE.Group()
   hovered = false
   private lift = 0
   private report: RoundReport | null = null
@@ -423,12 +425,11 @@ export class Notepad {
     }
     // the pencil, across the sheets
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.0034, 0.0034, 0.12, 6), new THREE.MeshStandardMaterial({ color: hex(SUIT_INK.oros), roughness: 0.5 }))
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.0034, 0.012, 6), new THREE.MeshStandardMaterial({ color: hex(PALETTE.bone), roughness: 0.9 }))
+    const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.0034, 0.0013, 0.012, 6), new THREE.MeshStandardMaterial({ color: hex(PALETTE.bone), roughness: 0.9 })) // the sharpened wood: a hexagonal taper that ends exactly where the lead starts
     const lead = new THREE.Mesh(new THREE.ConeGeometry(0.0013, 0.004, 6), new THREE.MeshStandardMaterial({ color: 0x1a1613 }))
     const eraser = new THREE.Mesh(new THREE.CylinderGeometry(0.0036, 0.0036, 0.009, 6), new THREE.MeshStandardMaterial({ color: hex(PALETTE.rose), roughness: 0.9 }))
     tip.position.y = -0.066
-    tip.rotation.z = Math.PI
-    lead.position.y = -0.0745
+    lead.position.y = -0.074 // its base sits on the wood's narrow end (y = -0.072)
     lead.rotation.z = Math.PI
     eraser.position.y = 0.0645
     const pencil = this.pencil
@@ -451,7 +452,7 @@ export class Notepad {
     this.disposables.push(this.reportTex, this.tickHit.geometry)
     this.hit = new THREE.Mesh(new THREE.BoxGeometry(W + 0.03, 0.04, D + 0.03), new THREE.MeshBasicMaterial({ visible: false }))
     this.hit.position.y = 0.02
-    this.group.add(this.hit)
+    this.hitRoot.add(this.hit)
     this.buildPages(paperTex)
     this.group.position.set(NOTEPAD_AT.x, TABLE_Y, NOTEPAD_AT.z)
     this.group.rotation.y = YAW
@@ -692,11 +693,14 @@ export class Notepad {
     // (a report) it stands up a little more
     const scale = REST_SCALE + (FOCUS_SCALE - REST_SCALE) * e
     this.tilt = REST_TILT + (FOCUS_TILT - REST_TILT) * e
-    this.group.rotation.set(this.tilt, REST_YAW * (1 - e) - this.lift * 0.06 * (1 - e), 0)
+    this.group.rotation.set(this.tilt, REST_YAW * (1 - e), 0) // the pad itself never moves on hover
     this.group.scale.setScalar(scale)
     // it stands up on its near edge: raised by half its depth times the sine of the tilt, or it would sink into the table
     const lift = (D / 2) * scale * Math.sin(this.tilt) + 0.012 * e
-    this.group.position.set(NOTEPAD_AT.x, TABLE_Y + this.lift * 0.012 + lift, NOTEPAD_AT.z)
+    this.group.position.set(NOTEPAD_AT.x, TABLE_Y + lift, NOTEPAD_AT.z)
+    this.hitRoot.position.set(NOTEPAD_AT.x, TABLE_Y + lift, NOTEPAD_AT.z)
+    this.hitRoot.rotation.set(this.tilt, REST_YAW * (1 - e), 0)
+    this.hitRoot.scale.setScalar(scale)
     const wantPage = this.report !== null || this.live !== null
     // the paper under the lamp: dimmed while you read a report up close, brighter and a little self-lit for the live scoreboard seen from afar
     if (this.showingReport) this.paperMat.emissiveIntensity = 0.05 + 0.04 * (1 - e)
@@ -753,10 +757,10 @@ export class Notepad {
       target.set((p[0] / PW - 0.5) * W, 0.004 + T + 0.002, (p[1] / PH - 0.5) * D)
       toward = 1
     }
-    const tip = new THREE.Vector3(0, -0.0745, 0).applyQuaternion(this.pencil.quaternion)
+    const tip = new THREE.Vector3(0, -0.076, 0).applyQuaternion(this.pencil.quaternion)
     this.floatT += dt
     const hover = this.pencilReport.clone()
-    hover.y = 0.0045 + (this.pencilReport.y - 0.0045) * e + Math.sin(this.floatT * 2.2) * 0.006 * e
+    hover.y = 0.0045 + (this.pencilReport.y - 0.0045) * e + Math.sin(this.floatT * 2.2) * 0.006 * e + this.lift * 0.02 * (1 - e) // hovering the pad: the pencil rises a little, the pad stays
     const goal = toward ? target.sub(tip) : hover
     this.pencil.position.lerp(goal, Math.min(1, dt * (toward ? 60 : 8)))
     this.pencil.quaternion.slerp(this.pencilReportQuat, Math.min(1, dt * 8))

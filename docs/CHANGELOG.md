@@ -2,6 +2,10 @@
 
 ## Desde `a603e36`
 
+- **Anotador y lápiz:** el anotador ya no se levanta al pasar el mouse (solo sube un poco el lápiz) y
+  no tiembla al tocarlo desde el borde (la zona que detecta el mouse ya no se mueve con el
+  anotador); la punta del lápiz estaba mal armada (un cono sobre otro) y ahora es una madera
+  afilada que termina justo donde empieza la mina.
 - **Retoques:** trazo del anotador más fino; el lápiz casi paralelo al anotador y más abajo, lejos
   del mazo central; el tilde más chico y más abajo (lejos de los nombres); el dorso del mazo central
   menos brillante (ahora se ve el dibujo); los porotos más grandes (y su montoncito un poco más
