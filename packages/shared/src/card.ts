@@ -63,32 +63,54 @@ export function compareCards(
 }
 
 /**
- * Resolve a base (trick) and determine the winning card
- * Takes all played cards in order and returns the winning PlayedCard
+ * Cards of a base in reading order: from the Mano, seat by seat, in the direction in force when
+ * the base closes. After an As de Copas reverses the table mid-base, this is not the order the
+ * cards were played in (the Mano is read first, then the seats the other way round).
+ * `seatIds` is the table order, where index +1 is horario and index -1 antihorario; without it
+ * (or with an unknown player) the play order is kept.
+ */
+export function readingOrder(
+  playedCards: PlayedCard[],
+  playDirection: 'antihorario' | 'horario',
+  seatIds: string[]
+): PlayedCard[] {
+  const mano = playedCards[0];
+  const manoSeat = seatIds.indexOf(mano.playerId);
+  const step = playDirection === 'horario' ? 1 : -1;
+  const distance = (c: PlayedCard) => {
+    const seat = seatIds.indexOf(c.playerId);
+    return (((seat - manoSeat) * step) % seatIds.length + seatIds.length) % seatIds.length;
+  };
+  if (manoSeat === -1 || playedCards.some((c) => seatIds.indexOf(c.playerId) === -1)) {
+    return playedCards;
+  }
+  return [...playedCards].sort((a, b) => distance(a) - distance(b));
+}
+
+/**
+ * Resolve a base (trick) and determine the winning card.
+ * Ties, and the As de Espadas "after the Ancho" rule, follow the reading order.
  */
 export function resolveBase(
   playedCards: PlayedCard[],
   acePowers: AcePowers,
-  playDirection: 'antihorario' | 'horario'
+  playDirection: 'antihorario' | 'horario',
+  seatIds: string[]
 ): PlayedCard {
   if (playedCards.length === 0) {
     throw new Error('No cards played in this base');
   }
 
-  let winner = playedCards[0];
+  const reading = readingOrder(playedCards, playDirection, seatIds).map((c, i) => ({ ...c, order: i }));
 
-  // If direction is horario (reversed), we need to read cards in reverse order
-  // but Mano is always treated as first
-  const cardsToCheck = playDirection === 'horario' ? [...playedCards].reverse() : playedCards;
-
-  for (let i = 1; i < cardsToCheck.length; i++) {
-    const current = cardsToCheck[i];
-    if (!compareCards(winner, current, acePowers)) {
-      winner = current;
+  let winner = reading[0];
+  for (let i = 1; i < reading.length; i++) {
+    if (!compareCards(winner, reading[i], acePowers)) {
+      winner = reading[i];
     }
   }
 
-  return winner;
+  return playedCards.find((c) => c.playerId === winner.playerId)!;
 }
 
 /**

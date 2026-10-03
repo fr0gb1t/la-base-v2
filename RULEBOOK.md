@@ -333,7 +333,9 @@ Ronda 4 comienza:
 
 **Nota sobre la Resolución:**
 
-Cuando el sentido es horario, el orden de lectura de las cartas para determinar el ganador se invierte, pero el Mano sigue siendo quien abrió la base.
+Las cartas se leen siempre empezando por el Mano y siguiendo las sillas en el sentido vigente cuando se cierra la base. Si el As de Copas invirtió el sentido en esa misma base, se lee al revés de como se jugó (el Mano primero, después las demás sillas en el sentido nuevo). Esa lectura decide los empates (gana el primero leído) y el "después" del As de Espadas.
+
+> **Ejemplo:** Jorgito (Mano) 5, Álvaro Rey, Pepe Rey, Franco As de Copas e invierte. Lectura: Jorgito, Franco, Pepe, Álvaro → gana **Pepe**.
 
 ---
 
