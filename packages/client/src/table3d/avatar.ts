@@ -45,7 +45,7 @@ function glove(cuff: string, sx: number) {
   fingers.rotation.x = 0.35
   const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.05), bone)
   thumb.position.set(sx * 0.045, -0.005, 0.05) // the glove's +x is the avatar's −x (it looks along −z)
-  thumb.rotation.y = -sx * 0.5
+  thumb.rotation.y = sx * 0.5 // the tip splays away from the palm (turned over on itself: a right thumb, not a left one)
   const band = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.03, 10), mat(cuff))
   band.rotation.x = Math.PI / 2
   g.add(palm, fingers, thumb, band)

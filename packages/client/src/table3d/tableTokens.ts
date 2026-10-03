@@ -1,3 +1,4 @@
+import { NUMERAL_FONT } from './cardFace'
 import * as THREE from 'three'
 import { PALETTE, SUIT_INK } from './look'
 import { TABLE_Y, PLAY_R, CARD_H, CARD_W, seatAngle, polar } from './seats'
@@ -110,7 +111,7 @@ function askedTexture(value: number) {
   g.beginPath()
   g.arc(48, 48, 38, 0.3, Math.PI * 2 + 0.1) // not quite closed: drawn by hand
   g.stroke()
-  g.font = '56px "IM Fell English SC", Georgia, serif'
+  g.font = `bold 52px ${NUMERAL_FONT}`
   g.textAlign = 'center'
   g.textBaseline = 'middle'
   g.fillText(String(value), 48, 52)

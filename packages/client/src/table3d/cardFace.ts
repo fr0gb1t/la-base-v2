@@ -132,10 +132,13 @@ const LAYOUT: Record<number, [number, number][]> = {
   7: [[0.33, 0.22], [0.67, 0.22], [0.5, 0.36], [0.33, 0.5], [0.67, 0.5], [0.33, 0.78], [0.67, 0.78]],
 }
 
+/** Numerals read as numerals: a '1' with a flag, never the roman I of the display face (11 ≠ II). */
+export const NUMERAL_FONT = '"Old Standard TT", Georgia, serif'
+
 function index(g: CanvasRenderingContext2D, rank: Rank) {
   // Index ≥ 16% of card height: must read at ~60 px on screen after the post pass.
   g.fillStyle = PALETTE.ink
-  g.font = 'bold 40px "IM Fell English SC", Georgia, serif'
+  g.font = `bold 40px ${NUMERAL_FONT}`
   g.textBaseline = 'top'
   g.fillText(String(rank), 16, 16)
   g.save()

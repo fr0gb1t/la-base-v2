@@ -17,6 +17,7 @@
   --teal: #5ea2b0;
   --font-print: 'IM Fell English', Georgia, serif;
   --font-sc: 'IM Fell English SC', Georgia, serif;
+  --font-num: 'Old Standard TT', Georgia, serif; /* numerals that cannot be mistaken for roman ones */
   --font-term: 'VT323', ui-monospace, monospace;
 }
 
@@ -1334,6 +1335,8 @@ button {
 }
 
 .tally-num {
+  font-family: var(--font-num);
+  font-weight: 700;
   width: 38px;
   height: 38px;
   border-radius: 50%;
@@ -1583,8 +1586,8 @@ button {
 }
 
 .pad-pts {
-  font-family: var(--font-print);
-  font-style: italic;
+  font-family: var(--font-num);
+  font-weight: 700;
   font-size: 40px;
   line-height: 1.05;
   margin: 2px 0;
@@ -1603,8 +1606,8 @@ button {
 }
 
 .pad-row b {
-  font-weight: normal;
-  font-style: italic;
+  font-family: var(--font-num);
+  font-weight: 700;
   font-size: 22px;
 }
 
@@ -1818,6 +1821,8 @@ button {
 }
 
 .tally-num {
+  font-family: var(--font-num);
+  font-weight: 700;
   background: transparent;
   border: 2px solid var(--ink);
   color: var(--ink);

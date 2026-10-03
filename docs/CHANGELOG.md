@@ -2,6 +2,10 @@
 
 ## Desde `a603e36`
 
+- **Números que se leen como números:** las cartas, el número de tiza de las bases pedidas, los
+  puntos del papelito y el selector de bases usan una tipografía con el 1 con bandera (Old Standard
+  TT), así el 11 ya no parece un II. El pulgar de los guantes ahora está dado vuelta sobre sí
+  mismo (abierto hacia afuera de la palma) en las dos manos.
 - **Ajustes:** al costado del panel hay una carta grande con el dorso elegido, colgada bajo una
   lámpara que se mueve para que la luz la recorra desde distintos ángulos. El anillo de señas se
   puede reordenar (flechas en Ajustes) y los números del teclado siguen tu orden. La altura de la
