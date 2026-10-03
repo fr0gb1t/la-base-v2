@@ -2,6 +2,11 @@
 
 ## Desde `a603e36`
 
+- **Un solo zoom para los dos resúmenes:** el de ronda y el de base se leen con el mismo zoom (desde
+  tu asiento, con el zoom del clic derecho sobre el anotador); el texto del resumen de ronda se
+  agrandó para leerse a esa distancia. El lápiz descansa del lado derecho del anotador. El tilde
+  vuelve a ser el de antes (dos trazos limpios), con una línea más fina, gris clarito apagado y
+  verde al escribirse.
 - **El resumen entre bases también va en el anotador:** en vez de la ventana «Base X de Y», la
   cámara se queda en tu asiento y apunta al anotador con el zoom del clic derecho (las cartas de la
   base siguen a la vista, con la ganadora marcada), y el anotador se levanta de frente con la base,

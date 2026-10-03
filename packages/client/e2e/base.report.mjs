@@ -45,6 +45,7 @@ for (let i = 0; i < 400 && !seen; i++) {
 }
 console.log('base report gate:', seen)
 await sleep(2200)
+console.log('focus', JSON.stringify(await p.evaluate(() => ({ f: window.__table.padFocus, t: window.__table.padFocusT, ask: window.__table.debugState().choice ?? null }))))
 await p.screenshot({ path: `${out}-1-report.png` })
 const tk = await p.evaluate(() => window.__table.tickScreen())
 await p.mouse.move(tk.x, tk.y); await sleep(500)

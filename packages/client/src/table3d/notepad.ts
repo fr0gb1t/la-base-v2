@@ -116,53 +116,33 @@ function wrapText(g: CanvasRenderingContext2D, text: string, width: number) {
   return lines
 }
 
-/** A wobbly, hand-made line from a to b: little offsets along the way, never the same twice per seed. */
-function wobble(a: [number, number], b: [number, number], seed: number, n = 9): Array<[number, number]> {
-  let t = seed * 9301 + 49297
-  const rnd = () => ((t = (t * 9301 + 49297) % 233280) / 233280 - 0.5)
-  const nx = -(b[1] - a[1])
-  const ny = b[0] - a[0]
-  const len = Math.hypot(nx, ny) || 1
-  return Array.from({ length: n + 1 }, (_, k) => {
-    const f = k / n
-    const off = k === 0 || k === n ? 0 : rnd() * 9
-    return [a[0] + (b[0] - a[0]) * f + (nx / len) * off, a[1] + (b[1] - a[1]) * f + (ny / len) * off] as [number, number]
-  })
-}
-
-/** The tick as a hand stroke: two uneven strokes (down, then up and past), a little off each time you press it. */
+/** The tick: a short stroke down and a long one up. */
 function tickPath(cx: number, cy: number): Array<[number, number]> {
-  const down = wobble([cx - 56, cy - 2], [cx - 18, cy + 44], 3, 5)
-  const up = wobble([cx - 18, cy + 44], [cx + 66, cy - 58], 7, 8)
-  return [...down, ...up.slice(1)]
+  return [[cx - 52, cy + 2], [cx - 14, cy + 40], [cx + 56, cy - 44]]
 }
 
+/** The first `frac` of a polyline, stroked in `color`. */
 function strokeUpTo(g: CanvasRenderingContext2D, pts: Array<[number, number]>, frac: number, color: string, width: number) {
   const lens = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]))
-  const total = lens.reduce((a, b) => a + b, 0)
-  let left = frac * total
+  let rem = frac * lens.reduce((a, b) => a + b, 0)
   g.strokeStyle = color
+  g.lineWidth = width
   g.lineCap = 'round'
   g.lineJoin = 'round'
-  for (let pass = 0; pass < 2; pass++) {
-    g.lineWidth = pass ? width * 0.45 : width
-    g.globalAlpha = pass ? 0.55 : 0.92
-    g.beginPath()
-    g.moveTo(pts[0][0] + pass * 2, pts[0][1] + pass * 1.5)
-    for (let k = 1, rem = left; k < pts.length; k++) {
-      const l = lens[k - 1]
-      if (rem >= l) {
-        g.lineTo(pts[k][0] + pass * 2, pts[k][1] + pass * 1.5)
-        rem -= l
-      } else {
-        const f = rem / l
-        g.lineTo(pts[k - 1][0] + (pts[k][0] - pts[k - 1][0]) * f + pass * 2, pts[k - 1][1] + (pts[k][1] - pts[k - 1][1]) * f + pass * 1.5)
-        break
-      }
+  g.beginPath()
+  g.moveTo(pts[0][0], pts[0][1])
+  for (let k = 1; k < pts.length; k++) {
+    const l = lens[k - 1]
+    if (rem >= l) {
+      g.lineTo(pts[k][0], pts[k][1])
+      rem -= l
+    } else {
+      const f = rem / l
+      g.lineTo(pts[k - 1][0] + (pts[k][0] - pts[k - 1][0]) * f, pts[k - 1][1] + (pts[k][1] - pts[k - 1][1]) * f)
+      break
     }
-    g.stroke()
   }
-  g.globalAlpha = 1
+  g.stroke()
 }
 
 /** The report written by hand on the page; `tick` 0–1 is how much of the tick the pencil has drawn. */
@@ -172,12 +152,12 @@ function drawReport(cv: HTMLCanvasElement, r: RoundReport, tick: number, hot: bo
   g.textBaseline = 'alphabetic'
   g.fillStyle = INKC
   const base = r.kind === 'base'
-  g.font = `700 ${base ? 132 : 78}px ${HAND}`
-  g.fillText(r.title, 112, base ? 160 : 120)
-  g.font = `600 ${base ? 70 : 38}px ${HAND}`
+  g.font = `700 ${base ? 132 : 100}px ${HAND}`
+  g.fillText(r.title, 112, base ? 160 : 130)
+  g.font = `600 ${base ? 70 : 52}px ${HAND}`
   const last = wrapText(g, r.lastBase, PW - 160)
-  const step = base ? 74 : 40
-  last.slice(0, 3).forEach((l, i) => g.fillText(l, 112, (base ? 260 : 168) + i * step))
+  const step = base ? 74 : 54
+  last.slice(0, 3).forEach((l, i) => g.fillText(l, 112, (base ? 260 : 196) + i * step))
   if (base) {
     // how each team stands, big
     let by = 480
@@ -195,46 +175,46 @@ function drawReport(cv: HTMLCanvasElement, r: RoundReport, tick: number, hot: bo
       by += 110 + (lines.length - 1) * 68
     }
   }
-  let y = 270
+  let y = 375
   for (const row of base ? [] : r.rows) {
     g.fillStyle = row.mine ? '#2f5f6b' : '#8e2a22'
-    g.font = `700 62px ${HAND}`
+    g.font = `700 68px ${HAND}`
     g.fillText(row.label, 112, y)
     g.strokeStyle = g.fillStyle
     g.lineWidth = 4
     g.beginPath()
     g.moveTo(112, y + 10)
-    g.quadraticCurveTo(300, y + 16, 540, y + 8)
+    g.quadraticCurveTo(300, y + 16, 600, y + 8)
     g.stroke()
     g.fillStyle = INKC
-    g.font = `600 50px ${HAND}`
+    g.font = `600 56px ${HAND}`
     g.fillText(`pidió ${row.asked}   ganó ${row.won}`, 112, y + 66)
     g.fillStyle = row.met ? '#3d6b3a' : '#8e2a22'
-    g.font = `700 54px ${HAND}`
-    g.fillText(row.met ? 'cumplió' : 'falló', 112, y + 126)
+    g.font = `700 58px ${HAND}`
+    g.fillText(row.met ? 'cumplió' : 'falló', 112, y + 124)
     g.fillStyle = INKC
-    g.fillText(`${row.pts} puntos`, 330, y + 126)
-    g.font = `600 46px ${HAND}`
-    g.fillText(`total ${row.total}`, 112, y + 184)
-    y += 250
+    g.fillText(`${row.pts} puntos`, 360, y + 124)
+    g.font = `600 52px ${HAND}`
+    g.fillText(`total ${row.total}`, 112, y + 176)
+    y += 232
   }
   // who is ready
-  g.font = `600 ${base ? 54 : 36}px ${HAND}`
+  g.font = `600 ${base ? 54 : 46}px ${HAND}`
   const colW = base ? 290 : 300
   r.players.forEach((p, i) => {
     const px = 112 + (i % 2) * colW
-    const py = (base ? 790 : 790) + Math.floor(i / 2) * (base ? 58 : 42)
+    const py = (base ? 790 : 850) + Math.floor(i / 2) * (base ? 58 : 50)
     if (py > PH - 30) return
     g.fillStyle = p.ready ? '#3d6b3a' : 'rgba(42,38,34,0.55)'
     g.fillText(`${p.ready ? '✓' : '…'} ${p.name}`, px, py)
   })
-  // the tick button: a faint grey hand-made tick, as if switched off; the pencil goes over it in green
+  // the tick button: a faint grey tick, as if switched off; the pencil goes over it in green
   const cx = TICK.x + TICK.w / 2
   const cy = TICK.y + TICK.h / 2
   const pts = tickPath(cx, cy)
-  strokeUpTo(g, pts, 1, hot && !r.ready ? 'rgb(90,86,80)' : 'rgb(168,164,156)', 13)
-  if (tick > 0) strokeUpTo(g, pts, tick, '#2e7d32', 14)
-  return [pts[0], pts[5], pts[pts.length - 1]] as Array<[number, number]>
+  strokeUpTo(g, pts, 1, hot && !r.ready ? 'rgb(100,96,90)' : 'rgb(172,168,160)', 8)
+  if (tick > 0) strokeUpTo(g, pts, tick, '#2e7d32', 8)
+  return pts
 }
 
 export class Notepad {
@@ -308,7 +288,7 @@ export class Notepad {
     this.group.add(pencil)
     this.pencilRest.copy(pencil.position)
     this.pencilRestQuat.copy(pencil.quaternion)
-    this.pencilReport.set(-0.105, 0.004, 0.06) // on the table, left of the pad
+    this.pencilReport.set(0.135, 0.004, 0.06) // on the table, right of the pad
     // the tick's spot on the page (a flat, invisible target)
     this.tickHit = new THREE.Mesh(new THREE.PlaneGeometry((TICK.w / PW) * W * 1.15, (TICK.h / PH) * D * 1.15), new THREE.MeshBasicMaterial({ visible: false }))
     this.tickHit.rotation.x = -Math.PI / 2
@@ -360,10 +340,10 @@ export class Notepad {
     this.lift += ((this.hovered ? 1 : 0) - this.lift) * Math.min(1, dt * 12)
     const e = focus * focus * (3 - 2 * focus)
 
-    const tilt = this.report?.kind === 'base' ? 0.9 : 0.75
+    const tilt = 0.9
     this.tilt += (tilt - this.tilt) * Math.min(1, dt * 8)
     this.group.rotation.set(e * this.tilt, YAW * (1 - e) - this.lift * 0.06 * (1 - e), 0)
-    const scale = 1 + e * (this.report?.kind === 'base' ? 0.85 : 0.4)
+    const scale = 1 + e * 0.85
     this.group.scale.setScalar(scale)
     // it stands up on its near edge: raised by half its depth times the sine of the tilt, or it would sink into the table
     const lift = e * ((D / 2) * scale * Math.sin(e * this.tilt) + 0.012)
