@@ -2,6 +2,11 @@
 
 ## Desde `a603e36`
 
+- **La carta que va ganando flota en vivo:** durante la base, la carta que gana hasta el momento
+  flota (se levanta y su recuadro brilla ámbar) y el efecto pasa de carta en carta: cada vez que se
+  juega una mejor, la anterior se asienta suavemente y la nueva se levanta. Al terminar la base, la
+  ganadora sigue flotando hasta que todos confirman, como antes. Sirve para ver de un vistazo quién
+  va ganando.
 - **El reparto y el reloj:** las cartas se reparten todas boca abajo sobre la mesa, en una fila
   frente a cada jugador; cuando ya están todas, hay un respiro y todos las levantan a la vez. Recién
   **un segundo después** de eso arranca el reloj de pedidos (antes empezaba antes de que terminara

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isTouch } from '../lib/device';
-import { SENAS, type Card, type GameState, type AssignedTeam, type Sena } from '@la-base/shared';
+import { SENAS, resolveBase, type Card, type GameState, type AssignedTeam, type Sena } from '@la-base/shared';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 import { useGameEvents } from '../hooks/useGameEvents';
@@ -594,6 +594,20 @@ export function GamePage() {
   useEffect(() => {
     sceneRef.current?.setHudMessage(ledLine, /^Rival pide/.test(ledLine));
   }, [ledLine]);
+
+  // the card winning the base so far floats; it changes hands as better cards are played
+  const leaderId = (() => {
+    const played = gameState?.currentBaseCards ?? [];
+    if (!gameState || played.length === 0 || (gameState.phase !== 'playing' && gameState.phase !== 'base_resolution')) return null;
+    try {
+      return resolveBase(played, gameState.acePowers, gameState.playDirection).playerId;
+    } catch {
+      return null;
+    }
+  })();
+  useEffect(() => {
+    sceneRef.current?.markLeader(leaderId);
+  }, [leaderId]);
 
   // the scoresheet's content (written by hand when the notepad opens)
   const sheetTeam = (team: AssignedTeam): AnotadorTeam => {

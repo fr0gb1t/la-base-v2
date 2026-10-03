@@ -228,6 +228,7 @@ export class TableScene {
     this.tokens.setGuides(v.guides)
   })
   private turnSeat = -1
+  private leaderSeat = -1 // the card winning the base so far floats (it moves on whenever a better one is played)
   private winnerSeat = -1 // base resolved, waiting for everyone to confirm: the winning card glows
   private raycaster = new THREE.Raycaster()
   private backTex = backTexture() // shared and live: the settings can change the design
@@ -348,6 +349,11 @@ export class TableScene {
     const s = this.seatOf(playerId)
     if (s < 0) return
     this.enqueue(() => this.animateRemotePlay(s, card), `play ${s}`)
+  }
+
+  /** The card that is winning the base right now floats; null when nothing is on the table. */
+  markLeader(playerId: string | null) {
+    this.leaderSeat = playerId ? this.seatOf(playerId) : -1
   }
 
   /** Highlight the winning card while the table waits for everyone to confirm (null = clear). */
@@ -950,6 +956,7 @@ export class TableScene {
 
   private async animateCollect(w: number) {
     this.winnerSeat = -1
+    this.leaderSeat = -1
     const cards = [...this.onTable.values()]
     this.onTable.clear()
     const stackAt = playSlot(w, this.n).pos
@@ -1867,15 +1874,21 @@ export class TableScene {
     this.zoneFx.forEach((z, s) => {
       const mat = z.material as THREE.MeshBasicMaterial
       const card = this.onTable.get(s)
-      if (s === this.winnerSeat) {
-        // the winner's box burns amber — a guide, so not with the guides off (the card still lifts)
+      // the leader (winning so far) or the winner (base over) floats and its box burns amber; the
+      // others settle back down, so the float passes from card to card as better ones are played
+      const leads = s === this.winnerSeat || (this.winnerSeat < 0 && s === this.leaderSeat && Boolean(card))
+      if (card) {
+        const goal = leads ? CARD_Y_WIN + Math.sin(time * 3) * 0.003 : CARD_Y_REST
+        card.root.position.y += (goal - card.root.position.y) * 0.22
+        if (!leads && Math.abs(card.root.position.y - CARD_Y_REST) < 0.0008) card.root.position.y = CARD_Y_REST
+      }
+      if (leads) {
+        // a guide, so not with the guides off (the card still floats)
         z.visible = this.guides
         mat.color.set(hex(PALETTE.amber)).multiplyScalar(2.2)
         mat.opacity = 0.7 + 0.3 * Math.sin(time * 5)
-        if (card) card.root.position.y = CARD_Y_WIN + Math.sin(time * 3) * 0.003
         return
       }
-      if (card && card.root.position.y > CARD_Y_REST + 0.001) card.root.position.y = CARD_Y_REST
       mat.color.set(hex(PALETTE.chalk)).multiplyScalar(1.6)
       const mine = s === 0 && ready
       // without guides the felt has no boxes painted, but your own spot is still chalked in on
