@@ -18,7 +18,7 @@ import { TableTokens } from './tableTokens'
 import { TableChoices, type CopasChoice, type Direction } from './tableChoices'
 import { ChessClock, type ClockView } from './chessClock'
 import { HudBoard, type HudItem } from './hudBoard'
-import { Notepad } from './notepad'
+import { Notepad, NOTEPAD_AT, type RoundReport } from './notepad'
 
 // ---------------------------------------------------------------------------------------------
 // The 3D table, driven by real game events. Seats follow the server's turn order with the local
@@ -49,6 +49,8 @@ export interface TableCallbacks {
   hudPress?(id: string): void
   /** a click on the notepad lying on the table: open the scoresheet */
   notepadPress?(): void
+  /** you pressed the tick on the round report (the page of the notepad): you are ready */
+  notepadReady?(): void
   /** something broke inside the table (a frame, the WebGL context): report it */
   error?(message: string, stack?: string): void
   /** the centre of your view moved onto (playerId) or off (null) someone's face */
@@ -163,6 +165,8 @@ export class TableScene {
   private clock = new ChessClock()
   private hud = new HudBoard()
   private notepad = new Notepad()
+  private padFocus = 0 // 0–1: the camera has come to read the notepad (a round just ended)
+  private padFocusT = 0
   private clockView: ClockView | null = null
   private queue: Promise<void> = Promise.resolve()
   private queued = 0
@@ -1335,6 +1339,19 @@ export class TableScene {
     this.deckHint = on
   }
 
+  /** A round is over: the camera comes to the notepad, which shows its report (null: back to your seat). */
+  setRoundReport(report: RoundReport | null) {
+    this.notepad.setReport(report)
+    this.padFocusT = report ? 1 : 0
+  }
+
+  /** Screen position of the round report's tick (tests). */
+  tickScreen() {
+    const p = this.notepad.tickWorld().project(this.camera)
+    const r = this.renderer.domElement.getBoundingClientRect()
+    return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height }
+  }
+
   /** Screen position of the notepad on the table (tests). */
   notepadScreen() {
     const p = this.notepad.hit.getWorldPosition(new THREE.Vector3()).project(this.camera)
@@ -1388,6 +1405,11 @@ export class TableScene {
 
   /** A click (no drag) on the table: the deck in the middle draws during the initial draw. */
   private tableClick() {
+    if (this.notepad.tickHovered && this.cb.notepadReady) {
+      this.notepad.tickHovered = false
+      this.cb.notepadReady()
+      return
+    }
     if (this.notepad.hovered && this.cb.notepadPress) {
       this.cb.notepadPress()
       return
@@ -1430,11 +1452,13 @@ export class TableScene {
     const choice = this.choices.update(time, dt, this.camera, this.raycaster)
     // the bidding clock, when it's yours to press
     this.clock.hovered = Boolean(this.clockView?.canPress && !this.drag && !this.peek && this.raycaster.intersectObject(this.clock.hit, false).length)
+    // the tick on a round report, while the camera is on the notepad
+    this.notepad.tickHovered = this.padFocus > 0.6 && !this.notepad.ready() && this.raycaster.intersectObject(this.notepad.tickHit, false).length > 0
     // the slate's buttons
     const slate = this.hud.update(dt, this.raycaster, !this.drag && !this.peek && (!this.lookDrag || this.lookDrag.moved < HOLD_PX))
     // (what a set is called is written on its own glass; the LED panel keeps showing what to do)
-    this.notepad.hovered = Boolean(!this.drag && !this.peek && (!this.lookDrag || this.lookDrag.moved < HOLD_PX) && this.raycaster.intersectObject(this.notepad.hit, false).length)
-    this.renderer.domElement.style.cursor = choice || this.clock.hovered || slate || this.notepad.hovered ? 'pointer' : this.lookDrag ? 'grabbing' : 'crosshair'
+    this.notepad.hovered = this.padFocus < 0.05 && Boolean(!this.drag && !this.peek && (!this.lookDrag || this.lookDrag.moved < HOLD_PX) && this.raycaster.intersectObject(this.notepad.hit, false).length)
+    this.renderer.domElement.style.cursor = choice || this.clock.hovered || slate || this.notepad.hovered || this.notepad.tickHovered ? 'pointer' : this.lookDrag ? 'grabbing' : 'crosshair'
     if (choice || this.choices.active) {
       this.hovered = -1
       const hint = this.choices.hint() ?? ''
@@ -1445,7 +1469,7 @@ export class TableScene {
     // can move along the raised card without losing it)
     const targets = this.vm.filter((v) => v.mesh.visible).map((v) => v.hit)
     if (this.hovered >= 0 && this.vm[this.hovered]?.mesh.visible) targets.push(this.vm[this.hovered].mesh)
-    const hit = this.drag || this.busy || this.peek ? undefined : this.raycaster.intersectObjects(targets, false)[0]
+    const hit = this.drag || this.busy || this.peek || this.padFocus > 0.3 ? undefined : this.raycaster.intersectObjects(targets, false)[0]
     this.hovered = hit ? this.vm.findIndex((v) => v.hit === hit.object || v.mesh === hit.object) : -1
     if (this.hovered !== this.lastHoverSent) {
       this.lastHoverSent = this.hovered
@@ -1689,6 +1713,16 @@ export class TableScene {
     // where they look) without turning
     const fov = this.fovNow()
     this.camera.fov = THREE.MathUtils.lerp(THREE.MathUtils.lerp(fov, 24, this.aim), 20, st)
+    if (this.padFocus > 0.001) {
+      // a round just ended: the camera comes down to the notepad and stays there to read it
+      const e = this.padFocus * this.padFocus * (3 - 2 * this.padFocus)
+      const centre = new THREE.Vector3(NOTEPAD_AT.x, TABLE_Y + 0.06, NOTEPAD_AT.z + 0.02)
+      const pose = centre.clone().add(new THREE.Vector3(0, 0.36, 0.42))
+      this.camera.position.lerp(pose, e)
+      const m = new THREE.Matrix4().lookAt(this.camera.position, centre, new THREE.Vector3(0, 1, 0))
+      this.camera.quaternion.slerp(new THREE.Quaternion().setFromRotationMatrix(m), e)
+      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, 27, e)
+    }
     this.camera.updateProjectionMatrix()
   }
 
@@ -1720,7 +1754,9 @@ export class TableScene {
     this.focus = null
     tickJobs(time)
     this.clock.update(dt)
-    this.notepad.update(dt)
+    this.padFocus += (this.padFocusT - this.padFocus) * Math.min(1, dt * 3.2)
+    if (Math.abs(this.padFocus - this.padFocusT) < 0.002) this.padFocus = this.padFocusT
+    this.notepad.update(dt, this.padFocus)
     this.updatePending()
     this.updateDrag()
     this.updateRemoteArms()
@@ -1878,7 +1914,7 @@ export class TableScene {
     this.viewmodel.scale.set(k, k, 1)
     this.viewmodel.position.set(
       (Math.sin(time * 1.3) * 0.003 - 0.04 * this.lowered) * k,
-      (Math.sin(time * 2.1) * 0.002 - 0.12 * this.aim - 0.09 * this.lowered + this.handOffset) * k,
+      (Math.sin(time * 2.1) * 0.002 - 0.12 * this.aim - 0.09 * this.lowered + this.handOffset - 0.3 * this.padFocus) * k,
       0,
     )
 

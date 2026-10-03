@@ -177,6 +177,7 @@ export function GamePage() {
       clockPress: () => pressBidClock.current?.(),
       hudPress: (id) => hudActions.current[id]?.(),
       notepadPress: () => setPadOpen((v) => !v),
+      notepadReady: () => readyRef.current(),
       error: (message, stack) => {
         const code = latest.current.roomCode;
         socket?.emit('client:error', { roomCode: code, message, stack: stack?.slice(0, 2000), where: 'table3d', ua: navigator.userAgent });
@@ -406,12 +407,14 @@ export function GamePage() {
 
   const gate = gameState?.readyGate ?? null;
   const iAmReady = Boolean(gate && gate.readyPlayerIds.includes(myId));
+  const readyRef = useRef<() => void>(() => undefined);
   const handleReady = useCallback(() => {
     if (!socket || !roomCode) return;
     socket.emit('game:ready', { roomCode }, (res: { success: boolean; error?: string }) => {
       if (!res?.success) setStatus(res?.error || 'No se pudo confirmar');
     });
   }, [socket, roomCode]);
+  readyRef.current = handleReady;
 
   const inGame = Boolean(gameState && (gameState.phase === 'bidding' || gameState.phase === 'playing'));
   const closeWheel = useCallback(() => setWheel(null), []);
@@ -633,6 +636,43 @@ export function GamePage() {
     );
   };
 
+  // a round is over: the camera comes to the notepad, whose page carries the report (and the tick)
+  const roundGate = gate && gate.kind === 'round' && gate.round ? gate : null;
+  const reportRows = roundGate
+    ? ([myTeam, rivalTeam] as AssignedTeam[]).map((team) => {
+        const r = roundGate.round!;
+        const bid = r.bids.find((b) => b.team === team);
+        const pts = r.points[team];
+        return {
+          label: relLabel(team),
+          asked: `${bid ? bid.value : '—'}${bid?.isKamikaze ? ' ✶' : ''}`,
+          won: r.basesWon[team],
+          met: bid ? bid.value === r.basesWon[team] : false,
+          pts: pts > 0 ? `+${pts}` : String(pts),
+          total: r.totals[team],
+          mine: team === myTeam,
+        };
+      })
+    : null;
+  const reportKey = roundGate
+    ? JSON.stringify([reportRows, roundGate.readyPlayerIds, roundGate.round?.index, roomPlayers.map((p) => p.id + p.isConnected), gateWinner?.name, gateCard])
+    : '';
+  useEffect(() => {
+    if (!roundGate || !reportRows) {
+      // let the pencil finish the tick you just pressed before the camera goes back to your seat
+      const t = window.setTimeout(() => sceneRef.current?.setRoundReport(null), 1100);
+      return () => window.clearTimeout(t);
+    }
+    setPadOpen(false); // the floating sheet would cover the page
+    sceneRef.current?.setRoundReport({
+      title: `Ronda ${(roundGate.round?.index ?? 0) + 1} terminada`,
+      lastBase: `Última base: ${gateWinner?.name ?? '—'} (${relLabel(roundGate.winnerTeam).toLowerCase()})${gateCard ? ` con ${cardName(gateCard)}` : ''}`,
+      rows: reportRows,
+      players: roomPlayers.filter((p) => p.isConnected).map((p) => ({ name: p.id === myId ? 'vos' : p.name, ready: roundGate.readyPlayerIds.includes(p.id), mine: p.team === myTeam })),
+      ready: iAmReady,
+    });
+  }, [reportKey, iAmReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="table-page" onPointerDown={onMiddleDown} onMouseDown={onMiddleDown}>
       {view.reticle && <div className={`reticle${aimFace ? ' on-face' : ''}`} aria-hidden />}
@@ -702,7 +742,7 @@ export function GamePage() {
 
       {gate && (
         <div className="overlay-bottom">
-          <div className="gate-panel">
+          <div className={`gate-panel${gate.kind === 'round' ? ' on-notepad' : ''}`}>
             {gate.kind === 'base' ? (
               <>
                 <h2>Base {gate.baseNumber} de {gate.basesInRound}</h2>

@@ -64,16 +64,167 @@ function paperTexture() {
   return tex
 }
 
+/** What the notepad shows when a round is over: the same figures as the old «Ronda N terminada» window. */
+export interface RoundReport {
+  title: string // «Ronda 3 terminada»
+  lastBase: string // «Última base: Ana (rivales) con 3 de espadas»
+  rows: Array<{ label: string; asked: string; won: number; met: boolean; pts: string; total: number; mine: boolean }>
+  players: Array<{ name: string; ready: boolean; mine: boolean }>
+  ready: boolean // you already pressed the tick
+}
+
+const PW = 768
+const PH = 1056
+// the tick button, in page pixels
+const TICK = { x: 560, y: 840, w: 170, h: 130 }
+const INKC = '#2a2622'
+const HAND = '"Caveat", "IM Fell English", cursive'
+
+function ruledPage(g: CanvasRenderingContext2D) {
+  g.fillStyle = PALETTE.bone
+  g.fillRect(0, 0, PW, PH)
+  g.strokeStyle = 'rgba(70, 90, 120, 0.4)'
+  g.lineWidth = 3
+  for (let y = 190; y < PH - 20; y += 62) {
+    g.beginPath()
+    g.moveTo(24, y)
+    g.lineTo(PW - 24, y)
+    g.stroke()
+  }
+  g.strokeStyle = 'rgba(160, 60, 50, 0.6)'
+  g.lineWidth = 3
+  g.beginPath()
+  g.moveTo(92, 28)
+  g.lineTo(92, PH - 20)
+  g.stroke()
+}
+
+function wrapText(g: CanvasRenderingContext2D, text: string, width: number) {
+  const lines: string[] = []
+  let cur = ''
+  for (const w of text.split(' ')) {
+    const t = cur ? `${cur} ${w}` : w
+    if (g.measureText(t).width > width && cur) {
+      lines.push(cur)
+      cur = w
+    } else cur = t
+  }
+  if (cur) lines.push(cur)
+  return lines
+}
+
+/** The report written by hand on the page; `tick` 0–1 is how much of the tick the pencil has drawn. */
+function drawReport(cv: HTMLCanvasElement, r: RoundReport, tick: number, hot: boolean) {
+  const g = cv.getContext('2d')!
+  ruledPage(g)
+  g.textBaseline = 'alphabetic'
+  g.fillStyle = INKC
+  g.font = `700 78px ${HAND}`
+  g.fillText(r.title, 112, 120)
+  g.font = `500 38px ${HAND}`
+  const last = wrapText(g, r.lastBase, PW - 160)
+  last.slice(0, 2).forEach((l, i) => g.fillText(l, 112, 168 + i * 40))
+  let y = 270
+  for (const row of r.rows) {
+    g.fillStyle = row.mine ? '#2f5f6b' : '#8e2a22'
+    g.font = `700 62px ${HAND}`
+    g.fillText(row.label, 112, y)
+    g.strokeStyle = g.fillStyle
+    g.lineWidth = 4
+    g.beginPath()
+    g.moveTo(112, y + 10)
+    g.quadraticCurveTo(300, y + 16, 540, y + 8)
+    g.stroke()
+    g.fillStyle = INKC
+    g.font = `600 50px ${HAND}`
+    g.fillText(`pidió ${row.asked}   ganó ${row.won}`, 112, y + 66)
+    g.fillStyle = row.met ? '#3d6b3a' : '#8e2a22'
+    g.font = `700 54px ${HAND}`
+    g.fillText(row.met ? 'cumplió' : 'falló', 112, y + 126)
+    g.fillStyle = INKC
+    g.fillText(`${row.pts} puntos`, 330, y + 126)
+    g.font = `600 46px ${HAND}`
+    g.fillText(`total ${row.total}`, 112, y + 184)
+    y += 250
+  }
+  // who is ready
+  g.font = `600 36px ${HAND}`
+  const colW = 300
+  r.players.forEach((p, i) => {
+    const px = 112 + (i % 2) * colW
+    const py = 790 + Math.floor(i / 2) * 42
+    if (py > PH - 30) return
+    g.fillStyle = p.ready ? '#3d6b3a' : 'rgba(42,38,34,0.55)'
+    g.fillText(`${p.ready ? '✓' : '…'} ${p.name}`, px, py)
+  })
+  // the tick button: a faint grey tick, as if switched off; the pencil makes it dark
+  const cx = TICK.x + TICK.w / 2
+  const cy = TICK.y + TICK.h / 2
+  const pts: Array<[number, number]> = [[cx - 52, cy + 2], [cx - 14, cy + 40], [cx + 56, cy - 44]]
+  g.lineCap = 'round'
+  g.lineJoin = 'round'
+  g.strokeStyle = hot && !r.ready ? 'rgba(80,76,70,0.5)' : 'rgba(150,146,138,0.38)'
+  g.lineWidth = 16
+  g.beginPath()
+  g.moveTo(pts[0][0], pts[0][1])
+  g.lineTo(pts[1][0], pts[1][1])
+  g.lineTo(pts[2][0], pts[2][1])
+  g.stroke()
+  if (tick > 0) {
+    // the pencil's tick: first stroke down, then up, the length drawn so far
+    const l1 = Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1])
+    const l2 = Math.hypot(pts[2][0] - pts[1][0], pts[2][1] - pts[1][1])
+    const d = tick * (l1 + l2)
+    g.strokeStyle = INKC
+    g.lineWidth = 15
+    g.beginPath()
+    g.moveTo(pts[0][0], pts[0][1])
+    if (d <= l1) {
+      const f = d / l1
+      g.lineTo(pts[0][0] + (pts[1][0] - pts[0][0]) * f, pts[0][1] + (pts[1][1] - pts[0][1]) * f)
+    } else {
+      const f = (d - l1) / l2
+      g.lineTo(pts[1][0], pts[1][1])
+      g.lineTo(pts[1][0] + (pts[2][0] - pts[1][0]) * f, pts[1][1] + (pts[2][1] - pts[1][1]) * f)
+    }
+    g.stroke()
+  }
+  return pts
+}
+
 export class Notepad {
   readonly group = new THREE.Group()
   readonly hit: THREE.Mesh
   hovered = false
   private lift = 0
+  private report: RoundReport | null = null
+  private reportCv = document.createElement('canvas')
+  private reportTex: THREE.CanvasTexture
+  private paperMat!: THREE.MeshStandardMaterial
+  private paperTex!: THREE.CanvasTexture
+  private showingReport = false
+  private tickT = 0 // 0–1: how much of the tick has been written
+  private writing = false
+  private tickPts: Array<[number, number]> = []
+  private pencil = new THREE.Group()
+  private pencilRest = new THREE.Vector3()
+  private pencilRestQuat = new THREE.Quaternion()
+  private pencilReport = new THREE.Vector3() // where it lies while a report is on the page: below the writing
+  private dirty = false
+  readonly tickHit: THREE.Mesh // the tick on the page, for the pointer
+  tickHovered = false
   private disposables: Array<{ dispose(): void }> = []
 
   constructor() {
+    this.reportCv.width = PW
+    this.reportCv.height = PH
+    this.reportTex = new THREE.CanvasTexture(this.reportCv)
+    this.reportTex.colorSpace = THREE.SRGBColorSpace
+    this.reportTex.anisotropy = 8
     const paperTex = paperTexture()
     const paper = new THREE.MeshStandardMaterial({ map: paperTex, roughness: 0.9, emissive: 0xffffff, emissiveMap: paperTex, emissiveIntensity: 0.12 })
+    this.paperMat = paper
+    this.paperTex = paperTex
     const edge = new THREE.MeshStandardMaterial({ color: hex(PALETTE.bone), roughness: 0.95 })
     const card = new THREE.MeshStandardMaterial({ color: hex(PALETTE.oxblood), roughness: 0.8 })
     // the cardboard back, a little bigger, and the sheets on it (the top face carries the picture)
@@ -102,13 +253,22 @@ export class Notepad {
     lead.position.y = -0.0745
     lead.rotation.z = Math.PI
     eraser.position.y = 0.0645
-    const pencil = new THREE.Group()
+    const pencil = this.pencil
     pencil.add(body, tip, lead, eraser)
     pencil.position.set(0.028, 0.004 + T + 0.0036, 0.016)
     pencil.rotation.set(0, 0, Math.PI / 2) // lying along x…
     pencil.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), -0.55) // …slanted across the pad
     pencil.traverse((o) => (o.castShadow = true))
     this.group.add(pencil)
+    this.pencilRest.copy(pencil.position)
+    this.pencilRestQuat.copy(pencil.quaternion)
+    this.pencilReport.set(-0.105, 0.004, 0.06) // on the table, left of the pad
+    // the tick's spot on the page (a flat, invisible target)
+    this.tickHit = new THREE.Mesh(new THREE.PlaneGeometry((TICK.w / PW) * W * 1.15, (TICK.h / PH) * D * 1.15), new THREE.MeshBasicMaterial({ visible: false }))
+    this.tickHit.rotation.x = -Math.PI / 2
+    this.tickHit.position.set(((TICK.x + TICK.w / 2) / PW - 0.5) * W, 0.004 + T + 0.002, ((TICK.y + TICK.h / 2) / PH - 0.5) * D)
+    this.group.add(this.tickHit)
+    this.disposables.push(this.reportTex, this.tickHit.geometry)
     this.hit = new THREE.Mesh(new THREE.BoxGeometry(W + 0.03, 0.04, D + 0.03), new THREE.MeshBasicMaterial({ visible: false }))
     this.hit.position.y = 0.02
     this.group.add(this.hit)
@@ -117,12 +277,88 @@ export class Notepad {
     this.disposables.push(paperTex, paper, edge, card, wire, ringGeo, back.geometry, sheets.geometry, this.hit.geometry)
   }
 
-  /** Per frame: a little lift (and a warm glow) while the pointer is on it. */
-  update(dt: number) {
-    this.lift += ((this.hovered ? 1 : 0) - this.lift) * Math.min(1, dt * 12)
-    this.group.position.y = TABLE_Y + this.lift * 0.012
-    this.group.rotation.y = YAW - this.lift * 0.06
+  /** A round's report on the page (null: back to the scribbles). */
+  setReport(r: RoundReport | null) {
+    const wasReady = this.report?.ready ?? false
+    this.report = r
+    if (r) {
+      if (!this.showingReport) {
+        this.showingReport = true
+        this.paperMat.map = this.reportTex
+        this.paperMat.emissiveMap = this.reportTex
+        this.paperMat.color.set(0xa6a193) // the page is read from close up: dimmed so the lamp doesn't burn it
+        this.paperMat.emissiveIntensity = 0.04
+        this.paperMat.needsUpdate = true
+        this.tickT = r.ready ? 1 : 0
+        this.writing = false
+      } else if (r.ready && !wasReady) {
+        this.writing = true // the pencil writes the tick
+        this.tickT = 0
+      }
+      this.dirty = true
+    }
   }
+
+  /** Has the tick already been pressed? */
+  ready() {
+    return this.report?.ready ?? false
+  }
+
+  /** The tick's world position (tests). */
+  tickWorld() {
+    return this.tickHit.getWorldPosition(new THREE.Vector3())
+  }
+
+  /** Per frame. `focus` 0–1: how far the camera has come to read the page (the pad stands up toward it). */
+  update(dt: number, focus = 0) {
+    this.lift += ((this.hovered ? 1 : 0) - this.lift) * Math.min(1, dt * 12)
+    const e = focus * focus * (3 - 2 * focus)
+    this.group.position.set(NOTEPAD_AT.x + (0 - NOTEPAD_AT.x) * e * 0.0, TABLE_Y + this.lift * 0.012 + e * 0.05, NOTEPAD_AT.z + e * 0.02)
+    this.group.rotation.set(e * 0.75, YAW * (1 - e) - this.lift * 0.06 * (1 - e), 0)
+    this.group.scale.setScalar(1 + e * 0.4)
+    if (this.showingReport && !this.report && focus < 0.02) {
+      this.showingReport = false
+      this.paperMat.map = this.paperTex
+      this.paperMat.emissiveMap = this.paperTex
+      this.paperMat.color.set(0xffffff)
+      this.paperMat.emissiveIntensity = 0.12
+      this.paperMat.needsUpdate = true
+    }
+    if (!this.showingReport || !this.report) {
+      this.pencil.position.lerp(this.pencilRest, Math.min(1, dt * 6))
+      return
+    }
+    // the pencil writing the tick
+    if (this.writing) {
+      this.tickT = Math.min(1, this.tickT + dt / 0.55)
+      this.dirty = true
+      if (this.tickT >= 1) this.writing = false
+    }
+    if (this.dirty || this.tickHovered !== this.lastHot) {
+      this.lastHot = this.tickHovered
+      this.tickPts = drawReport(this.reportCv, this.report, this.tickT, this.tickHovered) ?? []
+      this.reportTex.needsUpdate = true
+      this.dirty = false
+    }
+    // the pencil goes to the tick while it is written, and back to rest after
+    const target = new THREE.Vector3()
+    let toward = 0
+    if (this.writing && this.tickPts.length) {
+      const d = this.tickT
+      const [a, b, c] = this.tickPts
+      const l1 = Math.hypot(b[0] - a[0], b[1] - a[1])
+      const l2 = Math.hypot(c[0] - b[0], c[1] - b[1])
+      const dist = d * (l1 + l2)
+      const p: [number, number] = dist <= l1 ? [a[0] + (b[0] - a[0]) * (dist / l1), a[1] + (b[1] - a[1]) * (dist / l1)] : [b[0] + (c[0] - b[0]) * ((dist - l1) / l2), b[1] + (c[1] - b[1]) * ((dist - l1) / l2)]
+      target.set((p[0] / PW - 0.5) * W, 0.004 + T + 0.002, (p[1] / PH - 0.5) * D)
+      toward = 1
+    }
+    const tip = new THREE.Vector3(0, -0.0745, 0).applyQuaternion(this.pencil.quaternion)
+    const goal = toward ? target.sub(tip) : this.pencilReport
+    this.pencil.position.lerp(goal, Math.min(1, dt * (toward ? 30 : 6)))
+  }
+
+  private lastHot = false
 
   dispose() {
     this.group.traverse((o) => {

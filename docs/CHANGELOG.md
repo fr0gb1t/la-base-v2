@@ -2,6 +2,14 @@
 
 ## Desde `a603e36`
 
+- **Resumen de la ronda en el anotador:** al terminar una ronda la cámara hace zoom sobre el
+  anotador de la mesa y se queda ahí mientras todos confirman; el anotador se acomoda de frente a
+  la cámara y su hoja muestra, escrita a mano, lo mismo que la ventana «Ronda N terminada» (última
+  base, pidió/ganó/cumplió-falló/puntos/total de cada equipo y quién ya está listo). El botón de
+  listo es un tilde gris clarito, como apagado, en la esquina inferior derecha de la hoja; se
+  oscurece al pasar el mouse y al apretarlo el lápiz se mueve y lo escribe, y después la cámara
+  vuelve a tu lugar. Enter sigue confirmando; la ventana vieja queda solo para lectores de pantalla
+  y teclado. La ventana de cada base no cambió.
 - **Anotador inmediato y sin cortes:** se sacó la animación de «escritura»: la hoja aparece en una
   fracción de segundo con todo el contenido (letra manuscrita y trazos de lápiz de rough.js, ya
   dibujados). Se arregló lo que se veía cortado: la raya del margen y la separación ahora siguen la

@@ -3618,3 +3618,15 @@ button {
 .anotador-mode:hover {
   background: rgba(42, 38, 34, 0.1);
 }
+
+/* the round report lives on the notepad (the camera goes there); this panel stays for screen readers
+   and keyboard (Enter) */
+.gate-panel.on-notepad {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  opacity: 0;
+  pointer-events: none;
+}
