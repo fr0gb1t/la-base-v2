@@ -11,7 +11,12 @@ const D = 0.165
 const T = 0.012
 // opposite corner of the centre from the bean heap (which lies at +x, -z)
 export const NOTEPAD_AT = new THREE.Vector3(-0.2, 0, 0.17)
-const YAW = 0.5 // turned toward you a little
+const YAW = 0.5 // (the old resting turn)
+const REST_YAW = 0.12 // turned toward you a little
+const REST_SCALE = 1.9 // a little bigger than a real pad, so its scoreboard reads from your seat
+const REST_TILT = 0 // lying flat on the table
+const FOCUS_SCALE = 1.85
+const FOCUS_TILT = 0.9
 
 /** Ruled paper with a few pencil scribbles (no text: it must read as a notepad, not as a sheet). */
 function paperTexture() {
@@ -217,12 +222,93 @@ function drawReport(cv: HTMLCanvasElement, r: RoundReport, tick: number, hot: bo
   return pts
 }
 
+/** The reduced scoresheet, live on the page of the notepad (readable from your seat). */
+export interface LiveSheet {
+  round: number
+  rounds: number
+  tiebreak: boolean
+  base: number
+  bases: number
+  clockwise: boolean
+  teams: Array<{ label: string; score: number; asked: string; kamikaze: boolean; won: number; bid: number | null; mine: boolean; acting: boolean }>
+}
+
+function pageStar(g: CanvasRenderingContext2D, cx: number, cy: number, r: number, kind: 'owed' | 'on' | 'over') {
+  const color = kind === 'over' ? '#8e2a22' : INKC
+  g.beginPath()
+  for (let i = 0; i < 10; i++) {
+    const rr = i % 2 ? r * 0.42 : r
+    const a = -Math.PI / 2 + (i * Math.PI) / 5
+    const x = cx + Math.cos(a) * rr
+    const y = cy + Math.sin(a) * rr
+    if (i === 0) g.moveTo(x, y)
+    else g.lineTo(x, y)
+  }
+  g.closePath()
+  g.lineJoin = 'round'
+  g.lineWidth = 5
+  g.strokeStyle = color
+  g.stroke()
+  if (kind !== 'owed') {
+    g.fillStyle = color
+    g.fill()
+  }
+}
+
+/** The big, simple scoreboard: round, base and direction on top, then both teams (points, asked, won, stars). */
+function drawLive(cv: HTMLCanvasElement, d: LiveSheet) {
+  const g = cv.getContext('2d')!
+  ruledPage(g)
+  g.textBaseline = 'alphabetic'
+  g.fillStyle = INKC
+  g.font = `700 104px ${HAND}`
+  g.fillText(`Ronda ${d.round}/${d.rounds}`, 110, 112)
+  g.font = `700 92px ${HAND}`
+  g.fillText(`Base ${d.base}/${d.bases}`, 110, 214)
+  g.font = `700 150px ${HAND}`
+  g.fillText(d.clockwise ? '↻' : '↺', 590, 190)
+  const top = [262, 640]
+  d.teams.slice(0, 2).forEach((t, i) => {
+    const y = top[i]
+    const color = t.mine ? '#2a5560' : '#8e2a22'
+    g.fillStyle = color
+    g.font = `700 88px ${HAND}`
+    g.fillText(t.label + (t.acting ? ' ✎' : ''), 110, y + 62)
+    g.strokeStyle = color
+    g.lineWidth = 7
+    g.beginPath()
+    g.moveTo(110, y + 80)
+    g.quadraticCurveTo(330, y + 90, 690, y + 78)
+    g.stroke()
+    g.fillStyle = INKC
+    g.font = `700 230px ${HAND}`
+    g.fillText(String(t.score), 100, y + 280)
+    g.font = `700 78px ${HAND}`
+    g.fillText(`pidió ${t.asked}`, 400, y + 190)
+    g.fillText(`lleva ${t.won}`, 400, y + 276)
+    if (t.kamikaze) {
+      g.fillStyle = '#8e2a22'
+      g.font = `700 52px ${HAND}`
+      g.fillText('kamikaze', 520, y + 130)
+    }
+    if (t.bid !== null) {
+      const n = t.bid + Math.max(0, t.won - t.bid)
+      for (let k = 0; k < Math.min(n, 12); k++) {
+        pageStar(g, 410 + (k % 6) * 48, y + 322 + Math.floor(k / 6) * 44, 20, k >= (t.bid ?? 0) ? 'over' : k < t.won ? 'on' : 'owed')
+      }
+    }
+  })
+  return []
+}
+
 export class Notepad {
   readonly group = new THREE.Group()
   readonly hit: THREE.Mesh
   hovered = false
   private lift = 0
   private report: RoundReport | null = null
+  private live: LiveSheet | null = null
+  private liveKey = ''
   private reportCv = document.createElement('canvas')
   private reportTex: THREE.CanvasTexture
   private paperMat!: THREE.MeshStandardMaterial
@@ -307,10 +393,20 @@ export class Notepad {
     this.disposables.push(paperTex, paper, edge, card, wire, ringGeo, back.geometry, sheets.geometry, this.hit.geometry)
   }
 
+  /** The live scoreboard on the page, always (null: the page has only scribbles). */
+  setLive(d: LiveSheet | null) {
+    const key = d ? JSON.stringify(d) : ''
+    if (key === this.liveKey) return
+    this.liveKey = key
+    this.live = d
+    this.dirty = true
+  }
+
   /** A round's report on the page (null: back to the scribbles). */
   setReport(r: RoundReport | null) {
     const wasReady = this.report?.ready ?? false
     this.report = r
+    this.dirty = true
     if (r) {
       if (!this.showingReport) {
         this.showingReport = true
@@ -344,15 +440,28 @@ export class Notepad {
     this.lift += ((this.hovered ? 1 : 0) - this.lift) * Math.min(1, dt * 12)
     const e = focus * focus * (3 - 2 * focus)
 
-    const tilt = 0.9
-    this.tilt += (tilt - this.tilt) * Math.min(1, dt * 8)
-    this.group.rotation.set(e * this.tilt, YAW * (1 - e) - this.lift * 0.06 * (1 - e), 0)
-    const scale = 1 + e * 0.85
+    // at rest it leans toward you and is big enough to read the scoreboard from your seat; reading it
+    // (a report) it stands up a little more
+    const scale = REST_SCALE + (FOCUS_SCALE - REST_SCALE) * e
+    this.tilt = REST_TILT + (FOCUS_TILT - REST_TILT) * e
+    this.group.rotation.set(this.tilt, REST_YAW * (1 - e) - this.lift * 0.06 * (1 - e), 0)
     this.group.scale.setScalar(scale)
     // it stands up on its near edge: raised by half its depth times the sine of the tilt, or it would sink into the table
-    const lift = e * ((D / 2) * scale * Math.sin(e * this.tilt) + 0.012)
+    const lift = (D / 2) * scale * Math.sin(this.tilt) + 0.012 * e
     this.group.position.set(NOTEPAD_AT.x, TABLE_Y + this.lift * 0.012 + lift, NOTEPAD_AT.z)
-    if (this.showingReport && !this.report && focus < 0.02) {
+    const wantPage = this.report !== null || this.live !== null
+    // the paper under the lamp: dimmed while you read a report up close, brighter and a little self-lit for the live scoreboard seen from afar
+    if (this.showingReport) this.paperMat.emissiveIntensity = 0.04 + 0.28 * (1 - e)
+    if (wantPage && !this.showingReport) {
+      this.showingReport = true
+      this.paperMat.map = this.reportTex
+      this.paperMat.emissiveMap = this.reportTex
+      this.paperMat.color.set(0xa6a193)
+      this.paperMat.emissiveIntensity = 0.04
+      this.paperMat.needsUpdate = true
+      this.dirty = true
+    }
+    if (this.showingReport && !wantPage && focus < 0.02) {
       this.showingReport = false
       this.paperMat.map = this.paperTex
       this.paperMat.emissiveMap = this.paperTex
@@ -360,27 +469,27 @@ export class Notepad {
       this.paperMat.emissiveIntensity = 0.12
       this.paperMat.needsUpdate = true
     }
-    if (!this.showingReport || !this.report) {
+    if (!this.showingReport) {
       this.pencil.position.lerp(this.pencilRest, Math.min(1, dt * 6))
       this.pencil.quaternion.slerp(this.pencilRestQuat, Math.min(1, dt * 6))
       return
     }
     // the pencil writing the tick
-    if (this.writing) {
+    if (this.writing && this.report) {
       this.tickT = Math.min(1, this.tickT + dt / 0.16)
       this.dirty = true
       if (this.tickT >= 1) this.writing = false
     }
-    if (this.dirty || this.tickHovered !== this.lastHot) {
+    if (this.dirty || (this.report && this.tickHovered !== this.lastHot)) {
       this.lastHot = this.tickHovered
-      this.tickPts = drawReport(this.reportCv, this.report, this.tickT, this.tickHovered) ?? []
+      this.tickPts = this.report ? drawReport(this.reportCv, this.report, this.tickT, this.tickHovered) ?? [] : this.live ? drawLive(this.reportCv, this.live) : []
       this.reportTex.needsUpdate = true
       this.dirty = false
     }
     // the pencil goes to the tick while it is written, and back to rest after
     const target = new THREE.Vector3()
     let toward = 0
-    if (this.writing && this.tickPts.length) {
+    if (this.writing && this.report && this.tickPts.length) {
       const d = this.tickT
       const [a, b, c] = this.tickPts
       const l1 = Math.hypot(b[0] - a[0], b[1] - a[1])
@@ -393,7 +502,7 @@ export class Notepad {
     const tip = new THREE.Vector3(0, -0.0745, 0).applyQuaternion(this.pencil.quaternion)
     this.floatT += dt
     const hover = this.pencilReport.clone()
-    hover.y += Math.sin(this.floatT * 2.2) * 0.006
+    hover.y = 0.0045 + (this.pencilReport.y - 0.0045) * e + Math.sin(this.floatT * 2.2) * 0.006 * e
     const goal = toward ? target.sub(tip) : hover
     this.pencil.position.lerp(goal, Math.min(1, dt * (toward ? 60 : 8)))
     this.pencil.quaternion.slerp(this.pencilReportQuat, Math.min(1, dt * 8))

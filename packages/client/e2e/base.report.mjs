@@ -47,8 +47,12 @@ console.log('base report gate:', seen)
 for (let k = 0; k < 14; k++) { await sleep(300); console.log('t+' + (k + 1) * 0.3, JSON.stringify(await p.evaluate(() => ({ f: +window.__table.padFocus.toFixed(2), t: window.__table.padFocusT, q: window.__table.debugState().queued, busy: window.__table.debugState().busy, pend: Boolean(window.__table.pendingReport) })))) }
 console.log('focus', JSON.stringify(await p.evaluate(() => ({ f: window.__table.padFocus, t: window.__table.padFocusT, dbg: (({ queued, busy, running }) => ({ queued, busy, running }))(window.__table.debugState()) }))))
 await p.screenshot({ path: `${out}-1-report.png` })
+const t0 = Date.now()
+for (let k = 0; k < 100 && (await p.evaluate(() => window.__table.padFocus)) < 0.97; k++) await sleep(200)
+console.log('focus reached after (s):', (Date.now() - t0) / 1000, 'pending:', await p.evaluate(() => Boolean(window.__table.pendingReport)), JSON.stringify(await p.evaluate(() => { const d = window.__table.debugState(); return { q: d.queued, busy: d.busy, run: d.running } })))
 const tk = await p.evaluate(() => window.__table.tickScreen())
 await p.mouse.move(tk.x, tk.y); await sleep(500)
+console.log('before click', JSON.stringify({ tk, hov: await p.evaluate(() => ({ h: window.__table.notepad.tickHovered, f: window.__table.padFocus, r: window.__table.notepad.ready() })) }))
 await p.screenshot({ path: `${out}-2-hover.png` })
 await p.mouse.down(); await sleep(40); await p.mouse.up()
 for (let k = 0; k < 4; k++) { await sleep(130); await p.screenshot({ path: `${out}-3-writing${k}.png` }) }

@@ -2,6 +2,12 @@
 
 ## Desde `a603e36`
 
+- **El anotador reducido se ve en vivo, apoyado en la mesa:** el anotador de la mesa muestra todo
+  el tiempo, sin hacerle clic, el marcador reducido (ronda, base, sentido sobre la hoja; cada equipo
+  con sus puntos grandes, lo que pidió, lo que lleva y las estrellas), en letra grande para leerse
+  desde tu asiento. Sigue apoyado en la mesa, en diagonal a los porotos y con el lápiz al lado; con
+  el zoom del clic derecho se lee perfecto, igual que las cartas. El clic sigue abriendo la hoja
+  completa (o con H).
 - **El zoom al anotador espera:** antes la cámara salía hacia el anotador apenas llegaba el resumen,
   cuando la última carta todavía se estaba apoyando. Ahora espera a que la mesa termine de mostrar
   la última jugada, deja pasar un instante para verla, y recién ahí se acerca, más despacio (≈1,5 s).

@@ -636,6 +636,12 @@ export function GamePage() {
     );
   };
 
+  // the reduced scoreboard, live on the notepad's page
+  const liveKey = JSON.stringify([sheet.round, sheet.rounds, sheet.tiebreak, sheet.base, sheet.bases, sheet.clockwise, sheet.teams]);
+  useEffect(() => {
+    sceneRef.current?.setLiveSheet(gameState ? { round: sheet.round, rounds: sheet.rounds, tiebreak: sheet.tiebreak, base: sheet.base, bases: sheet.bases, clockwise: sheet.clockwise, teams: sheet.teams } : null);
+  }, [liveKey, gameState === null]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // a round is over: the camera comes to the notepad, whose page carries the report (and the tick)
   const roundGate = gate && gate.kind === 'round' && gate.round ? gate : null;
   const baseGate = gate && gate.kind === 'base' ? gate : null;

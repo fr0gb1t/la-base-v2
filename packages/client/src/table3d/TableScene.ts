@@ -18,7 +18,7 @@ import { TableTokens } from './tableTokens'
 import { TableChoices, type CopasChoice, type Direction } from './tableChoices'
 import { ChessClock, type ClockView } from './chessClock'
 import { HudBoard, type HudItem } from './hudBoard'
-import { Notepad, NOTEPAD_AT, type RoundReport } from './notepad'
+import { Notepad, NOTEPAD_AT, type RoundReport, type LiveSheet } from './notepad'
 
 // ---------------------------------------------------------------------------------------------
 // The 3D table, driven by real game events. Seats follow the server's turn order with the local
@@ -1337,6 +1337,11 @@ export class TableScene {
   /** Your turn to draw: the deck in the middle glows and pulses (click it). */
   setDeckHint(on: boolean) {
     this.deckHint = on
+  }
+
+  /** The scoreboard written on the notepad's page, live. */
+  setLiveSheet(d: LiveSheet | null) {
+    this.notepad.setLive(d)
   }
 
   /** A round is over: the camera comes to the notepad, which shows its report (null: back to your seat). */
