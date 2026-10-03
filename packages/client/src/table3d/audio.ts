@@ -86,11 +86,39 @@ export function resumeAudio() {
 }
 
 /**
+ * On an iPhone, Web Audio is muted by the ringer's silent switch unless the page plays "media": ask
+ * for the playback audio session, and loop a silent <audio> (the trick older iOS needs).
+ */
+let sessionDone = false
+function playbackSession() {
+  if (sessionDone) return
+  sessionDone = true
+  try {
+    const nav = navigator as unknown as { audioSession?: { type: string } }
+    if (nav.audioSession) nav.audioSession.type = 'playback'
+  } catch {
+    /* not supported */
+  }
+  try {
+    const a = document.createElement('audio')
+    a.setAttribute('playsinline', '')
+    a.loop = true
+    a.volume = 0.001
+    // one second of silence (a tiny WAV)
+    a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='
+    void a.play().catch(() => undefined)
+  } catch {
+    /* nothing to do */
+  }
+}
+
+/**
  * Starts sound from a user gesture. Besides resume() (a phone also leaves the context 'interrupted'
  * after a call or a lock screen, not only 'suspended'), a silent buffer is played: that is what
  * unlocks iOS Safari.
  */
 function unlock() {
+  playbackSession()
   if (!ctx || ctx.state === 'running') return
   try {
     const src = ctx.createBufferSource()
@@ -169,8 +197,14 @@ async function buildGraph() {
   const names = [...new Set(Object.values(FILES).flat())]
   await Promise.all(
     names.map(async (n) => {
-      const res = await fetch(`${import.meta.env.BASE_URL}sfx/${n}.ogg`)
-      buffers.set(n, await ctx.decodeAudioData(await res.arrayBuffer()))
+      // one sample that cannot be fetched or decoded (a browser without Ogg Vorbis, say) must not take
+      // the others down with it: the synthesized sounds and the rest keep working
+      try {
+        const res = await fetch(`${import.meta.env.BASE_URL}sfx/${n}.ogg`)
+        buffers.set(n, await ctx.decodeAudioData(await res.arrayBuffer()))
+      } catch (err) {
+        console.warn('[audio] could not load', n, err)
+      }
     }),
   )
 }
