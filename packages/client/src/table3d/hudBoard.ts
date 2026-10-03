@@ -46,15 +46,21 @@ function chalkRing(g: CanvasRenderingContext2D, size: number, color: string, w: 
   g.globalAlpha = 1
 }
 
-function iconTexture(item: HudItem, hot: boolean): Promise<THREE.CanvasTexture> {
+/** The `d` of every path of an icon's SVG (the icons are plain filled paths on a 512 grid). */
+function iconPaths(svg: string): { paths: string[]; box: number } {
+  const paths = [...svg.matchAll(/<path[^>]*?\sd="([^"]+)"/g)].map((m) => m[1])
+  const vb = /viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/.exec(svg)
+  return { paths, box: vb ? Number(vb[1]) : 512 }
+}
+
+// The icon is painted straight from its path data (Path2D), not through an <img> of the SVG: no
+// asynchronous decoding, and no browser that refuses to hand a canvas with an SVG image to WebGL.
+function iconTexture(item: HudItem, hot: boolean): THREE.CanvasTexture {
   const size = 256
   const cv = document.createElement('canvas')
   cv.width = cv.height = size
   const g = cv.getContext('2d')!
   const color = item.danger ? RED : PALETTE.chalk
-  const tex = new THREE.CanvasTexture(cv)
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 4
   if (hot) {
     g.beginPath()
     g.arc(size / 2, size / 2, size * 0.41, 0, Math.PI * 2)
@@ -62,20 +68,19 @@ function iconTexture(item: HudItem, hot: boolean): Promise<THREE.CanvasTexture> 
     g.fill()
   }
   chalkRing(g, size, color, hot ? 11 : 8, item.id.length)
-  const svg = item.svg.replace(/currentColor/g, color).replace(/ (width|height)="[^"]*"/g, '').replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"')
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.onload = () => {
-      const s = size * 0.5
-      g.globalAlpha = hot ? 1 : 0.9
-      g.drawImage(img, (size - s) / 2, (size - s) / 2, s, s)
-      g.globalAlpha = 1
-      tex.needsUpdate = true
-      resolve(tex)
-    }
-    img.onerror = () => { console.warn('[hud] icon failed', item.id, svg.slice(0, 160)); resolve(tex) }
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-  })
+  const { paths, box } = iconPaths(item.svg)
+  const s = (size * 0.5) / box
+  g.save()
+  g.translate(size / 4, size / 4)
+  g.scale(s, s)
+  g.globalAlpha = hot ? 1 : 0.9
+  g.fillStyle = color
+  for (const d of paths) g.fill(new Path2D(d))
+  g.restore()
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 4
+  return tex
 }
 
 function labelTexture(text: string, color: string) {
@@ -180,8 +185,8 @@ export class HudBoard {
       new THREE.Mesh(new THREE.PlaneGeometry(ICON_D, ICON_D), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity, depthWrite: false, fog: false, color: new THREE.Color(0.92, 0.92, 0.92) }))
     const base = plane(null, 1)
     const hot = plane(null, 0)
-    void iconTexture(item, false).then((t) => { (base.material as THREE.MeshBasicMaterial).map = t; (base.material as THREE.Material).needsUpdate = true })
-    void iconTexture(item, true).then((t) => { (hot.material as THREE.MeshBasicMaterial).map = t; (hot.material as THREE.Material).needsUpdate = true })
+    ;(base.material as THREE.MeshBasicMaterial).map = iconTexture(item, false)
+    ;(hot.material as THREE.MeshBasicMaterial).map = iconTexture(item, true)
     const { t, aspect } = labelTexture(item.label, item.danger ? RED : PALETTE.chalk)
     const label = new THREE.Mesh(new THREE.PlaneGeometry(0.11 * aspect, 0.11), new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0, depthWrite: false, fog: false }))
     label.position.set(x, -BOARD_H / 2 + 0.08, 0.03)
