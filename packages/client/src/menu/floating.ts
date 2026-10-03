@@ -13,17 +13,16 @@ export interface FloatItem {
   hint?: string // longer description shown in the caption while hovered
   kind?: 'tag' | 'stamp' | 'chip' | 'label' // label: a chalked title, not a button
   icon?: 'plane' // a small engraved glyph above the label (chips)
-  raise?: number // labels: metres above the row they name (default LABEL_RAISE)
+  rowHeight?: number // labels: height of the row they name when it holds no buttons (the aces)
   scale?: number // size multiplier (a tag far across the table)
   crossed?: boolean // struck out with a red cross (an option that is off)
-  at: [number, number] // table x, z
+  at: [number, number] // table x, z (a title: its LEFT edge, so titles line up)
   selected?: boolean
   disabled?: boolean
   onPick: () => void
 }
 
 const PX_PER_M = 1400
-const LABEL_RAISE = 0.1 // m above the buttons it names
 const FONT = '"IM Fell English SC", Georgia, serif'
 
 /** The kamikaze plane seen from above, diving at 45° (no propeller). */
@@ -237,34 +236,42 @@ export class FloatingItems {
     this.live.delete(l.def.id)
   }
 
-  /** Per frame: pose every item facing the camera; hover against the rest-pose twins. */
+  /** Per frame: pose every item parallel to the screen (so a row reads as a straight line, not a
+   *  fan turned toward the camera); hover against the rest-pose twins. A title stays perfectly
+   *  still, level with the middle of the row it names. */
   update(time: number, camera: THREE.Camera, raycaster: THREE.Raycaster, calm: boolean) {
     const targets: THREE.Object3D[] = []
+    const heightOf = (l: Live) => (l.mesh.geometry as THREE.PlaneGeometry).parameters.height * (l.def.scale ?? 1)
+    const rowHeight = (label: Live) => {
+      const row = [...this.live.values()].filter((o) => o.def.kind !== 'label' && Math.abs(o.def.at[1] - label.def.at[1]) < 0.03)
+      return row.length ? Math.max(...row.map(heightOf)) : label.def.rowHeight ?? 0.075
+    }
     for (const l of this.live.values()) {
-      const h = (l.mesh.geometry as THREE.PlaneGeometry).parameters.height
-      // a label sits over the row of buttons it names (same depth, one button higher)
-      const raise = l.def.kind === 'label' ? l.def.raise ?? LABEL_RAISE : 0
+      const isLabel = l.def.kind === 'label'
       const k = l.def.scale ?? 1
-      const rest = new THREE.Vector3(l.def.at[0], TABLE_Y + 0.025 + (h * k) / 2 + raise, l.def.at[1])
+      const centre = isLabel ? rowHeight(l) / 2 : heightOf(l) / 2
+      const w = (l.mesh.geometry as THREE.PlaneGeometry).parameters.width * k
+      const rest = new THREE.Vector3(l.def.at[0] + (isLabel ? w / 2 : 0), TABLE_Y + 0.025 + centre, l.def.at[1])
       l.hit.position.copy(rest)
       l.hit.scale.setScalar(k)
-      l.hit.lookAt(camera.position)
+      l.hit.quaternion.copy(camera.quaternion)
       l.hit.updateMatrixWorld()
-      if (!l.def.disabled && l.def.kind !== 'label') targets.push(l.hit)
+      if (!l.def.disabled && !isLabel) targets.push(l.hit)
     }
     const hit = raycaster.intersectObjects(targets, false)[0]
     this.hovered = hit ? (hit.object.userData.floatId as string) : null
     for (const l of this.live.values()) {
       const on = this.hovered === l.def.id
       l.lift += ((on ? 1 : 0) - l.lift) * 0.2
-      const bob = calm ? 0 : Math.sin(time * 1.4 + l.phase) * 0.004
+      const still = l.def.kind === 'label' // titles never move
+      const bob = calm || still ? 0 : Math.sin(time * 1.4 + l.phase) * 0.004
       l.mesh.position.copy(l.hit.position).add(new THREE.Vector3(0, l.lift * 0.02 + bob, 0))
       l.mesh.quaternion.copy(l.hit.quaternion)
-      l.mesh.scale.setScalar((l.def.scale ?? 1) * (1 + l.lift * 0.08))
+      l.mesh.scale.setScalar((l.def.scale ?? 1) * (still ? 1 : 1 + l.lift * 0.08))
       if (l.shadow) {
         // the footprint rides with the button (same height, same heading)
         l.shadow.position.copy(l.mesh.position)
-        l.shadow.rotation.y = Math.atan2(camera.position.x - l.mesh.position.x, camera.position.z - l.mesh.position.z)
+        l.shadow.rotation.y = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ').y
         l.shadow.scale.setScalar(l.mesh.scale.x)
       }
       const mat = l.mesh.material as THREE.MeshStandardMaterial

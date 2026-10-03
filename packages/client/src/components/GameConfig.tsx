@@ -8,7 +8,7 @@ import { useSocket } from '../hooks/useSocket';
 const ROW = { aces: 0.12, structure: 0.4, kamikazes: 0.55, clock: 0.69, actions: 0.85 } as const;
 // the form is centred on the felt: titles at the left, their options to the right, and the whole
 // block (titles included) balanced around x = 0
-const TITLE_X = -0.5;
+const TITLE_X = -0.62; // the titles' left edge
 const OPT_X = 0.14; // the middle of the options column
 // the bidding clock: total per team for the whole game (0 = no clock)
 const CLOCK_OPTIONS = [0, 60_000, 120_000, 300_000] as const;
@@ -102,8 +102,8 @@ export function GameConfig() {
         items={[
           // a form laid on the felt: one row per choice, its title on the left (titles never sit
           // above or below a row, where the buttons and their shadows would cover them)
-          { id: 't-ases', label: 'Poderes', kind: 'label', at: [TITLE_X, ROW.aces], raise: 0, onPick: () => undefined },
-          { id: 't-estructura', label: 'Estructura', kind: 'label', at: [TITLE_X, ROW.structure], raise: 0, onPick: () => undefined },
+          { id: 't-ases', label: 'Poderes', kind: 'label', at: [TITLE_X, ROW.aces], rowHeight: 0.2, onPick: () => undefined },
+          { id: 't-estructura', label: 'Estructura', kind: 'label', at: [TITLE_X, ROW.structure], onPick: () => undefined },
           ...(['clasica', 'alternativa', 'postpandemia'] as const).map((mode, i) => ({
             id: `est-${mode}`,
             label: names[mode],
@@ -113,7 +113,7 @@ export function GameConfig() {
             hint: `${names[mode]}: bases por ronda ${sequences[mode].join(' · ')}`,
             onPick: () => setStructure(mode),
           })),
-          { id: 't-kamikazes', label: `Kamikazes: ${kamikazesPerTeam === 0 ? 'ninguno' : kamikazesPerTeam}`, kind: 'label', at: [TITLE_X, ROW.kamikazes], raise: 0, onPick: () => undefined },
+          { id: 't-kamikazes', label: `Kamikazes: ${kamikazesPerTeam === 0 ? 'ninguno' : kamikazesPerTeam}`, kind: 'label', at: [TITLE_X, ROW.kamikazes], onPick: () => undefined },
           // like a star rating: the first k planes are lit; clicking the last lit one turns it off
           ...[1, 2, 3].map((k) => ({
             id: `kami-${k}`,
@@ -129,7 +129,7 @@ export function GameConfig() {
                 : `${k} kamikaze${k === 1 ? '' : 's'} por equipo (todo o nada: 0 o todas las bases)`,
             onPick: () => setKamikazesPerTeam(kamikazesPerTeam === k ? k - 1 : k),
           })),
-          { id: 't-reloj', label: 'Reloj', kind: 'label', at: [TITLE_X, ROW.clock], raise: 0, onPick: () => undefined },
+          { id: 't-reloj', label: 'Reloj', kind: 'label', at: [TITLE_X, ROW.clock], onPick: () => undefined },
           // one button that cycles through the options (four buttons crowded the form)
           {
             id: 'reloj',
