@@ -117,35 +117,37 @@ function arc(curve: number) {
 }
 
 /**
- * The hood: an EMPTY shell of cloth, open at the front, with nothing inside it (no head: only the dark). The mask
- * floats in that void, apart from the cloth. A rolled edge rims the opening, a peak trails off the back, and a cowl drops over the neck into the coat.
+ * The hood: a close-fitting rain hood, an EMPTY shell with nothing inside it (no head: only the dark). It hugs the
+ * mask with no rolled edge, just a thin seam round the opening, and it is the same black as the suit so it melts
+ * into the room; the mask floats inside it, a hair away from the cloth. A small peak trails off the back and the
+ * cloth runs down over the neck into the coat.
  */
-const HOOD_R = 0.172
-const HOOD_Z = -0.155 // where the opening is (the mask sits behind it, inside)
+const HOOD_R = 0.17
+const HOOD_CUT = 0.84 // rad from the front pole where the opening is cut: a snug mouth, with the cloth flaring out behind it
+const HOOD_SCALE = { x: 1.118, y: 1.4, z: 1.0 }
+const HOOD_Z = -0.15 // where the opening is (the mask sits behind it, inside)
 function hoodShell() {
   const g = new THREE.Group()
-  const cloth = new THREE.MeshStandardMaterial({ color: 0x231d1a, roughness: 1 }) // the black of the suit, a touch lifted so the folds catch light
-  const outer = cloth // one cloth all over
+  const cloth = new THREE.MeshStandardMaterial({ color: hex(PALETTE.soot), roughness: 1 }) // the suit's black, no sheen: it must not catch the eye
   const void_ = new THREE.MeshBasicMaterial({ color: 0x030202, side: THREE.BackSide }) // the inside: black, unlit, nothing in it
   // a hemisphere with its opening toward the front (−z): a sphere turned so its pole faces front, with that cap cut away
-  const geo = new THREE.SphereGeometry(HOOD_R, 32, 22, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2)
+  const geo = new THREE.SphereGeometry(HOOD_R, 36, 24, 0, Math.PI * 2, HOOD_CUT, Math.PI - HOOD_CUT)
   geo.rotateX(-Math.PI / 2)
   const shell = new THREE.Group()
-  shell.add(new THREE.Mesh(geo, outer), new THREE.Mesh(geo, void_))
-  shell.scale.set(1.04, 1.24, 1.12)
-  shell.position.z = HOOD_Z
+  shell.add(new THREE.Mesh(geo, cloth), new THREE.Mesh(geo, void_))
+  shell.scale.set(HOOD_SCALE.x, HOOD_SCALE.y, HOOD_SCALE.z)
+  shell.position.z = HOOD_Z + HOOD_R * HOOD_SCALE.z * Math.cos(HOOD_CUT) // the centre of the sphere: the opening is its cut, in front of it
   g.add(shell)
-  // the opening: a rolled edge, and a heavier fold across the top
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(HOOD_R, 0.015, 12, 48), cloth)
-  rim.scale.set(1.04, 1.24, 1)
-  rim.position.z = HOOD_Z
-  const peak = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.17, 12), cloth)
-  peak.position.set(0, 0.2, 0.08)
-  peak.rotation.x = -0.95 // a point trailing back and up
-  const cowl = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.2, 0.2, 20, 1, true), cloth)
-  cowl.position.set(0, -0.32, 0.0) // below the opening: from the front nothing but the dark shows inside the hood
+  const seam = new THREE.Mesh(new THREE.TorusGeometry(HOOD_R * Math.sin(HOOD_CUT), 0.006, 8, 48), cloth) // the hem of the opening: a thin line, not a roll
+  seam.scale.set(HOOD_SCALE.x, HOOD_SCALE.y, 1)
+  seam.position.z = HOOD_Z
+  const peak = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.13, 12), cloth)
+  peak.position.set(0, 0.21, 0.09)
+  peak.rotation.x = -0.9 // a point trailing back and up
+  const cowl = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.19, 0.2, 20, 1, true), cloth)
+  cowl.position.set(0, -0.31, 0.02) // below the opening: from the front nothing but the dark shows inside the hood
   cowl.scale.z = 0.95
-  g.add(rim, peak, cowl)
+  g.add(seam, peak, cowl)
   return g
 }
 

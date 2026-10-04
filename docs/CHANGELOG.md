@@ -8,10 +8,12 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
 ### Lo último (desde `02045de`)
 - **Avatares (las caras de las máscaras):** cada máscara se arma con 3 partes al azar —ojos, boca y cejas, 5
   tipos de cada una— y un color de ojos (6), dentro de la gama apagada del juego (un test rechaza cualquier
-  color saturado, sin neón). **Sin pelo**: todas llevan la misma capucha negra (un cascarón hueco abierto al frente: no tiene cabeza adentro, solo oscuridad;
-  la máscara **flota** en ese vacío, separada de la tela, con un vaivén lento en stop-motion
-  (`float(t)` de `makeMask`, que llaman `pose()` y el escenario de Ajustes); un borde enrollado marca la
-  abertura, hay una punta atrás y una cogulla en el cuello; `hoodShell` en `table3d/avatar.ts`) y solo la cara las distingue. El contrato vive en `shared/avatar.ts` (`AvatarSpec`,
+  color saturado, sin neón). **Sin pelo**: todas llevan la misma capucha negra (una capucha de impermeable ceñida: un cascarón hueco, sin cabeza adentro, solo oscuridad;
+  la abertura abraza la máscara, apenas un poco más grande, con una costura finísima en lugar de borde, y la tela
+  se ensancha detrás; es del negro del traje y sin brillo, para fundirse con el ambiente; la máscara **flota**
+  adentro, a un pelo de la tela, con un vaivén lento en stop-motion (`float(t)` de `makeMask`, que llaman
+  `pose()` y el escenario de Ajustes); una punta atrás y la tela baja por el cuello hasta el saco;
+  `hoodShell` en `table3d/avatar.ts`) y solo la cara las distingue. El contrato vive en `shared/avatar.ts` (`AvatarSpec`,
   `randomAvatar`, `sanitizeAvatar`); el servidor lo valida al crear o entrar a una sala (una cara inventada se
   reemplaza, nunca se reenvía), les da una al azar a los bots y lo manda en la lista de jugadores. En el cliente
   `makeMask(avatar)` arma la cara en `table3d/avatar.ts` (las señas siguen funcionando con cualquier
