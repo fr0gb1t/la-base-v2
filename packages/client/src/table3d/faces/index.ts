@@ -27,17 +27,17 @@ export const handStyleOf = (avatar: AvatarSpec): HandStyleKey => {
   return f.kind === 'led' ? 'led' : f.name
 }
 
-// The sleeve the hand comes out of: loose black cloth, snug at the wrist and opening wide toward the back, with soft
-// folds running along it that deepen toward the open end, which sags a little under its own weight. Dark inside (the
+// The sleeve the hand comes out of: a short, loose black cuff, wide even at the wrist (the hand comes out of it
+// without touching it), opening a little more toward the back, with soft folds that deepen toward the open end, which sags a little under its own weight. Dark inside (the
 // arm is lost in the dark); only the hem round the open end is in the team's colour. It runs back from the wrist,
 // down −z.
-const SLEEVE_LEN = 0.11
+const SLEEVE_LEN = 0.06
 const SLEEVE_SEG = 32
 const SLEEVE_RINGS = 14
 /** The sleeve's radius at a point: u from 0 (wrist) to 1 (open end), a the angle round it. */
 function sleeveR(u: number, a: number) {
-  const base = 0.026 + 0.034 * Math.pow(u, 1.4) // snug at the wrist, wide at the end
-  const folds = (0.002 + 0.0075 * u) * (Math.sin(a * 5 + u * 1.7) * 0.7 + Math.sin(a * 3 - 0.8) * 0.3) // folds, deeper toward the end
+  const base = 0.039 + 0.014 * Math.pow(u, 1.4) // loose all along: the wrist floats inside it, wider at the back
+  const folds = (0.004 + 0.005 * u) * (Math.sin(a * 5 + u * 1.7) * 0.7 + Math.sin(a * 3 - 0.8) * 0.3) // folds, deeper toward the end
   return base + folds
 }
 /** How far the sleeve hangs down at a point (cloth sags at the open end, more at the bottom than the top). */
