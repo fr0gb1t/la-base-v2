@@ -13,3 +13,6 @@ cd packages/client && VITE_SERVER_URL=http://localhost:3100 npx vite --port 5174
 Then e.g. `node e2e/table.e2e.mjs /tmp/out` or `node ../server/e2e/rules.e2e.mjs`.
 The 3D rulebook: `OUT=/tmp node e2e/rulebook.3d.mjs` (drag, click, catch, arrows) and
 `node e2e/rulebook.shots.mjs /tmp/rb` (every spread).
+
+The señas lab (everybody signing all the time, the reading rule's knobs and its zones drawn on the table; no server
+needed): `pnpm --filter client dev`, then open `/senas-lab.html`. `node e2e/senas.lab.mjs /tmp/out` checks the rule.

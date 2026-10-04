@@ -88,18 +88,27 @@ export function aimAtSeat(origin: Vec3, dir: Vec3, seat: number, n: number): { m
   return { miss: len(off), along };
 }
 
+/** Knobs for the reading rule (the game uses the defaults; the señas lab turns them to try other values). */
+export interface AimOptions {
+  /** How close to a seat's zone the view must pass (m). Default SEAT_AIM_RADIUS. */
+  radius?: number;
+  /** Only the most squarely aimed seat is read (default true). Off: every seat whose zone you are on is read. */
+  exclusive?: boolean;
+}
+
 /**
  * The seat the line of sight is on: the one whose zone it passes most squarely (nearest to its stretch),
  * within SEAT_AIM_RADIUS, ahead of the viewer. Only one seat at a time, so aiming between two
  * neighbours reads whichever you are closest to and never both. -1 = none.
  */
-export function seatUnderAim(origin: Vec3, dir: Vec3, n: number, skip: number): number {
+export function seatUnderAim(origin: Vec3, dir: Vec3, n: number, skip: number, opts: AimOptions = {}): number {
+  const radius = opts.radius ?? SEAT_AIM_RADIUS;
   let best = -1;
   let bestMiss = Infinity;
   for (let s = 0; s < n; s++) {
     if (s === skip) continue;
     const { miss, along } = aimAtSeat(origin, dir, s, n);
-    if (along > 0 && miss < SEAT_AIM_RADIUS && miss < bestMiss) {
+    if (along > 0 && miss < radius && miss < bestMiss) {
       best = s;
       bestMiss = miss;
     }
@@ -111,9 +120,13 @@ export function seatUnderAim(origin: Vec3, dir: Vec3, n: number, skip: number): 
  * Does the viewer read the signer's face? The centre of the viewer's view is on the signer's zone
  * (where they sit; see seatUnderAim), and the signer is not practically turned away from the viewer.
  */
-export function seesFace(viewer: number, viewerGaze: Gaze, signer: number, signerGaze: Gaze, n: number): boolean {
+export function seesFace(viewer: number, viewerGaze: Gaze, signer: number, signerGaze: Gaze, n: number, opts: AimOptions = {}): boolean {
   const eye = eyePosition(viewer, n);
-  if (seatUnderAim(eye, gazeDirection(viewer, n, viewerGaze), n, viewer) !== signer) return false;
+  const dir = gazeDirection(viewer, n, viewerGaze);
+  if (opts.exclusive === false) {
+    const { miss, along } = aimAtSeat(eye, dir, signer, n);
+    if (along <= 0 || miss >= (opts.radius ?? SEAT_AIM_RADIUS)) return false;
+  } else if (seatUnderAim(eye, dir, n, viewer, opts) !== signer) return false;
   const head = headPosition(signer, n);
   const face = gazeDirection(signer, n, signerGaze);
   const toViewer = sub(eye, head);

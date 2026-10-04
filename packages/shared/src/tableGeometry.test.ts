@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { eyePosition, gazeDirection, gazeToward, headPosition, seatSpot, seatUnderAim, seesFace } from './tableGeometry.js';
+import { SEAT_AIM_RADIUS, eyePosition, gazeDirection, gazeToward, headPosition, seatSpot, seatUnderAim, seesFace } from './tableGeometry.js';
 
 test('a seat with no head turn looks at the table centre', () => {
   for (const n of [4, 6, 8]) {
@@ -64,4 +64,16 @@ test('you never read your own seat, and a seat behind you is never aimed at', ()
   assert.notEqual(seatUnderAim(e, toCentre, n, 0), 0);
   const back = { x: -toCentre.x, y: 0, z: -toCentre.z }; // turned right around: the table is behind
   assert.equal(seatUnderAim(e, back, n, 0), -1);
+});
+
+test('the knobs: a smaller radius needs a better aim; exclusive off reads every seat you are on', () => {
+  const n = 8;
+  const look = gazeAt(0, seatSpot(2, n), n);
+  assert.ok(seesFace(0, look, 2, gazeToward(2, 0, n), n, { radius: SEAT_AIM_RADIUS }));
+  const off = { ...look, yaw: look.yaw + 0.08 }; // a bit off the exact spot
+  assert.ok(seesFace(0, off, 2, gazeToward(2, 0, n), n, { radius: SEAT_AIM_RADIUS }));
+  assert.ok(!seesFace(0, off, 2, gazeToward(2, 0, n), n, { radius: 0.01 })); // a hair's breadth: no
+  // exclusive (default): the neighbour whose zone overlaps is not read; exclusive off: it is
+  assert.ok(!seesFace(0, look, 1, gazeToward(1, 0, n), n));
+  assert.ok(seesFace(0, look, 1, gazeToward(1, 0, n), n, { exclusive: false, radius: 0.5 }));
 });

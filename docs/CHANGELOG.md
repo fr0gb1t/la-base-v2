@@ -6,6 +6,14 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Laboratorio de señas (solo desarrollo):** `senas-lab.html` (con el servidor de desarrollo, en
+  `http://localhost:5173/senas-lab.html`) abre la mesa real sin servidor ni partida, con todos haciendo señas
+  todo el tiempo. Los compañeros siempre se leen; un rival solo cuando la regla de lectura dice que lo estás
+  mirando (la misma de `shared/tableGeometry.ts`, con el tiempo de permanencia y el «captar a mitad de seña» del
+  servidor). El panel permite cambiar la cantidad de jugadores, el radio de la zona, el tiempo apuntando, la
+  lectura exclusiva, la frecuencia de las señas y mostrar las zonas dibujadas en la mesa, y cuenta por asiento
+  cuántas señas te llegaron. `AimOptions` (radio y exclusividad) es opcional en `seesFace` / `seatUnderAim`:
+  el juego usa los valores por defecto. `e2e/senas.lab.mjs` comprueba la regla.
 - **Señas de los rivales: alcanza con apuntar a su lugar, no a la cara exacta:** la zona de lectura ya no es
   un círculo de 14 cm sobre la cabeza sino el tramo desde la cabeza hasta el lugar del jugador en la mesa, a
   34 cm (`SEAT_AIM_RADIUS`, `aimAtSeat` y `seatUnderAim` en `shared/tableGeometry.ts`; una regla única para

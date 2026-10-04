@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { FACE_BACK_DOT, seatUnderAim, isHeadSena, type Card, type Sena } from '@la-base/shared'
+import { FACE_BACK_DOT, seatUnderAim, isHeadSena, type AimOptions, type Card, type Sena } from '@la-base/shared'
 import { buildLamp, buildRoom } from './table'
 import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, PLAY_R, seatAngle, polar, playSlot } from './seats'
 import { makeAvatar, MAX_HAND, FAN_Y, type Avatar, type AvatarPose } from './avatar'
@@ -479,6 +479,13 @@ export class TableScene {
     return polar(TABLE_R - 0.04, seatAngle(seat, this.n), TABLE_Y + 0.03).addScaledVector(this.rightOf(seat), 0.2)
   }
 
+  /** The knobs of the reading rule (the game leaves them alone; the señas lab turns them). */
+  aimOptions: AimOptions = {}
+  /** The three.js scene and the camera, for the señas lab to draw its aids on. */
+  labHandles() {
+    return { scene: this.scene, camera: this.camera }
+  }
+
   /**
    * The seat whose face you can read at the centre of your view (same rule as the server): the centre of
    * your view passes over where they sit (head down to their place on the table), and their mask is not
@@ -487,7 +494,7 @@ export class TableScene {
   private faceUnderCentre() {
     const origin = this.camera.getWorldPosition(new THREE.Vector3())
     const dir = this.camera.getWorldDirection(new THREE.Vector3())
-    const seat = seatUnderAim({ x: origin.x, y: origin.y, z: origin.z }, { x: dir.x, y: dir.y, z: dir.z }, this.n, 0)
+    const seat = seatUnderAim({ x: origin.x, y: origin.y, z: origin.z }, { x: dir.x, y: dir.y, z: dir.z }, this.n, 0, this.aimOptions)
     const av = this.avatars[seat]
     if (!av) return -1
     // a mask turned practically away shows nothing: its face (-z) must not point away from you
