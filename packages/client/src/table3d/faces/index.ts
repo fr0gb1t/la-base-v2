@@ -6,7 +6,7 @@ import { faceKind, type AvatarSpec } from '@la-base/shared'
 import { makeLedMask, type FaceRig } from './ledMask'
 import { makeHeadMask } from './headMask'
 import { sculpted } from './sculpted'
-import type { HandPose } from './heads'
+import { HAND_CURL, HEADS, LED_HANDS, RING_FINGER, type HandPose } from './heads'
 import type { HandStyleKey } from './sculptJobs'
 
 export type { FaceRig }
@@ -27,47 +27,22 @@ export const handStyleOf = (avatar: AvatarSpec): HandStyleKey => {
   return f.kind === 'led' ? 'led' : f.name
 }
 
-// The sleeve the hand comes out of: a short, loose black cuff, wide even at the wrist (the hand comes out of it
-// without touching it), opening a little more toward the back, round all the way. Dark inside (the
-// arm is lost in the dark); only the hem round the open end is in the team's colour. It runs back from the wrist,
-// down −z.
-const SLEEVE_LEN = 0.06
-const SLEEVE_SEG = 32
-const SLEEVE_RINGS = 14
-/** The sleeve's radius at a point: u from 0 (wrist) to 1 (open end). Round, no folds. */
-const sleeveR = (u: number, _a: number) => 0.039 + 0.014 * Math.pow(u, 1.4) // loose all along, a little wider at the back
-/** How far the open end hangs down (a little, evenly: it stays round). */
-const sleeveSag = (u: number, _a: number) => -0.006 * u * u
-let sleeveGeo: { sleeve: THREE.BufferGeometry; hem: THREE.BufferGeometry } | null = null
-function sleeveGeometry() {
-  if (sleeveGeo) return sleeveGeo
-  const pos: number[] = []
-  const idx: number[] = []
-  for (let j = 0; j <= SLEEVE_RINGS; j++) {
-    const u = j / SLEEVE_RINGS
-    for (let i = 0; i <= SLEEVE_SEG; i++) {
-      const a = (i / SLEEVE_SEG) * Math.PI * 2
-      const r = sleeveR(u, a)
-      const len = SLEEVE_LEN
-      pos.push(Math.cos(a) * r, Math.sin(a) * r + sleeveSag(u, a), 0.012 - u * len) // back from the wrist, down −z
-    }
+// No sleeve and no cuff, as in Buckshot Roulette: a bare hand whose wrist sinks into the dark. Its colours darken from
+// the back of the hand to the end of the wrist, to nearly black, so in the gloom of the room the hand seems to come
+// out of nowhere. The geometry is shared (one per style and pose), so it is darkened once.
+const FADE_FROM = -0.014 // sculpt space: the wrist runs back toward +z, the end of it at about +0.035
+const FADE_TO = 0.032
+function fadeWrist(g: THREE.BufferGeometry) {
+  if (g.userData.wristFaded) return
+  g.userData.wristFaded = true
+  const pos = g.getAttribute('position')
+  const col = g.getAttribute('color')
+  for (let i = 0; i < pos.count; i++) {
+    const u = Math.min(1, Math.max(0, (pos.getZ(i) - FADE_FROM) / (FADE_TO - FADE_FROM)))
+    const k = 1 - 0.98 * u * u * (3 - 2 * u) // smoothstep: full colour at the back of the hand, almost black at the end
+    col.setXYZ(i, col.getX(i) * k, col.getY(i) * k, col.getZ(i) * k)
   }
-  for (let j = 0; j < SLEEVE_RINGS; j++) {
-    for (let i = 0; i < SLEEVE_SEG; i++) {
-      const k = j * (SLEEVE_SEG + 1) + i
-      idx.push(k, k + SLEEVE_SEG + 1, k + 1, k + 1, k + SLEEVE_SEG + 1, k + SLEEVE_SEG + 2) // wound so the outside faces out
-    }
-  }
-  const sleeve = new THREE.BufferGeometry()
-  sleeve.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-  sleeve.setIndex(idx)
-  sleeve.computeVertexNormals()
-  // the hem: a thin roll round the open end
-  const last = SLEEVE_RINGS * (SLEEVE_SEG + 1)
-  const edge = Array.from({ length: SLEEVE_SEG }, (_, i) => new THREE.Vector3(pos[(last + i) * 3], pos[(last + i) * 3 + 1], pos[(last + i) * 3 + 2]))
-  const hem = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edge, true), 64, 0.0032, 6, true)
-  sleeveGeo = { sleeve, hem }
-  return sleeveGeo
+  col.needsUpdate = true
 }
 
 /**
@@ -85,8 +60,20 @@ export function handIdle(t: number, pose: HandPose, seed: number) {
   return { y: breathe * 0.004, rx: tap + Math.sin(ts * 0.6 + seed) * 0.05, ry: Math.sin(ts * 0.4 + seed * 0.9) * 0.08, rz: Math.sin(ts * 0.8 + seed) * 0.04 }
 }
 
+const RING_GEO = new THREE.TorusGeometry(0.01, 0.0026, 6, 16)
+/** Where the ring sits: round the first bone of the ring finger, a little past the knuckle (sculpt space). */
+function ringOn(s: 1 | -1, pose: HandPose, style: HandStyleKey) {
+  const f = RING_FINGER
+  const th = (style === 'led' ? LED_HANDS : HEADS[style].hands).thin ?? 1
+  const pitch = HAND_CURL[pose].curl[2] * 0.8
+  const yaw = s * f.yaw
+  const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch)).normalize()
+  const at = new THREE.Vector3(s * f.x * th, 0.002, f.z).addScaledVector(dir, f.len * 0.42)
+  return { at, dir, radius: 0.0091 * th + 0.0008 }
+}
+
 /**
- * A floating hand coming out of a loose black sleeve whose hem is in the team's colour. `side` is the arm it would be on (+1 right,
+ * A floating bare hand, its wrist lost in the dark, with a ring in the team's colour. `side` is the arm it would be on (+1 right,
  * −1 left); its fingers point down +z (the way the table's arms aim a hand) and the thumb points inward, toward the
  * body's midline. The hand shows once the sculptor has made it; `prepare` is run on the group then and at once.
  * `idle(t)` moves the hand inside its group (the group itself is placed and aimed by the caller).
@@ -97,26 +84,26 @@ export function makeHand(style: HandStyleKey, pose: HandPose, side: 1 | -1, cuff
   g.add(inner)
   const mats: THREE.Material[] = []
   let gone = false
-  const cuffMat = new THREE.MeshStandardMaterial({ color: 0x141214, roughness: 0.85 }) // black cloth, like the room
-  const hemMat = new THREE.MeshStandardMaterial({ color: cuffColor, roughness: 0.7 }) // only the hem tells the team
-  const darkMat = new THREE.MeshBasicMaterial({ color: 0x050403, side: THREE.BackSide }) // inside the cuff: only the dark
-  mats.push(cuffMat, hemMat, darkMat)
-  const geo = sleeveGeometry()
-  const cuff = new THREE.Mesh(geo.sleeve, cuffMat)
-  const inside = new THREE.Mesh(geo.sleeve, darkMat)
-  const hem = new THREE.Mesh(geo.hem, hemMat)
-  cuff.castShadow = hem.castShadow = true
-  inner.add(cuff, inside, hem)
   prepare(g)
   // the sculpted hand looks down −z with its thumb on +x for s = 1: turned half round, it looks down +z and the
   // thumb lands on −x, so the hand of the arm `side` is sculpted as s = −side
-  sculpted({ job: 'hand', style, pose, side: side > 0 ? -1 : 1 }).then(([p]) => {
+  const s = side > 0 ? -1 : 1
+  sculpted({ job: 'hand', style, pose, side: s }).then(([p]) => {
     if (gone) return
+    fadeWrist(p.geometry)
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: p.rough })
-    mats.push(mat)
+    // the team's colour: a thin ring on the ring finger
+    const ringMat = new THREE.MeshStandardMaterial({ color: cuffColor, roughness: 0.35, metalness: 0.4 })
+    mats.push(mat, ringMat)
     const mesh = new THREE.Mesh(p.geometry, mat)
     mesh.rotation.y = Math.PI
     mesh.castShadow = true
+    const r = ringOn(s, pose, style)
+    const ring = new THREE.Mesh(RING_GEO, ringMat)
+    ring.position.copy(r.at)
+    ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), r.dir)
+    ring.scale.setScalar(r.radius / 0.01)
+    mesh.add(ring)
     inner.add(mesh)
     prepare(g) // (the table puts hands on their own layer and draws them last: the new mesh too)
   })
