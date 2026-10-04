@@ -23,15 +23,12 @@ import { buildSideTable, SIDE_TABLE_H } from './sideTable'
 // DOM stays the source of truth (forms, buttons, a11y); this only paints and reports hovers.
 // ---------------------------------------------------------------------------------------------
 
-// the two side tables, one television each: off the felt on both sides, up in the free corners of the
-// seated shot, turned to face the camera. The first set goes left, the second right.
-// the sets outside the room are small: just enough to find and read at a glance
+// the menu's two televisions (novedades, ajustes) stand side by side on one small table off to the
+// right of the felt, turned to face the camera (the camera of every menu screen sees that corner)
+export const TV_TABLE = { x: 1.15, z: -0.65, yaw: -0.45 }
+// the sets are small: just enough to find and read at a glance
 const SIDE_TV_SCALE = 0.55
-
-export const TV_DECKS = [
-  { x: -1.2, z: -0.7, yaw: 0.5 },
-  { x: 1.2, z: -0.7, yaw: -0.5 },
-]
+const TV_GAP = 0.125 // half the distance between the two sets
 
 export type Station = 'entrada' | 'lobby' | 'crear' | 'unirse' | 'reglas' | 'sala' | 'config'
 export interface MenuPlayer { name: string; team: 'nosotros' | 'ellos' | 'random'; isBot?: boolean }
@@ -69,6 +66,7 @@ const FACE_UP = -Math.PI / 2
 const MENU_EXPOSURE = 0.95
 const MENU_NAME_H = 0.032 // metres of name text in the menus (the table uses 0.07)
 const OPTION_SCALE = 1.8 // cards are already 1.75x real size in the game
+const PROPS_LAYER = 2 // the televisions: drawn at full resolution with anti-aliasing when «Bordes suaves» is on
 const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** A big option card: a real deck figure with the option's name printed on a banner. */
@@ -120,7 +118,8 @@ export class MenuScene {
   private kamikaze = new KamikazeDial()
   private inputCard = new InputCard()
   // ajustes / novedades, one set on each side table
-  private decks = TV_DECKS.map(() => ({ board: new HudBoard(true), group: new THREE.Group() }))
+  private decks = [0, 1].map(() => ({ board: new HudBoard(true) }))
+  private tvTable = new THREE.Group()
   private tvHovered: string | null = null
   private tvHint: string | null = null
   private lastTvTime = 0
@@ -169,7 +168,6 @@ export class MenuScene {
 
   setStation(s: Station) {
     this.station = s
-    this.decks.forEach((d) => (d.group.visible = s === 'lobby')) // the home screen only (the sign-in sheet would cover them)
   }
 
   /** The sets on the side table (ajustes, novedades); `attention` makes one call for a look. */
@@ -259,10 +257,8 @@ export class MenuScene {
   }
 
   dispose() {
-    this.decks.forEach((d) => {
-      d.board.dispose()
-      d.group.traverse((o) => (o.userData.dispose as (() => void) | undefined)?.())
-    })
+    this.decks.forEach((d) => d.board.dispose())
+    this.tvTable.traverse((o) => (o.userData.dispose as (() => void) | undefined)?.())
     this.kamikaze.dispose()
     this.offView()
     this.disposed = true
@@ -276,18 +272,17 @@ export class MenuScene {
   // ------------------------------------------------------------------ objects
 
   private buildTvDeck() {
+    const lamp = new THREE.PointLight(0xe8e4dc, 1.6, 2.4, 1.6) // the basement is dark: a little light on the sets
+    lamp.position.set(0, SIDE_TABLE_H + 0.7, 0.35)
+    this.tvTable.add(buildSideTable(), lamp)
     this.decks.forEach((d, i) => {
-      const spot = TV_DECKS[i]
-      const lamp = new THREE.PointLight(0xe8e4dc, 1.6, 2.4, 1.6) // the basement is dark: a little light on each set
-      lamp.position.set(0, SIDE_TABLE_H + 0.7, 0.35)
       d.board.group.scale.setScalar(SIDE_TV_SCALE)
-      d.board.group.position.set(0, SIDE_TABLE_H + (HUD_SET_H * SIDE_TV_SCALE) / 2 + 0.02, 0)
-      d.group.add(buildSideTable(), d.board.group, lamp)
-      d.group.position.set(spot.x, 0, spot.z)
-      d.group.rotation.y = spot.yaw
-      d.group.visible = false // only on the home screen (setStation)
-      this.scene.add(d.group)
+      d.board.group.position.set((i === 0 ? -1 : 1) * TV_GAP, SIDE_TABLE_H + (HUD_SET_H * SIDE_TV_SCALE) / 2 + 0.02, 0)
+      this.tvTable.add(d.board.group)
     })
+    this.tvTable.position.set(TV_TABLE.x, 0, TV_TABLE.z)
+    this.tvTable.rotation.y = TV_TABLE.yaw
+    this.scene.add(this.tvTable)
     if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __tvDecks: this.decks })
   }
 
@@ -407,7 +402,6 @@ export class MenuScene {
     this.tvHovered = null
     this.tvHint = null
     for (const d of this.decks) {
-      if (!d.group.visible) continue
       const id = d.board.update(dtTv, this.raycaster, true)
       if (id) {
         this.tvHovered = id
@@ -571,7 +565,42 @@ export class MenuScene {
       })
     })
 
-    this.post.render(this.scene, this.camera, time)
+    this.syncPropLayers(time)
+    this.post.render(this.scene, this.camera, time, getViewSettings().smoothProps, (on) => this.propsColor(on))
+  }
+
+  // ---- the televisions drawn smooth: their own layer, lit by the same lights (as the game table's props)
+  private lightsAt = -1
+  private syncPropLayers(time: number) {
+    // every frame: the sets are built (and rebuilt) whenever the screen's items change
+    for (const d of this.decks) d.board.group.traverse((o) => o.layers.set(PROPS_LAYER))
+    this.raycaster.layers.enable(PROPS_LAYER) // …and still pointable
+    // every light of the world also lights them (and casts their shadows)
+    if (Math.floor(time) !== this.lightsAt) {
+      this.lightsAt = Math.floor(time)
+      this.scene.traverse((o) => {
+        if (!(o instanceof THREE.Light) || (o.layers.isEnabled(PROPS_LAYER) && o.layers.isEnabled(0))) return
+        if (o.layers.mask === 1 << PROPS_LAYER) return // their own lights (inside the boards)
+        o.layers.enable(PROPS_LAYER)
+        const sh = (o as THREE.SpotLight).shadow
+        if (sh) sh.camera.layers.enable(PROPS_LAYER)
+      })
+    }
+  }
+
+  /** Hide / show the sets' colours in the world pass (drawn smooth on top, so they must not show through low-res). */
+  private propMats = new Set<THREE.Material>()
+  private propsColor(on: boolean) {
+    if (!on) {
+      this.propMats.clear()
+      for (const d of this.decks) {
+        d.board.group.traverse((o) => {
+          if (!(o instanceof THREE.Mesh) || !o.visible) return
+          for (const m of Array.isArray(o.material) ? o.material : [o.material]) this.propMats.add(m)
+        })
+      }
+    }
+    for (const m of this.propMats) m.colorWrite = on
   }
 }
 

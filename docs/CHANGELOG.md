@@ -6,6 +6,11 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Televisores del menú en todas las pantallas, juntos y con bordes suaves:** Novedades y Ajustes
+  están desde el ingreso en adelante (antes solo en el inicio), uno al lado del otro sobre una sola
+  mesita a la derecha, donde la ven las cámaras de todas las pantallas. «Bordes suaves» (anti-aliasing)
+  ahora también los afecta: van en su propia capa (`PROPS_LAYER`) como los de la partida. Se montan en
+  `App.tsx`, no en el Lobby.
 - **Novedades completas desde el 30/9:** la lista para jugadores (`client/src/changelog/entries.ts`) ahora
   cubre todo lo de este registro, agrupado por día real de cada commit (30/9, 2/10, 3/10, 4/10), en
   lenguaje de jugador. Un test cuida ids únicos y orden por fecha.

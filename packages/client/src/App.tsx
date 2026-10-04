@@ -8,6 +8,7 @@ import { GamePage } from './components/GamePage';
 import { useSocket } from './hooks/useSocket';
 import { MenuBackdrop } from './menu/MenuBackdrop';
 import { RulebookHost } from './components/rulebook/Rulebook';
+import { MenuTelevisions } from './components/MenuTelevisions';
 import { SettingsHost } from './settings/SettingsPanel';
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
     <>
       {/* the menu's 3D basement lives behind every screen except the game table itself */}
       {currentPage !== 'game' && <MenuBackdrop />}
+      {currentPage !== 'game' && <MenuTelevisions />}
       {currentPage === 'auth' && <AuthModal />}
       {currentPage === 'lobby' && <Lobby />}
       {currentPage === 'game:waiting' && <RoomWaiting />}

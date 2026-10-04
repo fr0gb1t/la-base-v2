@@ -16,11 +16,12 @@ export const NOVEDADES: Novedad[] = [
   {
     id: '2026-10-04-televisores',
     date: '2026-10-04',
-    title: 'Televisores en el inicio',
+    title: 'Televisores en los menús',
     items: [
-      'La pantalla de inicio tiene dos televisores chicos sobre mesitas: Ajustes y Novedades.',
+      'Novedades y Ajustes son dos televisores chicos, uno al lado del otro sobre una mesita, y están en todas las pantallas del menú desde el ingreso.',
       'El de Novedades se pone ámbar y pulsa cuando hay algo que no viste. Al abrirlo se calma.',
       'Ajustes ya no tiene un botón suelto en la esquina: se abre desde el televisor, desde el de la sala o con la tecla O.',
+      'Con «Bordes suaves» activado, estos televisores también se ven nítidos.',
     ],
   },
   {

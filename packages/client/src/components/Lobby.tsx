@@ -4,7 +4,6 @@ import { useMenuScene } from '../menu/MenuBackdrop';
 import { MENU_OPTIONS } from '../menu/MenuScene';
 import { TableMenu } from '../menu/TableMenu';
 import { Rulebook } from './rulebook/Rulebook';
-import { MenuTelevisions } from './MenuTelevisions';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
 
@@ -126,7 +125,6 @@ export function Lobby() {
   const icons = [GiCardPlay, GiDoorway, GiScrollUnfurled];
   return (
     <main className="menu-screen lobby">
-      {mode === 'home' && <MenuTelevisions />}
       <header className="menu-bar">
         <span className="menu-brand">LA BASE</span>
         <span className="menu-who">
