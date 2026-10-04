@@ -15,8 +15,8 @@ function hsl(h: string) {
 describe('avatar colours stay inside the game\'s muted range', () => {
   const all = [...EYE_COLOR_LOOK]
 
-  it('has the colours and the parts the shared contract promises (the symbol on the forehead instead of hair)', () => {
-    expect(Object.keys(PART_LABELS).sort()).toEqual(['brows', 'eyes', 'mouth', 'symbol'])
+  it('has the colours and the parts the shared contract promises (and no hair)', () => {
+    expect(Object.keys(PART_LABELS).sort()).toEqual(['brows', 'eyes', 'mouth'])
     expect(EYE_COLOR_LOOK).toHaveLength(EYE_COLORS)
     for (const p of Object.values(PART_LABELS)) expect(p.kinds).toHaveLength(AVATAR_KINDS)
   })

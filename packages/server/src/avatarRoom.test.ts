@@ -15,7 +15,7 @@ test('a made-up avatar is replaced, never forwarded', () => {
 });
 
 test('a good avatar is kept; a bad one falls back to what the player already had', () => {
-  const had = { eyes: 1, mouth: 1, brows: 1, symbol: 1, eyeColor: 1 };
-  assert.deepEqual(joinAvatar({ eyes: 4, mouth: 3, brows: 2, symbol: 3, eyeColor: 0 }, had), { eyes: 4, mouth: 3, brows: 2, symbol: 3, eyeColor: 0 });
+  const had = { eyes: 1, mouth: 1, brows: 1, eyeColor: 1 };
+  assert.deepEqual(joinAvatar({ eyes: 4, mouth: 3, brows: 2, eyeColor: 0 }, had), { eyes: 4, mouth: 3, brows: 2, eyeColor: 0 });
   assert.deepEqual(joinAvatar({ eyes: 99 }, had), had);
 });
