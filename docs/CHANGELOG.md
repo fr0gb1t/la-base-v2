@@ -6,6 +6,26 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Nunca dos caras iguales en una mesa:** el avatar lleva ahora una variante de color opcional
+  (`AvatarSpec.tint`, `TINT_COUNT = 6`, `avatarKey`, `freeTint`, `freeAvatar`, `untangleAvatars` en
+  `shared/avatar.ts`). En el servidor (`server/src/avatarClash.ts`): un bot toma una cara que nadie usa y, si una
+  persona elige la suya, se corre a otra; dos personas que llegan con la misma ven en la sala un aviso
+  («Ana eligió tu misma cara… alguno tiene que cambiarla») con «Cambiar la mía» (abre Ajustes) y «Me la quedo»
+  (`avatar:keep`). Cuando todos los que la tienen se la quedan, la usa quien llegó primero y el resto la lleva en
+  otro color; al empezar la partida se resuelve igual lo que quede (`settleAll`). Cambiar de cara en Ajustes
+  mientras esperás en una sala la manda al servidor (`avatar:set`), que rechaza una cara que ya tiene otra
+  persona; los selectores la muestran como «— la tiene Ana» y no la ofrecen, y «Al azar» la evita. Las variantes
+  (`table3d/faces/tint.ts`) giran los tonos de la cara; en las máscaras LED las luces blancas toman el color de
+  la variante.
+- **Resplandor de las luces (bloom), ajustable:** Ajustes → Mesa tiene un control de 0 a 200 %
+  (`ViewSettings.bloom`, multiplica `uBloom` en `post.ts`; vale para la mesa, el menú y el manual).
+- **Máscaras LED que brillan como LEDs:** cada LED encendido brilla muy por encima de la lámpara (`LED_GLOW`),
+  así el bloom lo agarra, con un halo de difusor alrededor de cada punto; y cada máscara tiene una luz puntual
+  del color promedio de su cara (`spill`) que ilumina su borde, sus manos y el paño cercano. La vista previa de
+  Ajustes, sin bloom, usa un brillo menor para que los colores no se quemen a blanco.
+- **Menús sobre la pantalla:** Ajustes, Novedades, el anotador, el manual y los diálogos oscurecen y desenfocan
+  lo que queda detrás, y la escena 3D deja de responder al cursor mientras están abiertos (`lib/overlay.ts`:
+  `useOverlay`, `overlayOpen`).
 - **Caras y dorsos en pantalla entera, para el celular:** en Ajustes → Avatar y → Cartas hay un botón «Ver en
   pantalla entera» (solo en pantallas de hasta 1180 px, donde el escenario no entra al costado del panel) que
   abre `settings/FullPicker.tsx`: el mismo escenario de la computadora (`AvatarStage` o `BackStage`) ocupando la

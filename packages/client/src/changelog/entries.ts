@@ -5,6 +5,31 @@ import type { Novedad } from './novedades';
 export const NOVEDADES: Novedad[] = [
   // ------------------------------------------------------------------ 4 de octubre
   {
+    id: '2026-10-04-caras-unicas',
+    date: '2026-10-04',
+    title: 'Nunca dos caras iguales en la mesa',
+    items: [
+      'Si alguien en la sala tiene tu misma cara, a los dos les aparece un aviso para que uno la cambie.',
+      'Si ninguno quiere cambiarla, tocan «Me la quedo»: la usa quien llegó primero y el otro la lleva en otro color.',
+      'Las caras que ya tiene otro jugador aparecen como «la tiene…» en el selector, y los bots te dejan la suya si la querés.',
+    ],
+  },
+  {
+    id: '2026-10-04-leds',
+    date: '2026-10-04',
+    title: 'Máscaras que brillan',
+    items: [
+      'Las máscaras LED brillan de verdad: cada luz tiene su resplandor e ilumina las manos y el borde de la mesa con sus colores.',
+      'En Ajustes → Mesa podés regular el «Resplandor de las luces» (bloom), o apagarlo.',
+    ],
+  },
+  {
+    id: '2026-10-04-menus',
+    date: '2026-10-04',
+    title: 'Menús más claros',
+    items: ['Con un menú abierto, lo de atrás se oscurece y se desenfoca, y la mesa ya no reacciona al mouse.'],
+  },
+  {
     id: '2026-10-04-pantalla-entera',
     date: '2026-10-04',
     title: 'Caras y dorsos en pantalla entera (celular)',
