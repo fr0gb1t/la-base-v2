@@ -123,17 +123,29 @@ function arc(curve: number) {
 function hoodTrim() {
   const g = new THREE.Group()
   const cloth = new THREE.MeshStandardMaterial({ color: 0x231d1a, roughness: 1 }) // the same black, a touch lifted so the fold catches light
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.128, 0.017, 10, 36), cloth)
-  rim.scale.set(0.96, 1.2, 1) // an oval, like the mask it frames
-  rim.position.set(0, 0.006, -0.068)
+  const shade = new THREE.MeshBasicMaterial({ color: 0x070504 }) // the dark inside the hood, where the mask sits
+  // the opening of the hood: a rolled edge that stands a little proud of the mask, so the mask sits inside it
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.131, 0.021, 12, 40), cloth)
+  rim.scale.set(0.97, 1.22, 1) // an oval, like the mask it frames
+  rim.position.set(0, 0.006, -0.082)
   rim.rotation.y = Math.PI
+  // the hood overhangs the forehead: a heavier fold across the top of the opening
+  const brow = new THREE.Mesh(new THREE.TorusGeometry(0.131, 0.03, 12, 24, Math.PI), cloth)
+  brow.scale.set(0.97, 1.22, 1)
+  brow.position.set(0, 0.006, -0.08)
+  brow.rotation.set(0, Math.PI, 0)
+  // a thin dark ring just inside the edge: the shadow the hood throws on the mask (it reads as depth)
+  const inner = new THREE.Mesh(new THREE.TorusGeometry(0.119, 0.011, 8, 40), shade)
+  inner.scale.set(0.97, 1.2, 1)
+  inner.position.set(0, 0.006, -0.073)
+  inner.rotation.y = Math.PI
   const peak = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.15, 12), cloth)
   peak.position.set(0, 0.145, 0.15)
   peak.rotation.x = -1.0 // a point trailing back and up
   const cowl = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.185, 0.17, 18, 1, true), cloth)
   cowl.position.set(0, -0.15, 0.03)
   cowl.scale.z = 0.9
-  g.add(rim, peak, cowl)
+  g.add(rim, brow, inner, peak, cowl)
   return g
 }
 
@@ -142,9 +154,9 @@ function hoodTrim() {
 // avatar's: eyes, mouth and brows, and the colour of the eyes.
 export function makeMask(avatar: AvatarSpec) {
   const head = new THREE.Group()
-  const hood = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 12), mat(PALETTE.soot, 1))
-  hood.scale.set(1, 1.15, 1)
-  hood.position.z = 0.03
+  const hood = new THREE.Mesh(new THREE.SphereGeometry(0.158, 18, 14), mat(PALETTE.soot, 1))
+  hood.scale.set(1.03, 1.17, 1.0) // full, to wrap the whole head (its front stays behind the mask: it must not show through)
+  hood.position.z = 0.044
   const face = new THREE.Mesh(new THREE.SphereGeometry(0.125, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), mat(PALETTE.bone, 0.55))
   face.rotation.x = -Math.PI / 2
   face.scale.set(1, 0.55, 1.3)
