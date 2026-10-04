@@ -223,6 +223,18 @@ function colourAt(m: Model, x: number, y: number, z: number): V3 {
   return m.paint ? m.paint(x, y, z, c) : c
 }
 
+/** How shut in a point is: the field sampled a few steps out along the normal (crevices come out dark). */
+function occlusion(f: Fn3, x: number, y: number, z: number, nx: number, ny: number, nz: number, k: number) {
+  let occ = 0
+  let w = 1
+  for (let s = 1; s <= 4; s++) {
+    const h = 0.004 * s
+    occ += w * Math.max(0, h - f(x + nx * h, y + ny * h, z + nz * h))
+    w *= 0.6
+  }
+  return Math.max(0.25, 1 - k * occ * 60)
+}
+
 // ------------------------------------------------------------------------------------------------ meshing
 /** Meshes a model inside a box, at a given cell size, with surface nets. */
 export function sculpt(m: Model, min: V3, max: V3, cell: number): THREE.BufferGeometry {
@@ -307,14 +319,7 @@ export function sculpt(m: Model, min: V3, max: V3, cell: number): THREE.BufferGe
     gy /= gl
     gz /= gl
     nor.set([gx, gy, gz], v * 3)
-    let occ = 0
-    let w = 1
-    for (let s = 1; s <= 4; s++) {
-      const h = 0.004 * s
-      occ += w * Math.max(0, h - f(x + gx * h, y + gy * h, z + gz * h))
-      w *= 0.6
-    }
-    const ao = Math.max(0.25, 1 - aoK * occ * 60)
+    const ao = occlusion(f, x, y, z, gx, gy, gz, aoK)
     const c = colourAt(m, x, y, z)
     colr.set([c[0] * ao, c[1] * ao, c[2] * ao], v * 3)
   }
@@ -348,6 +353,59 @@ export function sculpt(m: Model, min: V3, max: V3, cell: number): THREE.BufferGe
   g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(nv * 2), 2)) // the PS1 pass reads one; there is no texture
   g.setIndex(idx)
   return g
+}
+
+// ------------------------------------------------------------------------------------------------ blend shapes
+/**
+ * A blend shape: the rest mesh's own vertices carried onto another sculpt (the same face making a gesture), each one
+ * walked down the field to the new surface. Same vertices, same triangles, so the game can mix rest and gesture by
+ * any amount. Position, normal and colour (a painted lip moves with the lip).
+ */
+export function morphTarget(rest: THREE.BufferGeometry, pose: Model) {
+  const f = field(pose)
+  const src = rest.getAttribute('position')
+  const n = src.count
+  const pos = new Float32Array(n * 3)
+  const nor = new Float32Array(n * 3)
+  const colr = new Float32Array(n * 3)
+  const e = 0.0008
+  const grad = (x: number, y: number, z: number): V3 => [f(x + e, y, z) - f(x - e, y, z), f(x, y + e, z) - f(x, y - e, z), f(x, y, z + e) - f(x, y, z - e)]
+  const aoK = pose.ao ?? 1
+  for (let v = 0; v < n; v++) {
+    let x = src.getX(v)
+    let y = src.getY(v)
+    let z = src.getZ(v)
+    for (let it = 0; it < 8; it++) {
+      const d = f(x, y, z)
+      if (Math.abs(d) < 1e-5) break
+      const g = grad(x, y, z)
+      const gl = Math.hypot(g[0], g[1], g[2]) || 1
+      const step = Math.max(-0.012, Math.min(0.012, d))
+      x -= (g[0] / gl) * step
+      y -= (g[1] / gl) * step
+      z -= (g[2] / gl) * step
+    }
+    const g = grad(x, y, z)
+    const gl = Math.hypot(g[0], g[1], g[2]) || 1
+    const nx = g[0] / gl
+    const ny = g[1] / gl
+    const nz = g[2] / gl
+    pos.set([x, y, z], v * 3)
+    nor.set([nx, ny, nz], v * 3)
+    const ao = occlusion(f, x, y, z, nx, ny, nz, aoK)
+    const c = colourAt(pose, x, y, z)
+    colr.set([c[0] * ao, c[1] * ao, c[2] * ao], v * 3)
+  }
+  return { position: new THREE.BufferAttribute(pos, 3), normal: new THREE.BufferAttribute(nor, 3), color: new THREE.BufferAttribute(colr, 3) }
+}
+
+/** Gives a rest mesh its gestures, in order: mesh.morphTargetInfluences[i] then mixes gesture i in. */
+export function withGestures(rest: THREE.BufferGeometry, poses: Model[]) {
+  const t = poses.map((p) => morphTarget(rest, p))
+  rest.morphAttributes.position = t.map((x) => x.position)
+  rest.morphAttributes.normal = t.map((x) => x.normal)
+  rest.morphAttributes.color = t.map((x) => x.color)
+  return rest
 }
 
 // ------------------------------------------------------------------------------------------------ a little noise
