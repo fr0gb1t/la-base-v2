@@ -11,10 +11,10 @@ export interface Echo {
   key: number;
 }
 
-export function SenaEcho({ echo }: { echo: Echo }) {
+export function SenaEcho({ echo, caught = false }: { echo: Echo; caught?: boolean }) {
   const motion = echo.sena === 'si' ? 'nod' : echo.sena === 'no' ? 'shake' : 'pop';
   return (
-    <div key={echo.key} className={`sena-echo ${motion}`} style={{ left: echo.x, top: echo.y }} aria-hidden>
+    <div key={echo.key} className={`sena-echo ${motion}${caught ? ' caught' : ''}`} style={{ left: echo.x, top: echo.y }} aria-hidden>
       <div className="sena-echo-face">
         <span className="rest"><SenaFace sena={null} size={104} /></span>
         <span className="made"><SenaFace sena={echo.sena} size={104} /></span>

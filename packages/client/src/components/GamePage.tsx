@@ -12,6 +12,7 @@ import { ToastContainer } from './ToastContainer';
 import { TableScene, type TablePlayer } from '../table3d/TableScene';
 import { Anotador, type AnotadorData, type AnotadorTeam } from './Anotador';
 import { SettingsButton, useViewSettings, openSettings } from '../settings/SettingsPanel';
+import { getViewSettings } from '../settings/viewSettings';
 import { SenaWheel, type WheelOpen } from './senas/SenaWheel';
 import { SenaEcho, type Echo } from './senas/SenaEcho';
 import { Rulebook } from './rulebook/Rulebook';
@@ -79,6 +80,9 @@ export function GamePage() {
   useEffect(() => onAudioState((st) => setSoundOn(st === 'running')), []);
   const [wheel, setWheel] = useState<WheelOpen | null>(null);
   const [echo, setEcho] = useState<Echo | null>(null);
+  const echoRef = useRef<Echo | null>(null);
+  echoRef.current = echo;
+  const [caughtKey, setCaughtKey] = useState<number | null>(null); // the echo a rival caught
   useEffect(() => {
     if (!echo) return;
     const t = window.setTimeout(() => setEcho(null), 2100);
@@ -358,6 +362,14 @@ export function GamePage() {
       );
     };
     socket.on('sena:made', onSena);
+    // a rival caught the seña you made: flash it red (if you turned that on); never says who
+    const onSeen = (d: { sena: Sena }) => {
+      if (!getViewSettings().senaSeenFlash) return;
+      const e = echoRef.current;
+      if (e && e.sena === d.sena) setCaughtKey(e.key);
+      logRef.current(`Un rival vio tu seña: ${gestureOf(d.sena)}`, 'sena');
+    };
+    socket.on('sena:seen', onSeen);
     const onTiebreak = (d: { rounds: number; bases: number }) => {
       setAnnounce({ title: 'Empate', sub: `${d.rounds} rondas de desempate de ${d.bases} bases`, mine: true, key: Date.now() });
       logRef.current(`Empate al final: se juegan ${d.rounds} rondas de desempate de ${d.bases} bases`, 'round');
@@ -387,6 +399,7 @@ export function GamePage() {
       socket.off('game:gateReleased', onGateReleased);
       socket.off('game:bidDeclared', onBid);
       socket.off('sena:made', onSena);
+      socket.off('sena:seen', onSeen);
       socket.off('game:tiebreak', onTiebreak);
       socket.off('sena:asked', onAsked);
       socket.off('game:roundScored', onRoundScored);
@@ -726,7 +739,7 @@ export function GamePage() {
   return (
     <div className="table-page" onPointerDown={onMiddleDown} onMouseDown={onMiddleDown}>
       {view.reticle && <div className={`reticle${aimFace ? ' on-face' : ''}`} aria-hidden />}
-      {echo && <SenaEcho echo={echo} />}
+      {echo && <SenaEcho echo={echo} caught={caughtKey === echo.key} />}
       {wheel && inGame && <SenaWheel open={wheel} onPick={makeSena} onAsk={askSenas} onClose={closeWheel} />}
       <div ref={mountRef} className="table-canvas" />
 

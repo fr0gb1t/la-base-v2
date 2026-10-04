@@ -36,7 +36,11 @@ function clearClock(roomCode: string) {
 
 export function setupSocketHandlers(io: SocketIOServer) {
   // señas go only to the players who can see them (see senaDelivery.ts)
-  const senaDelivery = new SenaDelivery((socketId, payload) => io.to(socketId).emit('sena:made', payload));
+  const senaDelivery = new SenaDelivery(
+    (socketId, payload) => io.to(socketId).emit('sena:made', payload),
+    undefined,
+    (signerSocketId, info) => io.to(signerSocketId).emit('sena:seen', info), // a rival caught your seña
+  );
   io.on('connection', (socket: Socket) => {
     socket.onAny((_event: string, payload: unknown) => {
       const code = (payload as { roomCode?: unknown } | null)?.roomCode;
