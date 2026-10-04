@@ -92,7 +92,10 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false, av
 
   // the hands, cut at the wrist: the right one open, resting on the felt and playing; the left one closed round the fan
   const style = handStyleOf(avatarSpec)
-  const arms = ([-1, 1] as const).map((sx) => ({ sx, glove: makeHand(style, sx > 0 ? 'rest' : 'hold', sx, hex(cuff), asHand).group }))
+  const arms = ([-1, 1] as const).map((sx) => {
+    const h = makeHand(style, sx > 0 ? 'rest' : 'hold', sx, hex(cuff), asHand, seat * 1.9)
+    return { sx, glove: h.group, hand: h }
+  })
   arms.forEach((r) => root.add(r.glove))
 
   // Everyone sits the same way, and that is what the others see of you too: the fan (backs out,
@@ -148,6 +151,9 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false, av
       const { elbow, wrist } = solveElbow(s, target, pole) // the arm is not drawn: it only aims the hand
       r.glove.position.copy(wrist)
       r.glove.lookAt(root.localToWorld(wrist.clone().add(wrist.clone().sub(elbow))))
+      // waiting, a hand breathes and drums; while it plays (the table moves its wrist) it keeps still
+      if (wristWorld) r.hand.idle(0)
+      else r.hand.idle(performance.now() / 1000)
     }
   }
   return { root, seat, hand, setHandCount, head, sena, pose }

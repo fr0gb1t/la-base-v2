@@ -6,6 +6,12 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Manos con puño y en movimiento:** la mano ya no termina en un muñón redondo con un aro (se veía cortada):
+  sale de un puño de guante abierto, acampanado hacia atrás, del color del equipo oscurecido y negro por dentro
+  (`makeHand` en `table3d/faces/index.ts`). Y se mueven solas mientras esperan, en stop-motion
+  (`handIdle`): respiran, se balancean, y la mano abierta tamborilea dos veces sobre el paño cada tanto; la que
+  sostiene el abanico apenas se inclina. En la mesa, una mano que está jugando queda quieta. Igual en la vista
+  previa de Ajustes.
 - **Caras flotantes, sin cuerpo (como en Buckshot Roulette):** en la mesa ya no hay capucha, abrigo ni brazos:
   una cara flota donde iría la cabeza y dos manos esculpidas flotan donde irían las muñecas (los brazos se
   siguen resolviendo con IK, sin dibujarse, solo para orientar cada mano; el puño lleva el color del equipo).

@@ -47,7 +47,7 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
       mask = makeFace(a, 3);
       holder.add(mask.head);
       hands = ([-1, 1] as const).map((sx) => {
-        const h = makeHand(handStyleOf(a), sx > 0 ? 'rest' : 'hold', sx, hex(PALETTE.teal));
+        const h = makeHand(handStyleOf(a), sx > 0 ? 'rest' : 'hold', sx, hex(PALETTE.teal), undefined, sx > 0 ? 0 : 1.3);
         h.group.position.set(-sx * 0.17, -0.36, -0.08); // the face looks down −z, so its right is on our left
         h.group.rotation.set(-0.5, Math.PI + sx * 0.35, 0); // fingers toward you, the backs of the hands up
         scene.add(h.group);
@@ -71,6 +71,8 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
       const h = el.clientHeight || 440;
       renderer.setSize(w, h);
       camera.aspect = w / h;
+      // a tall, narrow stage (a phone's whole screen) steps back so the hands stay in
+      camera.position.z = -1.9 * Math.max(1, 0.85 / camera.aspect);
       camera.updateProjectionMatrix();
     };
     resize();
@@ -112,7 +114,7 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
       holder.position.y = Math.sin(ts * 1.3) * 0.006; // it floats
       mask.sena(face, amount);
       mask.tick(t); // (it blinks by itself)
-      hands.forEach((h, i) => (h.group.position.y = -0.36 + Math.sin(ts * 1.1 + i * 2) * 0.004));
+      hands.forEach((h) => h.idle(still ? 0 : t)); // they breathe, sway, and the open one drums now and then
       lamp.position.set(Math.sin(t * 0.3) * 0.06, 1.7, -0.35); // overhead, a little in front: a spotlight from the ceiling
       renderer.render(scene, camera);
       raf = requestAnimationFrame(frame);
