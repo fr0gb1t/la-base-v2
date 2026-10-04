@@ -11,6 +11,9 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   mesita a la derecha, donde la ven las cámaras de todas las pantallas. «Bordes suaves» (anti-aliasing)
   ahora también los afecta: van en su propia capa (`PROPS_LAYER`) como los de la partida. Se montan en
   `App.tsx`, no en el Lobby.
+  En la sala y la configuración (donde hay gente sentada) la mesita se desliza al hueco más ancho entre
+  dos jugadores, bien atrás de las sillas, para que ningún personaje la atraviese (`tvSpot` en `MenuScene.ts`);
+  que un jugador la tape a medias no importa.
 - **Novedades completas desde el 30/9:** la lista para jugadores (`client/src/changelog/entries.ts`) ahora
   cubre todo lo de este registro, agrupado por día real de cada commit (30/9, 2/10, 3/10, 4/10), en
   lenguaje de jugador. Un test cuida ids únicos y orden por fecha.

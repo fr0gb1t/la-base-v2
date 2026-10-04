@@ -3,7 +3,7 @@ import { KamikazeDial } from './kamikazeDial'
 import { attachAudio, uiSound } from '../table3d/audio'
 import * as THREE from 'three'
 import { buildLamp, buildRoom } from '../table3d/table'
-import { TABLE_Y, TABLE_R, CARD_H, CARD_W, seatAngle, polar } from '../table3d/seats'
+import { TABLE_Y, TABLE_R, CHAIR_R, CARD_H, CARD_W, seatAngle, polar } from '../table3d/seats'
 import { NameTag, TAG_Y, TAG_R_OFFSET } from '../table3d/nameTags'
 import { getViewSettings, onViewSettings } from '../settings/viewSettings'
 import { makeAvatar, type Avatar } from '../table3d/avatar'
@@ -28,6 +28,7 @@ import { buildSideTable, SIDE_TABLE_H } from './sideTable'
 export const TV_TABLE = { x: 1.3, z: -0.85, yaw: -0.52 }
 // the sets are small: just enough to find and read at a glance
 const SIDE_TV_SCALE = 0.55
+const TV_TABLE_R = CHAIR_R + 0.65 // where it stands in the room: well behind the chairs
 const TV_GAP = 0.125 // half the distance between the two sets
 
 export type Station = 'entrada' | 'lobby' | 'crear' | 'unirse' | 'reglas' | 'sala' | 'config'
@@ -565,8 +566,43 @@ export class MenuScene {
       })
     })
 
+    this.placeTvTable(dt)
     this.syncPropLayers(time)
     this.post.render(this.scene, this.camera, time, getViewSettings().smoothProps, (on) => this.propsColor(on))
+  }
+
+  /**
+   * Where the television table stands. Off to the right of the felt in every screen but the room and
+   * the config, where people sit around the table: there it slides into the widest gap between two of
+   * them (on the back-right side the camera sees best), so it never overlaps a character.
+   */
+  private tvSpot(): { x: number; z: number } {
+    const home = { x: TV_TABLE.x, z: TV_TABLE.z }
+    if (this.station !== 'sala' && this.station !== 'config') return home
+    const wrap = (a: number) => Math.abs(((a + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
+    const seats = Array.from({ length: this.seats }, (_, i) => seatAngle(i, this.seats))
+    const want = (-62 * Math.PI) / 180 // toward the back, a little to the right
+    let best = home
+    let bestScore = -Infinity
+    for (let deg = -85; deg <= -10; deg += 2.5) {
+      const a = (deg * Math.PI) / 180
+      const sep = Math.min(...seats.map((s) => wrap(a - s))) // how far from the nearest person
+      const score = Math.min(sep, 0.45) * 10 - Math.abs(a - want) // roomy enough counts the same; then the nicest corner
+      if (score > bestScore) {
+        bestScore = score
+        best = { x: Math.cos(a) * TV_TABLE_R, z: Math.sin(a) * TV_TABLE_R }
+      }
+    }
+    return best
+  }
+
+  private placeTvTable(dt: number) {
+    const to = this.tvSpot()
+    const k = reduced() ? 1 : 1 - Math.exp(-Math.min(dt, 0.1) * 4)
+    const t = this.tvTable
+    t.position.x += (to.x - t.position.x) * k
+    t.position.z += (to.z - t.position.z) * k
+    t.rotation.y = Math.atan2(-t.position.x, this.camera.position.z - t.position.z) // always facing the camera
   }
 
   // ---- the televisions drawn smooth: their own layer, lit by the same lights (as the game table's props)
