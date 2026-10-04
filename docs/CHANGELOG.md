@@ -6,22 +6,25 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
-- **Avatares (las caras de las máscaras):** cada máscara se arma con 3 partes al azar —ojos, boca y cejas, 5
-  tipos de cada una— y un color de ojos (6), dentro de la gama apagada del juego (un test rechaza cualquier
-  color saturado, sin neón). **Sin pelo**: todas llevan la misma capucha negra (una capucha de impermeable ceñida: un cascarón hueco, sin cabeza adentro, solo oscuridad;
-  tiene el volumen de una cabeza entera (de atrás y de arriba es una capucha completa, no un
-  casquete recortado) y la abertura al frente es ancha, con una costura finísima en lugar de borde, para que
-  los rivales vistos de costado no pierdan la cara; es del negro del traje y sin brillo, para fundirse con el ambiente; la máscara **flota**
-  adentro, a un pelo de la tela, con un vaivén lento en stop-motion (`float(t)` de `makeMask`, que llaman
-  `pose()` y el escenario de Ajustes); una punta atrás y la tela baja por el cuello hasta el saco;
-  `hoodShell` en `table3d/avatar.ts`) y solo la cara las distingue. El contrato vive en `shared/avatar.ts` (`AvatarSpec`,
-  `randomAvatar`, `sanitizeAvatar`); el servidor lo valida al crear o entrar a una sala (una cara inventada se
-  reemplaza, nunca se reenvía), les da una al azar a los bots y lo manda en la lista de jugadores. En el cliente
-  `makeMask(avatar)` arma la cara en `table3d/avatar.ts` (las señas siguen funcionando con cualquier
-  combinación). Ajustes → Avatar (`settings/AvatarPicker` y `AvatarStage`): ‹ › por parte, colores, «Al azar», y
-  la máscara en movimiento a un costado —parpadea, mira alrededor y hace señas al azar, en stop-motion como en
-  la mesa (`table3d/senaPlay.ts` es la curva compartida)—; el escenario cambia al del dorso al tocar «Cartas».
-  Se guarda por navegador (`laBase.avatar`) y se genera una vez al azar la primera vez.
+- **Caras flotantes, sin cuerpo (como en Buckshot Roulette):** en la mesa ya no hay capucha, abrigo ni brazos:
+  una cara flota donde iría la cabeza y dos manos esculpidas flotan donde irían las muñecas (los brazos se
+  siguen resolviendo con IK, sin dibujarse, solo para orientar cada mano; el puño lleva el color del equipo).
+  El avatar es ahora **una cara elegida entre 36** (`shared/avatar.ts`: `AvatarSpec = { face }`, `FACES`,
+  `faceKind`; una cara vieja de ojos/boca/cejas se rechaza y se sortea una nueva):
+  - **30 máscaras de LEDs** (`table3d/faces/ledMask.ts`): la forma copiada de las máscaras LED reales
+    (escudo curvo como un visor, borde negro grueso, solapas para la tira) con una matriz de 32 × 40 LEDs en un
+    `ShaderMaterial` (un punto por celda que se funde con su color promedio cuando la máscara queda lejos, para
+    que no haga moiré); cada cara se dibuja por cuadro en `faces/ledFaces.ts` a partir del estado de la seña,
+    y 12 están basadas en las caras que traen las máscaras en su app (Shining Mask).
+  - **6 cabezas esculpidas** (`faces/heads.ts`, `faces/headMask.ts`): caballo, gallo, carnero, diablo,
+    ventrílocuo y santo, modeladas con campos de distancia (`faces/sculpt.ts`) en un worker
+    (`faces/sculptWorker.ts`, caché por página en `faces/sculpted.ts`). Las señas mueven piezas: cejas,
+    párpados sobre ojos brillantes, labios y dientes, el pico del gallo en dos mitades, y gestos esculpidos de
+    la boca del diablo (blend shapes: la malla en reposo llevada sobre cada gesto; los colores van en RGBA
+    porque three r186 no compila la mezcla de colores con RGB).
+  Ajustes → Avatar (`settings/AvatarPicker`, `AvatarStage`): ‹ ›, las 36 por nombre en dos grupos y «Al azar»;
+  la cara elegida flota a un costado con sus manos y hace señas al azar. Se guarda por navegador
+  (`laBase.avatar`); el servidor valida la cara al crear o entrar a una sala y les sortea una a los bots.
 - **Novedades al día:** entrada nueva «Ajustes de fábrica renovados» (valores por defecto y carta Brújula), el
   aviso de seña vista aclara que viene encendido en PC, y la de televisores menciona la mesita que esquiva las
   sillas.

@@ -1,17 +1,16 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { SENAS, isHeadSena, type AvatarSpec, type Sena } from '@la-base/shared';
-import { makeMask } from '../table3d/avatar';
+import { makeFace, makeHand, handStyleOf, type FaceRig } from '../table3d/faces';
 import { NOD_HZ, PUPPET_FPS, SENA_HOLD, senaAmount } from '../table3d/senaPlay';
 import { PALETTE, hex } from '../table3d/look';
 
-// Your mask in a pool of lamplight beside the settings ledger, alive the way it is at the table: it breathes
-// and looks around a little, blinks, and now and then makes a seña (a random one) — stop-motion, like a
-// puppet. Changing a part or a colour in the ledger swaps the face on the spot.
+// Your face in a pool of lamplight beside the settings ledger, alive the way it is at the table: it floats and
+// looks around a little, blinks, and now and then makes a seña (a random one) — stop-motion, like a puppet. Your
+// two hands float under it. Picking another face in the ledger swaps it on the spot.
 
 const GAP_MIN = 1.1; // s of rest between señas
 const GAP_MAX = 2.6;
-const BLINK_EVERY = 3.2;
 
 export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
   const host = useRef<HTMLDivElement>(null);
@@ -32,32 +31,38 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(22, 1, 0.1, 10);
-    camera.position.set(0, 0.0, -2.05); // the mask faces −z: look at it from there (far enough for the whole hood)
-    camera.lookAt(0, -0.03, 0);
-
-    // the bust: a coat under the head, so the mask is not floating
-    const coatMat = new THREE.MeshStandardMaterial({ color: hex(PALETTE.soot), roughness: 1 });
-    const coat = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.34, 0.4, 18), coatMat);
-    coat.position.set(0, -0.42, 0.0);
-    coat.scale.z = 0.75;
-    scene.add(coat);
+    camera.position.set(0, 0.0, -1.9); // the face looks down −z: look at it from there, the hands in view below it
+    camera.lookAt(0, -0.12, 0);
     scene.add(new THREE.AmbientLight(0xffeedd, 0.55));
     const lamp = new THREE.SpotLight(0xffe2c0, 9, 10, 0.55, 0.6, 1.5);
     lamp.target.position.set(0, 0, 0);
     scene.add(lamp, lamp.target);
 
-    let mask = makeMask(avatar);
-    scene.add(mask.head);
-    const swap = (a: AvatarSpec) => {
-      scene.remove(mask.head);
-      mask.head.traverse((o) => {
-        if (o instanceof THREE.Mesh) {
-          o.geometry.dispose();
-          for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.dispose();
-        }
+    // the face, and two hands floating under it (the right one open, the left one closed as round the fan)
+    const holder = new THREE.Group();
+    scene.add(holder);
+    let mask: FaceRig;
+    let hands: ReturnType<typeof makeHand>[] = [];
+    const build = (a: AvatarSpec) => {
+      mask = makeFace(a, 3);
+      holder.add(mask.head);
+      hands = ([-1, 1] as const).map((sx) => {
+        const h = makeHand(handStyleOf(a), sx > 0 ? 'rest' : 'hold', sx, hex(PALETTE.teal));
+        h.group.position.set(-sx * 0.17, -0.36, -0.08); // the face looks down −z, so its right is on our left
+        h.group.rotation.set(-0.5, Math.PI + sx * 0.35, 0); // fingers toward you, the backs of the hands up
+        scene.add(h.group);
+        return h;
       });
-      mask = makeMask(a);
-      scene.add(mask.head);
+    };
+    build(avatar);
+    const swap = (a: AvatarSpec) => {
+      holder.remove(mask.head);
+      mask.dispose();
+      for (const h of hands) {
+        scene.remove(h.group);
+        h.dispose();
+      }
+      build(a);
     };
     live.current = { swap };
 
@@ -103,14 +108,11 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
           yaw *= 0.25; // it looks to you while it signs
         }
       }
-      // a blink every so often (the 'nada' seña closes the eyes, so use the same lids)
-      if (!face && !still && ts % BLINK_EVERY < 0.2) {
-        face = 'nada';
-        amount = Math.sin(((ts % BLINK_EVERY) / 0.2) * Math.PI);
-      }
-      mask.head.rotation.set(pitch, yaw, 0, 'YXZ'); // (a mask faces −z: the camera looks at it from there)
+      holder.rotation.set(pitch, yaw, 0, 'YXZ'); // (a face looks down −z: the camera looks at it from there)
+      holder.position.y = Math.sin(ts * 1.3) * 0.006; // it floats
       mask.sena(face, amount);
-      mask.float(t);
+      mask.tick(t); // (it blinks by itself)
+      hands.forEach((h, i) => (h.group.position.y = -0.36 + Math.sin(ts * 1.1 + i * 2) * 0.004));
       lamp.position.set(Math.sin(t * 0.5) * 0.9, 0.95, -1.1 + Math.cos(t * 0.4) * 0.3);
       renderer.render(scene, camera);
       raf = requestAnimationFrame(frame);
@@ -123,8 +125,8 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
       live.current = null;
       cancelAnimationFrame(raf);
       obs.disconnect();
-      coat.geometry.dispose();
-      coatMat.dispose();
+      mask.dispose();
+      hands.forEach((h) => h.dispose());
       renderer.dispose();
       renderer.domElement.remove();
     };

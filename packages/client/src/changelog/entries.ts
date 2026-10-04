@@ -7,11 +7,12 @@ export const NOVEDADES: Novedad[] = [
   {
     id: '2026-10-04-avatares',
     date: '2026-10-04',
-    title: 'Tu avatar',
+    title: 'Caras flotantes',
     items: [
-      'Cada máscara tiene su propia cara, armada con ojos, boca y cejas (5 tipos de cada uno) y un color de ojos. Todas llevan la misma capucha negra: lo único que las distingue es la cara.',
-      'Empezás con una cara al azar. En Ajustes → Avatar la cambiás como quieras y la ves moverse y hacer señas, igual que en la mesa.',
-      'Los demás jugadores ven tu cara en la mesa y en la sala. Los bots también se sientan con una cara distinta.',
+      'En la mesa ya nadie tiene cuerpo: una cara flota sobre la mesa y dos manos juegan las cartas.',
+      'Hay 36 caras para elegir: 30 máscaras de LEDs (payaso, calavera, muñeca, kitsune, oni, ópera china, calabaza, la Llorona, rey de espadas y muchas más) y 6 cabezas esculpidas (caballo, gallo, carnero, diablo, ventrílocuo y santo), cada una con sus manos.',
+      'Todas hacen las once señas: las máscaras las dibujan con luz; las cabezas mueven cejas, párpados, labios o pico.',
+      'Empezás con una cara al azar. En Ajustes → Avatar elegís otra y la ves moverse y hacer señas, igual que en la mesa. Los demás jugadores y los bots también se sientan con la suya.',
     ],
   },
   {

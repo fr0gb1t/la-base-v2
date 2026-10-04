@@ -1,44 +1,53 @@
 /**
- * A player's avatar: the face of their mask, put together from three parts (eyes, mouth, brows), five
- * kinds of each, and a colour for the eyes. There is no hair: everybody wears the same hood, the face
- * is all that tells them apart. Players pick it in the
- * settings and it travels with them to the table; the server only checks it is well formed (a made-up
- * number never reaches another player's screen). The drawing, and the colour palette (always inside the
- * game's muted range: no neon), live in the client.
+ * A player's avatar: the face they sit at the table with. Nobody has a body: a face floats over the table and two
+ * hands play the cards, as in Buckshot Roulette. The face is one of two kinds:
+ *  · an LED mask (a black visor-shaped mask whose face is a matrix of LEDs, drawn in light);
+ *  · a sculpted head (a whole head, worked like clay: a horse, a rooster, a ram, a devil, a dummy, a saint).
+ * Players pick it in the settings and it travels with them to the table; the server only checks it is one of
+ * these (a made-up id never reaches another player's screen). The drawing lives in the client.
  */
-export const AVATAR_KINDS = 5; // kinds of eyes, mouths and brows
-export const EYE_COLORS = 6; // colours to pick for the eyes
+export const LED_FACES = [
+  'payaso', 'calavera', 'muneca', 'cosido', 'demonio', 'vacio',
+  'kitsune', 'oni', 'grito', 'arquero', 'purga', 'glitch',
+  'ciclope', 'llorona', 'gato', 'lobo', 'rey', 'polilla',
+  'opera', 'calabaza', 'sonrisa', 'zombi', 'arlequin', 'llamas',
+  'calavera-rosa', 'espiral', 'goteo', 'payaso-triste', 'zorro', 'calavera-llamas',
+] as const;
+export const HEAD_FACES = ['caballo', 'gallo', 'carnero', 'diablo', 'ventrilocuo', 'santo'] as const;
+
+export type LedFace = (typeof LED_FACES)[number];
+export type HeadFace = (typeof HEAD_FACES)[number];
+/** `led:<name>` or `cabeza:<name>`. */
+export type FaceId = `led:${LedFace}` | `cabeza:${HeadFace}`;
+
+export const FACES: readonly FaceId[] = [...LED_FACES.map((f) => `led:${f}` as const), ...HEAD_FACES.map((f) => `cabeza:${f}` as const)];
 
 export interface AvatarSpec {
-  eyes: number; // 0..4
-  mouth: number; // 0..4
-  brows: number; // 0..4
-  eyeColor: number; // 0..5
+  face: FaceId;
 }
 
-export const AVATAR_PARTS = ['eyes', 'mouth', 'brows'] as const;
-export type AvatarPart = (typeof AVATAR_PARTS)[number];
-
-const inRange = (v: unknown, n: number): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < n;
+export const isFace = (v: unknown): v is FaceId => typeof v === 'string' && (FACES as readonly string[]).includes(v);
 
 /** The avatar if it is well formed, `null` otherwise (use it on anything that came over the network or from storage). */
 export function sanitizeAvatar(v: unknown): AvatarSpec | null {
   if (!v || typeof v !== 'object') return null;
-  const a = v as Record<string, unknown>;
-  if (!inRange(a.eyes, AVATAR_KINDS) || !inRange(a.mouth, AVATAR_KINDS) || !inRange(a.brows, AVATAR_KINDS)) return null;
-  if (!inRange(a.eyeColor, EYE_COLORS)) return null;
-  // (an avatar saved or sent with the old hair fields is still good: only the known ones are kept)
-  return { eyes: a.eyes, mouth: a.mouth, brows: a.brows, eyeColor: a.eyeColor };
+  const face = (v as Record<string, unknown>).face;
+  // (an avatar from before, made of eyes, mouth and brows, has no face: it is refused and a new one is drawn)
+  return isFace(face) ? { face } : null;
 }
 
-/** A random face: every part and the eye colour drawn independently. `rng` returns [0, 1) (Math.random by default). */
+/** A random face. `rng` returns [0, 1) (Math.random by default). */
 export function randomAvatar(rng: () => number = Math.random): AvatarSpec {
-  const pick = (n: number) => Math.min(n - 1, Math.floor(rng() * n));
-  return { eyes: pick(AVATAR_KINDS), mouth: pick(AVATAR_KINDS), brows: pick(AVATAR_KINDS), eyeColor: pick(EYE_COLORS) };
+  return { face: FACES[Math.min(FACES.length - 1, Math.floor(rng() * FACES.length))] };
 }
 
 /** Well formed as given, or a fresh random one. */
 export const avatarOrRandom = (v: unknown, rng?: () => number): AvatarSpec => sanitizeAvatar(v) ?? randomAvatar(rng);
 
-export const sameAvatar = (a: AvatarSpec, b: AvatarSpec) =>
-  a.eyes === b.eyes && a.mouth === b.mouth && a.brows === b.brows && a.eyeColor === b.eyeColor;
+export const sameAvatar = (a: AvatarSpec, b: AvatarSpec) => a.face === b.face;
+
+/** Which kind of face it is, and its name within the kind. */
+export function faceKind(id: FaceId): { kind: 'led'; name: LedFace } | { kind: 'cabeza'; name: HeadFace } {
+  const [kind, name] = id.split(':') as ['led' | 'cabeza', string];
+  return kind === 'led' ? { kind, name: name as LedFace } : { kind, name: name as HeadFace };
+}

@@ -1,32 +1,33 @@
-import { AVATAR_KINDS, AVATAR_PARTS, type AvatarPart, type AvatarSpec } from '@la-base/shared';
+import { FACES, type AvatarSpec, type FaceId } from '@la-base/shared';
 import { GiPerspectiveDiceSixFacesRandom } from 'react-icons/gi';
-import { EYE_COLOR_LOOK, PART_LABELS } from '../table3d/avatarLook';
+import { FACE_INFO, HEAD_LIST, LED_LIST, type FaceInfo } from '../table3d/faces/catalog';
 import { rerollAvatar, setAvatar } from './avatarSettings';
 import { uiSound } from '../table3d/audio';
 
-// The pickers for your avatar: a kind for each part (‹ ›) and a colour for the eyes and the hair. The mask on
-// the stage beside the ledger changes as you pick.
+// Your face at the table: one of the thirty LED masks or one of the six sculpted heads. ‹ › walk through all of
+// them; the lists below jump straight to one. The face on the stage beside the ledger changes as you pick, and
+// makes the señas the way it will make them at the table.
 
-function Colors({ label, value, colors, onPick }: { label: string; value: number; colors: ReadonlyArray<{ name: string; hex: string }>; onPick: (i: number) => void }) {
+function Group({ title, list, current }: { title: string; list: FaceInfo[]; current: FaceId }) {
   return (
-    <div className="avatar-colors" role="radiogroup" aria-label={label}>
-      <span className="avatar-part-title">{label} <small>{colors[value].name}</small></span>
-      <div className="avatar-swatches">
-        {colors.map((c, i) => (
+    <div className="avatar-faces" role="radiogroup" aria-label={title}>
+      <span className="avatar-part-title">{title}</span>
+      <div className="avatar-face-list">
+        {list.map((f) => (
           <button
-            key={c.hex}
+            key={f.id}
             type="button"
             role="radio"
-            aria-checked={value === i}
-            aria-label={c.name}
-            title={c.name}
-            className={`avatar-swatch ${value === i ? 'on' : ''}`}
-            style={{ background: c.hex }}
+            aria-checked={current === f.id}
+            title={f.idea}
+            className={`avatar-face ${current === f.id ? 'on' : ''}`}
             onClick={() => {
               uiSound('chip');
-              onPick(i);
+              setAvatar({ face: f.id });
             }}
-          />
+          >
+            {f.name}
+          </button>
         ))}
       </div>
     </div>
@@ -34,22 +35,24 @@ function Colors({ label, value, colors, onPick }: { label: string; value: number
 }
 
 export function AvatarPicker({ avatar }: { avatar: AvatarSpec }) {
-  const step = (part: AvatarPart, by: 1 | -1) => {
+  const info = FACE_INFO[avatar.face];
+  const step = (by: 1 | -1) => {
     uiSound('chip');
-    setAvatar({ [part]: (avatar[part] + by + AVATAR_KINDS) % AVATAR_KINDS });
+    const i = FACES.indexOf(avatar.face);
+    setAvatar({ face: FACES[(i + by + FACES.length) % FACES.length] });
   };
   return (
     <div className="avatar-picker">
-      <p className="ledger-note avatar-note">Tu máscara en la mesa (la ven los demás). Empezás con una cara al azar: cambiala como quieras.</p>
-      {AVATAR_PARTS.map((part) => (
-        <div className="avatar-part" key={part}>
-          <span className="avatar-part-title">{PART_LABELS[part].title}</span>
-          <button type="button" className="avatar-step" aria-label={`${PART_LABELS[part].title}: anterior`} onClick={() => step(part, -1)}>‹</button>
-          <span className="avatar-kind" aria-live="polite">{PART_LABELS[part].kinds[avatar[part]]}</span>
-          <button type="button" className="avatar-step" aria-label={`${PART_LABELS[part].title}: siguiente`} onClick={() => step(part, 1)}>›</button>
-        </div>
-      ))}
-      <Colors label="Color de ojos" value={avatar.eyeColor} colors={EYE_COLOR_LOOK} onPick={(i) => setAvatar({ eyeColor: i })} />
+      <p className="ledger-note avatar-note">Tu cara en la mesa (la ven los demás): una máscara de LEDs o una cabeza esculpida. Nadie tiene cuerpo: solo la cara y las manos.</p>
+      <div className="avatar-part">
+        <span className="avatar-part-title">Cara</span>
+        <button type="button" className="avatar-step" aria-label="Cara anterior" onClick={() => step(-1)}>‹</button>
+        <span className="avatar-kind" aria-live="polite">{info.name}</span>
+        <button type="button" className="avatar-step" aria-label="Cara siguiente" onClick={() => step(1)}>›</button>
+      </div>
+      <p className="ledger-note avatar-idea">{info.idea}</p>
+      <Group title="Máscaras de LEDs" list={LED_LIST} current={avatar.face} />
+      <Group title="Cabezas" list={HEAD_LIST} current={avatar.face} />
       <button
         type="button"
         className="avatar-dice"
