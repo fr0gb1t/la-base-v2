@@ -117,35 +117,35 @@ function arc(curve: number) {
 }
 
 /**
- * What makes the black sphere read as a hood: a rolled edge of cloth framing the mask, a little peak at the
- * back where the hood gathers, and a cowl over the neck down into the coat.
+ * The hood: an EMPTY shell of cloth, open at the front, with nothing inside it (no head: only the dark). The mask
+ * floats in that void, apart from the cloth. A rolled edge rims the opening, a peak trails off the back, and a cowl drops over the neck into the coat.
  */
-function hoodTrim() {
+const HOOD_R = 0.172
+const HOOD_Z = -0.155 // where the opening is (the mask sits behind it, inside)
+function hoodShell() {
   const g = new THREE.Group()
-  const cloth = new THREE.MeshStandardMaterial({ color: 0x231d1a, roughness: 1 }) // the same black, a touch lifted so the fold catches light
-  const shade = new THREE.MeshBasicMaterial({ color: 0x070504 }) // the dark inside the hood, where the mask sits
-  // the opening of the hood: a rolled edge that stands a little proud of the mask, so the mask sits inside it
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.131, 0.021, 12, 40), cloth)
-  rim.scale.set(0.97, 1.22, 1) // an oval, like the mask it frames
-  rim.position.set(0, 0.006, -0.082)
-  rim.rotation.y = Math.PI
-  // the hood overhangs the forehead: a heavier fold across the top of the opening
-  const brow = new THREE.Mesh(new THREE.TorusGeometry(0.131, 0.03, 12, 24, Math.PI), cloth)
-  brow.scale.set(0.97, 1.22, 1)
-  brow.position.set(0, 0.006, -0.08)
-  brow.rotation.set(0, Math.PI, 0)
-  // a thin dark ring just inside the edge: the shadow the hood throws on the mask (it reads as depth)
-  const inner = new THREE.Mesh(new THREE.TorusGeometry(0.119, 0.011, 8, 40), shade)
-  inner.scale.set(0.97, 1.2, 1)
-  inner.position.set(0, 0.006, -0.073)
-  inner.rotation.y = Math.PI
-  const peak = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.15, 12), cloth)
-  peak.position.set(0, 0.145, 0.15)
-  peak.rotation.x = -1.0 // a point trailing back and up
-  const cowl = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.185, 0.17, 18, 1, true), cloth)
-  cowl.position.set(0, -0.15, 0.03)
-  cowl.scale.z = 0.9
-  g.add(rim, brow, inner, peak, cowl)
+  const cloth = new THREE.MeshStandardMaterial({ color: 0x231d1a, roughness: 1 }) // the black of the suit, a touch lifted so the folds catch light
+  const outer = cloth // one cloth all over
+  const void_ = new THREE.MeshBasicMaterial({ color: 0x030202, side: THREE.BackSide }) // the inside: black, unlit, nothing in it
+  // a hemisphere with its opening toward the front (−z): a sphere turned so its pole faces front, with that cap cut away
+  const geo = new THREE.SphereGeometry(HOOD_R, 32, 22, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2)
+  geo.rotateX(-Math.PI / 2)
+  const shell = new THREE.Group()
+  shell.add(new THREE.Mesh(geo, outer), new THREE.Mesh(geo, void_))
+  shell.scale.set(1.04, 1.24, 1.12)
+  shell.position.z = HOOD_Z
+  g.add(shell)
+  // the opening: a rolled edge, and a heavier fold across the top
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(HOOD_R, 0.015, 12, 48), cloth)
+  rim.scale.set(1.04, 1.24, 1)
+  rim.position.z = HOOD_Z
+  const peak = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.17, 12), cloth)
+  peak.position.set(0, 0.2, 0.08)
+  peak.rotation.x = -0.95 // a point trailing back and up
+  const cowl = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.2, 0.2, 20, 1, true), cloth)
+  cowl.position.set(0, -0.32, 0.0) // below the opening: from the front nothing but the dark shows inside the hood
+  cowl.scale.z = 0.95
+  g.add(rim, peak, cowl)
   return g
 }
 
@@ -154,9 +154,7 @@ function hoodTrim() {
 // avatar's: eyes, mouth and brows, and the colour of the eyes.
 export function makeMask(avatar: AvatarSpec) {
   const head = new THREE.Group()
-  const hood = new THREE.Mesh(new THREE.SphereGeometry(0.158, 18, 14), mat(PALETTE.soot, 1))
-  hood.scale.set(1.03, 1.17, 1.0) // full, to wrap the whole head (its front stays behind the mask: it must not show through)
-  hood.position.z = 0.044
+  const mask = new THREE.Group() // the face, floating inside the hood
   const face = new THREE.Mesh(new THREE.SphereGeometry(0.125, 20, 14, 0, Math.PI * 2, 0, Math.PI / 2), mat(PALETTE.bone, 0.55))
   face.rotation.x = -Math.PI / 2
   face.scale.set(1, 0.55, 1.3)
@@ -185,7 +183,7 @@ export function makeMask(avatar: AvatarSpec) {
     const brow = new THREE.Mesh(new THREE.BoxGeometry(browLook.w, browLook.h, 0.012), browMat)
     brow.position.set(sx * 0.045, browLook.y, -0.132)
     brow.rotation.z = sx * browLook.tilt
-    head.add(hole, iris, pupil, lid, brow)
+    mask.add(hole, iris, pupil, lid, brow)
     return { lid, brow, sx }
   })
   // mouth: a shape scaled into a line (rest), an O (kiss), an open oval (fish)...
@@ -209,7 +207,8 @@ export function makeMask(avatar: AvatarSpec) {
   const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.035, 0.05), mat(PALETTE.bone, 0.55))
   jaw.position.set(0, -0.085, -0.1)
   jaw.visible = false // it poked out under the mouth at rest like a little tooth: only the 'porno' seña drops it
-  head.add(hood, face, mouth, lips, teeth, jaw, hoodTrim())
+  mask.add(face, mouth, lips, teeth, jaw)
+  head.add(hoodShell(), mask)
   head.traverse((o) => (o.castShadow = true))
 
   // Each seña is a pose of lids / brows / mouth / jaw, seen from the signer: "right" is the
@@ -264,7 +263,15 @@ export function makeMask(avatar: AvatarSpec) {
     if (s === 'nada') eyes.forEach((e) => (e.lid.scale.y = Math.max(0.01, k)))
   }
   sena(null, 0) // rest: lips, teeth and the jaw start hidden
-  return { head, sena }
+  // The mask hangs in the dark inside the hood: a slow bob and sway, in stop-motion like the rest of the puppet.
+  const phase = (avatar.eyes * 5 + avatar.mouth + avatar.brows * 3) * 0.9
+  function float(t: number) {
+    const ts = Math.floor(t * 15) / 15
+    mask.position.y = Math.sin(ts * 1.3 + phase) * 0.0045
+    mask.position.x = Math.sin(ts * 0.7 + phase * 1.7) * 0.003
+    mask.rotation.z = Math.sin(ts * 0.9 + phase) * 0.035
+  }
+  return { head, sena, float }
 }
 
 export interface Avatar {
@@ -302,7 +309,7 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false, fa
   coat.scale.z = 0.7
   coat.castShadow = true
   torso.add(coat)
-  const { head, sena } = makeMask(face)
+  const { head, sena, float } = makeMask(face)
   head.position.set(0, 1.3, -0.04)
   torso.add(head)
 
@@ -351,6 +358,7 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false, fa
     torso.position.z = -p.lean * LEAN_REACH
     torso.rotation.x = -p.lean * 0.32
     head.rotation.set(p.headPitch, p.headYaw, 0, 'YXZ')
+    float(performance.now() / 1000) // the mask hangs in its hood
     for (const r of arms) {
       const s = shoulderLocal(r.sx, p.lean)
       const wristWorld = r.sx > 0 ? p.rightWrist : p.leftWrist

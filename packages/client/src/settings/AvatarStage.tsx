@@ -32,13 +32,13 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(22, 1, 0.1, 10);
-    camera.position.set(0, 0.06, -1.55); // the mask faces −z: look at it from there
-    camera.lookAt(0, 0.02, 0);
+    camera.position.set(0, 0.0, -2.05); // the mask faces −z: look at it from there (far enough for the whole hood)
+    camera.lookAt(0, -0.03, 0);
 
     // the bust: a coat under the head, so the mask is not floating
     const coatMat = new THREE.MeshStandardMaterial({ color: hex(PALETTE.soot), roughness: 1 });
     const coat = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.34, 0.4, 18), coatMat);
-    coat.position.set(0, -0.36, 0.03);
+    coat.position.set(0, -0.42, 0.0);
     coat.scale.z = 0.75;
     scene.add(coat);
     scene.add(new THREE.AmbientLight(0xffeedd, 0.55));
@@ -110,6 +110,7 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
       }
       mask.head.rotation.set(pitch, yaw, 0, 'YXZ'); // (a mask faces −z: the camera looks at it from there)
       mask.sena(face, amount);
+      mask.float(t);
       lamp.position.set(Math.sin(t * 0.5) * 0.9, 0.95, -1.1 + Math.cos(t * 0.4) * 0.3);
       renderer.render(scene, camera);
       raf = requestAnimationFrame(frame);
