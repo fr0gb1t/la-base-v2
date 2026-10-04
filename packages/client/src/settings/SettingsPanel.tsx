@@ -6,6 +6,9 @@ import { previewSound, audioReady, uiSound } from '../table3d/audio';
 import { isTouch } from '../lib/device';
 import { SenaFace } from '../components/senas/SenaFace';
 import { BackStage } from './BackStage';
+import { AvatarStage } from './AvatarStage';
+import { AvatarPicker } from './AvatarPicker';
+import { useAvatar } from './avatarSettings';
 import { BACK_DESIGNS, backPicture, drawBackDesign, type BackDesign } from '../table3d/cardBacks';
 import type { DrawnBack } from '../table3d/backDesigns';
 
@@ -75,6 +78,9 @@ export function SettingsHost() {
     wasOpen.current = open;
   }, [open]);
   const view = useViewSettings();
+  const avatar = useAvatar();
+  // the stage beside the ledger shows whatever you are working on: your mask, or the back of your cards
+  const [stage, setStage] = useState<'avatar' | 'back'>('avatar');
 
   useEffect(() => {
     openers.add(setOpen);
@@ -102,7 +108,7 @@ export function SettingsHost() {
 
   return (
     <div className="settings-veil" onPointerDown={(e) => e.target === e.currentTarget && setOpen(false)}>
-      <BackStage />
+      {stage === 'avatar' ? <AvatarStage avatar={avatar} /> : <BackStage />}
       <section className="ledger settings" role="dialog" aria-modal="true" aria-label="Ajustes">
         <h2><GiCog aria-hidden /> Ajustes</h2>
 
@@ -164,7 +170,12 @@ export function SettingsHost() {
           {!audioReady() && <p className="ledger-note">El navegador habilita el sonido con tu primer click o tecla en la página.</p>}
         </fieldset>
 
-        <fieldset className="ledger-group">
+        <fieldset className="ledger-group" onPointerEnter={() => setStage('avatar')} onFocus={() => setStage('avatar')}>
+          <legend>Avatar</legend>
+          <AvatarPicker avatar={avatar} />
+        </fieldset>
+
+        <fieldset className="ledger-group" onPointerEnter={() => setStage('back')} onFocus={() => setStage('back')}>
           <legend>Cartas</legend>
           <div className="setting-backs" role="radiogroup" aria-label="Dorso de las cartas">
             <span className="setting-backs-title"><b>Dorso</b> <small>(lo ves solo vos) · {BACK_DESIGNS.find((d) => d.id === view.cardBack)?.label}</small></span>

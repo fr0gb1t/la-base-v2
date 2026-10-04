@@ -6,6 +6,31 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Caras flotantes, sin cuerpo (como en Buckshot Roulette):** en la mesa ya no hay capucha, abrigo ni brazos:
+  una cara flota donde iría la cabeza y dos manos esculpidas flotan donde irían las muñecas (los brazos se
+  siguen resolviendo con IK, sin dibujarse, solo para orientar cada mano; el puño lleva el color del equipo).
+  El avatar es ahora **una cara elegida entre 36** (`shared/avatar.ts`: `AvatarSpec = { face }`, `FACES`,
+  `faceKind`; una cara vieja de ojos/boca/cejas se rechaza y se sortea una nueva):
+  - **30 máscaras de LEDs** (`table3d/faces/ledMask.ts`): la forma copiada de las máscaras LED reales
+    (escudo curvo como un visor, borde negro grueso, solapas para la tira) con una matriz de 32 × 40 LEDs en un
+    `ShaderMaterial` (un punto por celda que se funde con su color promedio cuando la máscara queda lejos, para
+    que no haga moiré); cada cara se dibuja por cuadro en `faces/ledFaces.ts` a partir del estado de la seña,
+    y 12 están basadas en las caras que traen las máscaras en su app (Shining Mask).
+  - **6 cabezas esculpidas** (`faces/heads.ts`, `faces/headMask.ts`): caballo, gallo, carnero, diablo,
+    ventrílocuo y santo, modeladas con campos de distancia (`faces/sculpt.ts`) en un worker
+    (`faces/sculptWorker.ts`, caché por página en `faces/sculpted.ts`). Las señas mueven piezas: cejas,
+    párpados sobre ojos brillantes, labios y dientes, el pico del gallo en dos mitades, y gestos esculpidos de
+    la boca del diablo (blend shapes: la malla en reposo llevada sobre cada gesto; los colores van en RGBA
+    porque three r186 no compila la mezcla de colores con RGB).
+  La mesa ya no tiene sillas; las caras flotan un poco más grandes y más bajas que una cabeza sentada.
+  Ajustes → Avatar (`settings/AvatarPicker`, `AvatarStage`): una fila «Cara ‹ lista ›» (la lista agrupada en
+  máscaras y cabezas) y la descripción con «Al azar»; la cara elegida flota a un costado, bajo una luz cenital,
+  con sus manos, y hace señas al azar. Se guarda por navegador
+  (`laBase.avatar`); el servidor valida la cara al crear o entrar a una sala y les sortea una a los bots.
+- **Ases de la configuración con bordes suaves:** una franja negra los cruzaba por el medio. La pasada nítida
+  dibuja primero el resto de la escena solo en profundidad, con un material de reemplazo, y las huellas
+  invisibles que proyectan la sombra de lo que flota (sin color ni profundidad) se volvían opacas: la de cada
+  as lo cortaba. Ahora quedan afuera de esa pasada (`post.ts`).
 - **Señas de los rivales: alcanza con apuntar a su lugar, no a la cara exacta:** la zona de lectura ya no es
   un círculo de 14 cm sobre la cabeza sino el tramo desde la cabeza hasta el lugar del jugador en la mesa, a
   34 cm (`SEAT_AIM_RADIUS`, `aimAtSeat` y `seatUnderAim` en `shared/tableGeometry.ts`; una regla única para

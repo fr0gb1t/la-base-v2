@@ -102,7 +102,7 @@ export function RoomWaiting() {
   useEffect(() => {
     if (!scene) return;
     scene.setStation('sala');
-    scene.setPlayers(players.map((p) => ({ name: p.name, team: (p.team as 'nosotros' | 'ellos' | 'random') || 'random', isBot: p.isBot })), capacity);
+    scene.setPlayers(players.map((p) => ({ name: p.name, team: (p.team as 'nosotros' | 'ellos' | 'random') || 'random', isBot: p.isBot, avatar: p.avatar })), capacity);
   }, [scene, players, capacity]);
 
   const copyCode = async () => {

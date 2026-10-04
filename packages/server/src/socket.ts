@@ -7,7 +7,7 @@ import { roomManager } from './rooms.js';
 import { BOT_TOKEN, botNameFor, spawnBot } from './bots.js';
 import { SenaDelivery } from './senaDelivery.js';
 import type { RoomPlayer } from './rooms.js';
-import { BID_CLOCK_OPTIONS, CLOCK_AFTER_DEAL_MS, isPieBidRule, cardRank, clockLeft, dealAnimationMs, isSena, pressClock, startClock, type AssignedTeam, type GameState, type Card } from '@la-base/shared';
+import { BID_CLOCK_OPTIONS, avatarOrRandom, randomAvatar, sanitizeAvatar, CLOCK_AFTER_DEAL_MS, isPieBidRule, cardRank, clockLeft, dealAnimationMs, isSena, pressClock, startClock, type AssignedTeam, type GameState, type Card } from '@la-base/shared';
 import {
   createShuffledDeck,
   dealCards,
@@ -54,6 +54,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
       team: p.team,
       isConnected: p.isConnected,
       isBot: Boolean(p.isBot),
+      avatar: p.avatar,
       handCount: p.hand.length,
     }));
 
@@ -357,13 +358,14 @@ export function setupSocketHandlers(io: SocketIOServer) {
     /**
      * room:create - Create a new game room
      */
-    socket.on('room:create', (payload: { playerName: string; playerCount: number }, callback) => {
+    socket.on('room:create', (payload: { playerName: string; playerCount: number; avatar?: unknown }, callback) => {
       try {
         const playerId = socket.id; // Use socket ID as player ID
         const room = roomManager.createRoom(playerId, payload.playerName, payload.playerCount, 'clasica');
         const player = room.players[0];
         player.socketId = socket.id;
         player.isConnected = true;
+        player.avatar = avatarOrRandom(payload.avatar); // a made-up face never gets past here
 
         // Join socket to room
         socket.join(room.roomCode);
@@ -390,12 +392,14 @@ export function setupSocketHandlers(io: SocketIOServer) {
     /**
      * room:join - Join an existing room
      */
-    socket.on('room:join', (payload: { roomCode: string; playerName: string; isBot?: boolean }, callback) => {
+    socket.on('room:join', (payload: { roomCode: string; playerName: string; isBot?: boolean; avatar?: unknown }, callback) => {
       try {
         const playerId = socket.id;
         const player = roomManager.joinRoom(payload.roomCode, playerId, payload.playerName, socket.id);
         // only our own in-process bots (holding the startup secret) may flag themselves as bots
         if (player && payload.isBot && socket.handshake.auth?.botToken === BOT_TOKEN) player.isBot = true;
+        // everyone has a face: the one they sent if it is well formed, the one they already had, or a random one (bots)
+        if (player) player.avatar = sanitizeAvatar(payload.avatar) ?? player.avatar ?? randomAvatar();
 
         if (!player) {
           console.log(`[room:join] FAILED: Cannot join room ${payload.roomCode}`);

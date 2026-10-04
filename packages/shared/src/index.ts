@@ -21,3 +21,6 @@ export * from './tableGeometry.js';
 
 // Export the bidding clock
 export * from './bidClock.js';
+
+// Export the avatars (the faces of the masks)
+export * from './avatar.js';
