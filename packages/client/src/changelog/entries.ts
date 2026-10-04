@@ -5,6 +5,16 @@ import type { Novedad } from './novedades';
 export const NOVEDADES: Novedad[] = [
   // ------------------------------------------------------------------ 4 de octubre
   {
+    id: '2026-10-04-ajustes-defecto',
+    date: '2026-10-04',
+    title: 'Ajustes de fábrica renovados',
+    items: [
+      'En la computadora, quien empieza de cero tiene ahora: sonidos del juego sí y sonido ambiente no; sin guías en la mesa; mano sin volver sola en tu turno; vista sin volver a tu lugar; punto de mira sí; aviso de seña vista sí.',
+      'La carta por defecto es la Brújula, en computadora y en celular.',
+      'Si ya habías tocado tus ajustes, se respetan tal cual: nada cambia para vos.',
+    ],
+  },
+  {
     id: '2026-10-04-bordes-suaves',
     date: '2026-10-04',
     title: 'Bordes suaves, para todo',
@@ -31,6 +41,7 @@ export const NOVEDADES: Novedad[] = [
       'El de Novedades se pone ámbar y pulsa cuando hay algo que no viste. Al abrirlo se calma.',
       'Ajustes ya no tiene un botón suelto en la esquina: se abre desde el televisor, desde el de la sala o con la tecla O.',
       'Con «Bordes suaves» activado, estos televisores también se ven nítidos.',
+      'En la sala y al armar la mesa, la mesita se corre sola para no chocar con las sillas ni con los jugadores.',
     ],
   },
   {
@@ -41,7 +52,7 @@ export const NOVEDADES: Novedad[] = [
       'Los bots te miran, esperan unos segundos y recién ahí piden señas. Y solo las piden si tu respuesta puede cambiarles el pedido.',
       'Antes de pedir esperan a que termines de hacer señas, y te miran un instante cuando les llega una.',
       'Si les hacés «no», pueden explicarte con señas por qué pidieron lo que pidieron.',
-      'Nuevo ajuste, «Aviso de seña vista»: tu seña destella en rojo si un rival la capta. Viene apagado.',
+      'Nuevo ajuste, «Aviso de seña vista»: tu seña destella en rojo si un rival la capta. En la computadora viene encendido; en el celular, apagado.',
     ],
   },
   {

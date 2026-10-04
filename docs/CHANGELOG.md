@@ -6,6 +6,9 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Novedades al día:** entrada nueva «Ajustes de fábrica renovados» (valores por defecto y carta Brújula), el
+  aviso de seña vista aclara que viene encendido en PC, y la de televisores menciona la mesita que esquiva las
+  sillas.
 - **La mesita de los televisores ya no cruza las sillas en el trayecto:** al cambiar la cantidad de jugadores
   las sillas aparecen de golpe y la mesita se deslizaba en línea recta hasta su lugar nuevo, atravesando
   alguna (llegaba a 10 cm de una). Ahora cualquier silla que toque la empuja hacia afuera, con un empujón
