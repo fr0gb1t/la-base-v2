@@ -1,6 +1,6 @@
 // View settings: persisted per browser, observable.
 import { SENAS } from '@la-base/shared'
-import { isTouch } from '../lib/device'
+import { isLowEnd, isTouch } from '../lib/device'
 import { isBackDesign, type BackDesign } from '../table3d/backDesigns'
 
 export interface ViewSettings {
@@ -12,7 +12,8 @@ export interface ViewSettings {
   lookSensitivity: number // multiplier on how far the view turns per pixel dragged (0.25–3)
   fov: number // vertical field of view in degrees (FOV_MIN–FOV_MAX)
   cardBack: BackDesign // the design on the back of every card
-  smoothProps: boolean // the televisions, the notepad and the clock are drawn smooth (anti-aliased, full resolution)
+  smoothProps: boolean // cards, hands, buttons, televisions, notepad, clock... drawn smooth (anti-aliased, full resolution)
+  smoothChosen: boolean // the player picked smoothProps themselves; until then it follows the device (on, unless it is a modest one)
   gyro: boolean // phones: the phone's orientation turns the view (the finger can still drag it)
   handHeight: number // where the wheel left your fan (metres, camera space); 0 = resting
   senaSeenFlash: boolean // your seña flashes red on your screen when a rival catches it (off: you never know)
@@ -28,7 +29,7 @@ export const FOV_MIN = 50
 export const FOV_MAX = 80
 const KEY = 'laBase.view'
 // phones start with: hand not reset on your turn, no table guides, view returns to your seat (gyroscope and reticle on, camera not inverted)
-const DEFAULTS: ViewSettings = { cameraReturn: isTouch, reticle: true, invertLook: false, handResetOnTurn: !isTouch, guides: !isTouch, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja', handHeight: 0, senaOrder: '', senaSeenFlash: false, gyro: true, smoothProps: false }
+const DEFAULTS: ViewSettings = { cameraReturn: isTouch, reticle: true, invertLook: false, handResetOnTurn: !isTouch, guides: !isTouch, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja', handHeight: 0, senaOrder: '', senaSeenFlash: false, gyro: true, smoothProps: !isLowEnd, smoothChosen: false }
 
 function load(): ViewSettings {
   try {
@@ -37,6 +38,7 @@ function load(): ViewSettings {
     for (const k of Object.keys(DEFAULTS) as Array<keyof ViewSettings>) {
       if (typeof raw[k] === typeof DEFAULTS[k]) Object.assign(out, { [k]: raw[k] })
     }
+    if (!out.smoothChosen) out.smoothProps = DEFAULTS.smoothProps // never picked: follows the device
     out.lookSensitivity = Math.min(SENS_MAX, Math.max(SENS_MIN, Number(out.lookSensitivity) || 1))
     out.fov = Math.min(FOV_MAX, Math.max(FOV_MIN, Number(out.fov) || DEFAULTS.fov))
     if (out.fov === 66) out.fov = DEFAULTS.fov // the previous default: move it along

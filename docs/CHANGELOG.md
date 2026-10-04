@@ -6,6 +6,11 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **«Bordes suaves» viene encendido salvo en equipos modestos:** el valor automático es «sí» salvo en
+  pantallas táctiles, 4 núcleos o menos, 4 GB de memoria o menos (`deviceMemory`, solo Chromium), ahorro de
+  datos o WebGL por software (SwiftShader, llvmpipe…): `judgeLowEnd` / `isLowEnd` en `lib/device.ts`.
+  Quien lo eligió a mano (`smoothChosen`) conserva su elección; el resto sigue al dispositivo, incluso
+  quienes ya tenían ajustes guardados con el valor viejo.
 - **«Bordes suaves» ahora también para todas las cartas y botones (prueba):** además de los televisores,
   el anotador y el reloj, la capa suave (full resolución + MSAA 4x) cubre todas las cartas (mazo, mano,
   jugadas, pilas, las de los demás), las manos/guantes, los nombres, los carteles de decisión y, en los

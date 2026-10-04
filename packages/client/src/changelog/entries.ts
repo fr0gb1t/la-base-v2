@@ -5,6 +5,15 @@ import type { Novedad } from './novedades';
 export const NOVEDADES: Novedad[] = [
   // ------------------------------------------------------------------ 4 de octubre
   {
+    id: '2026-10-04-bordes-suaves',
+    date: '2026-10-04',
+    title: 'Bordes suaves, para todo',
+    items: [
+      'Las cartas, las manos, los nombres, los botones flotantes y los televisores se ven nítidos y sin escalones, en la partida y en los menús.',
+      'Viene encendido, salvo en celulares, tablets y equipos modestos, donde pesaría de más. Lo cambiás en Ajustes → Mesa.',
+    ],
+  },
+  {
     id: '2026-10-04-historial',
     date: '2026-10-04',
     title: 'Novedades con historial',
