@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupByDate, unseenCount, type Novedad } from './novedades';
+import { NOVEDADES, groupByDate, unseenCount, type Novedad } from './novedades';
 
 const entry = (id: string): Novedad => ({ id, date: '2026-10-04', title: id, items: ['x'] });
 const entries = [entry('c'), entry('b'), entry('a')]; // newest first
@@ -35,5 +35,21 @@ describe('groupByDate', () => {
 
   it('is empty with no entries', () => {
     expect(groupByDate([])).toEqual([]);
+  });
+});
+
+describe('the real entries', () => {
+  it('have unique ids and valid dates', () => {
+    expect(new Set(NOVEDADES.map((n) => n.id)).size).toBe(NOVEDADES.length);
+    for (const n of NOVEDADES) {
+      expect(n.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(n.items.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('are listed newest first, so the days come out in order', () => {
+    const dates = NOVEDADES.map((n) => n.date);
+    expect(dates).toEqual([...dates].sort().reverse());
+    expect(groupByDate(NOVEDADES).length).toBeGreaterThan(1);
   });
 });

@@ -1,14 +1,26 @@
 import type { Novedad } from './novedades';
 
-// Newest first. Write for players, not for us: what changed at the table, in a few short lines.
+// Newest first (by date, and within a day the latest goes on top). Write for players, not for us: what
+// changed at the table, in a few short lines. The technical history is docs/CHANGELOG.md.
 export const NOVEDADES: Novedad[] = [
+  // ------------------------------------------------------------------ 4 de octubre
+  {
+    id: '2026-10-04-historial',
+    date: '2026-10-04',
+    title: 'Novedades con historial',
+    items: [
+      'Ahora podés ir para atrás: «‹ Antes» y «Después ›» (o las flechas ← →) te llevan por las fechas anteriores.',
+      'La hoja siempre tiene el mismo tamaño; si hay más para leer, se desplaza.',
+    ],
+  },
   {
     id: '2026-10-04-televisores',
     date: '2026-10-04',
     title: 'Televisores en el inicio',
     items: [
-      'La pantalla de inicio tiene dos televisores sobre mesitas: Ajustes y Novedades.',
+      'La pantalla de inicio tiene dos televisores chicos sobre mesitas: Ajustes y Novedades.',
       'El de Novedades se pone ámbar y pulsa cuando hay algo que no viste. Al abrirlo se calma.',
+      'Ajustes ya no tiene un botón suelto en la esquina: se abre desde el televisor, desde el de la sala o con la tecla O.',
     ],
   },
   {
@@ -31,6 +43,8 @@ export const NOVEDADES: Novedad[] = [
       'Ya no se pierde la última carta jugada, y los empates los gana el primero leído.',
     ],
   },
+
+  // ------------------------------------------------------------------ 3 de octubre
   {
     id: '2026-10-03-mesa',
     date: '2026-10-03',
@@ -40,6 +54,161 @@ export const NOVEDADES: Novedad[] = [
       'Las cartas se reparten boca abajo y el reloj de pedidos arranca un segundo después.',
       'El Pie pide una base menos o una más que las de la ronda. La regla anterior quedó como «Pedido del Pie: Amplia».',
       'Nuevo ajuste, «Bordes suaves», para ver nítidos los televisores, el anotador y el reloj. Viene apagado.',
+      'Las cartas que quedan sobre la mesa se apilan en el orden en que se jugaron, desde cualquier ángulo, y tu mano siempre se ve por encima.',
+    ],
+  },
+  {
+    id: '2026-10-03-pedidos',
+    date: '2026-10-03',
+    title: 'Pedidos y señas',
+    items: [
+      'Cada pedido se anuncia como un cartel grande, con golpe de mesa y sonido propio: rojo si pide el rival, celeste si pide tu equipo.',
+      'Si al Pie le queda una sola opción legal, el pedido se declara solo.',
+      'La seña «no» ahora significa «por mí no pidas nada». Los bots la usan así.',
+      'Los bots ya no esperan señas ni golpean la mesa cuando no tienen nada que decidir.',
+    ],
+  },
+  {
+    id: '2026-10-03-celular',
+    date: '2026-10-03',
+    title: 'Celulares y tablets',
+    items: [
+      'Juego táctil con giroscopio: movés la vista inclinando el celular.',
+      'Un toque en cualquier lado es un clic donde apunta la mira. Doble toque: zoom.',
+      'El botón de señas está arriba a la derecha: un toque abre el anillo y otro lo cierra.',
+      'Menús y paneles adaptados a pantallas bajas y verticales. El teclado se abre al tocar la carta del nombre.',
+      'Sin grano de película en el celular, y el sonido sigue andando con el iPhone en silencio.',
+    ],
+  },
+  {
+    id: '2026-10-03-anotador',
+    date: '2026-10-03',
+    title: 'El anotador, sobre la mesa',
+    items: [
+      'Un anotador de espiral con lápiz, junto a los porotos, muestra el marcador en vivo sin tocarlo.',
+      'Un clic (o H) abre la hoja completa, en versión reducida o completa.',
+      'Al terminar cada base y cada ronda la cámara apunta al anotador y se escribe un resumen a mano. Lo confirmás con el tilde (o Enter).',
+      'Los resúmenes quedan como hojas: se hojean arrastrando hacia arriba, como el manual.',
+    ],
+  },
+  {
+    id: '2026-10-03-televisores-crt',
+    date: '2026-10-03',
+    title: 'Televisores en la partida',
+    items: [
+      'Historial, reglas, ajustes y salir son ahora televisores de tubo colgados al fondo, con ruido de estática. Al pasar el mouse se escribe su nombre en la pantalla.',
+      'Un panel de LED verde dice solo lo importante: «Tu turno», «Rival pide 2», «Sacá una carta»…',
+      'Reemplazan a la pizarra de tiza.',
+    ],
+  },
+  {
+    id: '2026-10-03-reloj',
+    date: '2026-10-03',
+    title: 'Reloj de torneo y mesa más legible',
+    items: [
+      'Un reloj de ajedrez de torneo cuenta el tiempo de los pedidos (1, 2 o 5 minutos por equipo; 1 por defecto), apoyado a tu derecha.',
+      'Las cartas jugadas ya no se queman con la luz, los porotos son más grandes y los números se leen mejor.',
+      'Las mangas muestran el color de tu equipo visto desde tu lugar, y los pulgares apuntan bien.',
+    ],
+  },
+  {
+    id: '2026-10-03-menus',
+    date: '2026-10-03',
+    title: 'Menús, ajustes y manual',
+    items: [
+      '«Configurar y empezar» rehecho: los kamikazes van en un solo botón con su cantidad, y el reloj en otro que cicla.',
+      'Armar mesa y Sentarse más prolijos; al salir de la sala los personajes desaparecen rápido.',
+      'Ajustes: carta grande para elegir el dorso, anillo de señas reordenable (con «restablecer») y altura de la mano guardada.',
+      'El manual entra con una animación nueva y sin tirones, y se pueden dar vuelta varias hojas a la vez.',
+    ],
+  },
+
+  // ------------------------------------------------------------------ 2 de octubre
+  {
+    id: '2026-10-02-personalizar',
+    date: '2026-10-02',
+    title: 'Dorsos, mano y manual',
+    items: [
+      '34 dorsos ilustrados para elegir en Ajustes, y sonidos en los menús.',
+      'Reordenás tu mano arrastrando una carta por el abanico.',
+      'Campo visual más amplio (63 % por defecto, ajustable) y las cartas jugadas caen más cerca del centro.',
+      'El manual es un librito 3D con hojas que das vuelta con la mano, y también se abre sobre la mesa de juego, con solapas.',
+      'Los bots, siendo Mano con una mano muy despareja, a veces cantan kamikaze.',
+    ],
+  },
+  {
+    id: '2026-10-02-reglas',
+    date: '2026-10-02',
+    title: 'Reglas corregidas',
+    items: [
+      'Quien reparte rota cada ronda en sentido antihorario, y la Mano es quien recibe la primera carta.',
+      'Antihorario significa que el turno pasa a tu derecha. Quedó explicado en el manual.',
+      'Si la partida termina empatada se juegan dos rondas de desempate; si siguen iguales, ganan los dos equipos.',
+      'Después de que el As de Copas invierte el sentido, el turno saltea a quienes ya jugaron esa base.',
+      'Se arregló que las salas se borraran en plena partida («Game not found or not started»).',
+    ],
+  },
+  {
+    id: '2026-10-02-mesa',
+    date: '2026-10-02',
+    title: 'La mesa 3D, a fondo',
+    items: [
+      'Mirás alrededor apretando y arrastrando sobre la mesa; el giro llega hasta la cara de cada jugador y frena ahí.',
+      'Clic derecho hace zoom y al soltar volvés exactamente a donde estabas. La ruedita sube y baja tus cartas.',
+      'El sorteo inicial se hace haciendo clic en el mazo del centro.',
+      'Cada cabeza muestra hacia dónde mira la cámara de su jugador.',
+      'Fichas: «D» de quien reparte, «pide» de quien declara primero y un avión de metal por cada kamikaze.',
+      'Cada base ganada deja un poroto; lo pedido se escribe en tiza. Tu lugar para apoyar la carta se marca con un recuadro punteado.',
+      'El As de Copas y el As de Oros se deciden sobre la mesa, con carteles flotantes.',
+      'Los nombres flotan a la altura de la panza, en los colores de cada equipo, y todos se sientan igual que vos.',
+    ],
+  },
+  {
+    id: '2026-10-02-senas',
+    date: '2026-10-02',
+    title: 'Señas con la máscara',
+    items: [
+      'Hacés señas con la cara: as de espadas = cejas, ancho de bastos = guiño, figuras = boca estirada, y más. «Sí» y «no» se hacen con la cabeza.',
+      'Abrís el menú de señas con el clic del medio (o G): 1 a 9 para cartas, S y N para sí y no. Tu propia seña se ve donde estaba el menú.',
+      'Podés pedir señas golpeando la mesa (P, o el botón del panel de declarar).',
+      'Un rival solo ve tu seña si su cámara está sobre tu cara y no estás de espaldas. Tu equipo siempre la ve.',
+      'Hay un punto de mira en el centro de la pantalla.',
+    ],
+  },
+  {
+    id: '2026-10-02-bots',
+    date: '2026-10-02',
+    title: 'Bots que hacen y leen señas',
+    items: [
+      'Los bots hacen y entienden señas y giran la cabeza hacia su compañero al hacerlas.',
+      'No siempre las hacen: a veces se distraen, y cuando un rival golpea la mesa miran a quien tiene que contestar.',
+      'Planifican para el equipo, guardan solo las cartas fuertes que hacen falta y a veces dejan pasar al rival para hacerlo ganar una base que no quiere.',
+      'Después de pedir señas esperan la respuesta antes de declarar, y no hacen nada hasta que las cartas están en tu pantalla.',
+    ],
+  },
+  {
+    id: '2026-10-02-paneles',
+    date: '2026-10-02',
+    title: 'Historial, ajustes y menús',
+    items: [
+      'Historial de la partida (pestaña «historial» o tecla J) y un panel de fin de partida en papel: «Ganó tu equipo» o «Ganaron los rivales».',
+      'Ajustes nuevos: volver la vista a tu lugar, invertir cámara, sensibilidad del mouse, punto de mira, mano a la vista al empezar tu turno y guías en la mesa.',
+      'Manual ilustrado dentro del juego («Reglamento» en el menú, o R en la mesa), con 12 capítulos y la grilla de caras de las señas.',
+      'El sonido arranca con la app y las luces proyectan sombras suaves.',
+      'Menú de configuración con los kamikazes como aviones y los poderes como cartas que flotan.',
+    ],
+  },
+
+  // ------------------------------------------------------------------ 30 de septiembre
+  {
+    id: '2026-09-30-nace',
+    date: '2026-09-30',
+    title: 'La Base en 3D',
+    items: [
+      'La mesa pasa a ser un sótano en primera persona, con el mismo ambiente en los menús.',
+      'Cartas con figuras de la baraja española dibujadas a mano.',
+      'Los bots pueden completar la mesa.',
+      'Primer menú de ajustes (sonido) y un tablero en papel con lo importante de la partida.',
     ],
   },
 ];

@@ -6,6 +6,9 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Novedades completas desde el 30/9:** la lista para jugadores (`client/src/changelog/entries.ts`) ahora
+  cubre todo lo de este registro, agrupado por día real de cada commit (30/9, 2/10, 3/10, 4/10), en
+  lenguaje de jugador. Un test cuida ids únicos y orden por fecha.
 - **Novedades y televisores en el inicio:** la pantalla de inicio del menú tiene dos televisores sobre
   mesitas, uno a cada lado (Novedades a la izquierda, Ajustes a la derecha), con el mismo `HudBoard` de
   la mesa en un modo «apoyado» (sin cables ni panel LED). El de Novedades se pone ámbar, pulsa y dice
