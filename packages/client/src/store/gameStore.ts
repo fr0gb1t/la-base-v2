@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { GameState, Card } from '@la-base/shared';
+import type { GameState, Card, AvatarSpec } from '@la-base/shared';
 
 export type AuthStatus = 'guest' | 'authenticated' | 'logged_out';
 export type AppPage = 'auth' | 'lobby' | 'game:waiting' | 'game:config' | 'game' | 'rankings';
@@ -10,6 +10,7 @@ export interface RoomPlayer {
   team: string;
   isConnected: boolean;
   isBot?: boolean;
+  avatar?: AvatarSpec;
   handCount?: number;
 }
 

@@ -6,6 +6,16 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Avatares (las caras de las máscaras):** cada máscara se arma con 4 partes al azar —ojos, boca, cejas y
+  pelo, 5 tipos de cada una— y color de ojos (6) y de pelo (7), todos dentro de la gama apagada del juego (un test
+  rechaza cualquier color saturado, sin neón). El contrato vive en `shared/avatar.ts` (`AvatarSpec`,
+  `randomAvatar`, `sanitizeAvatar`); el servidor lo valida al crear o entrar a una sala (una cara inventada se
+  reemplaza, nunca se reenvía), les da una al azar a los bots y lo manda en la lista de jugadores. En el cliente
+  `makeMask(avatar)` arma la cara en `table3d/avatar.ts` (las señas siguen funcionando con cualquier
+  combinación). Ajustes → Avatar (`settings/AvatarPicker` y `AvatarStage`): ‹ › por parte, colores, «Al azar», y
+  la máscara en movimiento a un costado —parpadea, mira alrededor y hace señas al azar, en stop-motion como en
+  la mesa (`table3d/senaPlay.ts` es la curva compartida)—; el escenario cambia al del dorso al tocar «Cartas».
+  Se guarda por navegador (`laBase.avatar`) y se genera una vez al azar la primera vez.
 - **Novedades al día:** entrada nueva «Ajustes de fábrica renovados» (valores por defecto y carta Brújula), el
   aviso de seña vista aclara que viene encendido en PC, y la de televisores menciona la mesita que esquiva las
   sillas.

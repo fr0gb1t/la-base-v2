@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 import { FACE_AIM_RADIUS, FACE_BACK_DOT, isHeadSena, type Card, type Sena } from '@la-base/shared'
+import type { AvatarSpec } from '@la-base/shared'
+import { NOD_HZ, SENA_HOLD, senaAmount } from './senaPlay'
 import { buildLamp, buildRoom } from './table'
 import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, PLAY_R, seatAngle, polar, playSlot } from './seats'
 import { makeAvatar, MAX_HAND, FAN_Y, type Avatar, type AvatarPose } from './avatar'
@@ -33,6 +35,7 @@ export interface TablePlayer {
   team: 'nosotros' | 'ellos' | 'random'
   handCount: number
   isConnected: boolean
+  avatar?: AvatarSpec // the face of their mask
 }
 
 export interface TableCallbacks {
@@ -113,15 +116,6 @@ function zoneTexture() {
   return zoneTex
 }
 const ASK_DUR = 0.9 // s: two knocks on the table to ask for señas
-const NOD_HZ = 2.2 // nods / shakes per second for sí and no
-const SENA_HOLD = 1.6 // s a seña stays on the face
-/** How far into a seña the face is (0 rest … 1 full) at `t` seconds since it started. */
-function senaAmount(s: Sena, t: number) {
-  if (t < 0) return 0
-  if (s === 'nada') return t < 0.2 ? t / 0.2 : t < 0.75 ? 1 : Math.max(0, 1 - (t - 0.75) / 0.2) // close, hold, reopen
-  if (t >= SENA_HOLD) return 0
-  return Math.min(1, t / 0.15, (SENA_HOLD - t) / 0.3)
-}
 const DEFAULT_PITCH = -0.34
 const HAND_FOV = 50 // the field of view your hand was laid out for
 const CHAIR_R_TAG = TABLE_R + TAG_R_OFFSET // in front of the coat, over the table edge (never inside the body)
@@ -605,7 +599,7 @@ export class TableScene {
       return t
     })
     this.avatars = Array.from({ length: this.n }, (_, s) => {
-      const av = makeAvatar(s, this.n, s === 0)
+      const av = makeAvatar(s, this.n, s === 0, this.seatPlayers()[s]?.avatar)
       this.scene.add(av.root)
       return av
     })

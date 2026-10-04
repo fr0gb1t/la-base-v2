@@ -5,11 +5,12 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { GameState, Player, AcePowers, Card } from '@la-base/shared';
 import { createBidClock, createGameState, type PieBidRule } from '@la-base/shared';
-import type { GameStructure } from '@la-base/shared';
+import type { AvatarSpec, GameStructure } from '@la-base/shared';
 
 export interface RoomPlayer extends Player {
   socketId: string;
   isBot?: boolean;
+  avatar?: AvatarSpec; // the face of the mask (validated; bots get a random one)
   isConnected: boolean;
   lastActivity: Date;
 }

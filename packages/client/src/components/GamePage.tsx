@@ -221,6 +221,7 @@ export function GamePage() {
       team: (p.team as TablePlayer['team']) || 'random',
       handCount: p.handCount ?? 0,
       isConnected: p.isConnected,
+      avatar: p.avatar,
     }));
     scene.setPlayers(players, myId);
   }, [roomPlayers, myId]);

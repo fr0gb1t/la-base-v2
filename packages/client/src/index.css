@@ -3184,6 +3184,54 @@ button {
   .back-stage { display: none; }
 }
 
+/* ---- settings: your avatar ---- */
+.avatar-note { margin: 0 0 6px; font-size: 14px; }
+
+.avatar-part {
+  display: grid;
+  grid-template-columns: 62px 28px 1fr 28px;
+  align-items: center;
+  gap: 4px;
+  margin: 3px 0;
+}
+
+.avatar-part-title { font-size: 15px; }
+
+.avatar-part-title small { margin-left: 6px; font-size: 12px; opacity: 0.65; }
+
+.avatar-kind { text-align: center; font-size: 16px; font-variant: small-caps; }
+
+.avatar-step,
+.avatar-dice {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+}
+
+.avatar-step { height: 26px; font-size: 18px; line-height: 1; }
+
+.avatar-colors { margin: 7px 0 2px; }
+
+.avatar-swatches { display: flex; gap: 7px; margin-top: 4px; flex-wrap: wrap; }
+
+.avatar-swatch {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  border-radius: 50%;
+  border: 2px solid rgba(20, 14, 12, 0.55);
+}
+
+.avatar-swatch.on { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.avatar-dice { margin-top: 8px; padding: 4px 12px; display: inline-flex; align-items: center; gap: 6px; }
+
+.avatar-step:hover,
+.avatar-dice:hover { background: rgba(20, 14, 12, 0.1); }
+
 /* ---- settings: your señas ring order ---- */
 .sena-order {
   list-style: none;

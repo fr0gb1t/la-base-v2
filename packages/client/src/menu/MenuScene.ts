@@ -1,4 +1,5 @@
 import { isTouch } from '../lib/device'
+import type { AvatarSpec } from '@la-base/shared'
 import { KamikazeDial } from './kamikazeDial'
 import { attachAudio, uiSound } from '../table3d/audio'
 import * as THREE from 'three'
@@ -36,7 +37,7 @@ const TV_CHAIR_HARD = 0.5 // never closer than this to a chair on the way (a cha
 const TV_GAP = 0.125 // half the distance between the two sets
 
 export type Station = 'entrada' | 'lobby' | 'crear' | 'unirse' | 'reglas' | 'sala' | 'config'
-export interface MenuPlayer { name: string; team: 'nosotros' | 'ellos' | 'random'; isBot?: boolean }
+export interface MenuPlayer { name: string; team: 'nosotros' | 'ellos' | 'random'; isBot?: boolean; avatar?: AvatarSpec }
 export interface AcePowers { espadas: boolean; copas: boolean; oros: boolean }
 
 interface Shot { pos: THREE.Vector3; target: THREE.Vector3; fov: number }
@@ -223,7 +224,7 @@ export class MenuScene {
           this.avatars[i].tag.dispose()
         }
         if (arrived && i > 0) uiSound('sit')
-        const av = makeAvatar(i, n, i === 0) // seat 0 is you, the camera: only your arms
+        const av = makeAvatar(i, n, i === 0, p.avatar) // seat 0 is you, the camera: only your arms
         av.setHandCount(0)
         this.scene.add(av.root)
         const tag = new NameTag(MENU_NAME_H) // small: the waiting room must not look crowded

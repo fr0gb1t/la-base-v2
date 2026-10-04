@@ -3,7 +3,8 @@ import { PALETTE, hex } from './look'
 import { CHAIR_R, LEAN_REACH, SHOULDER_R, SHOULDER_Y, TABLE_R, TABLE_Y, seatAngle, teamOf, polar, type PlayerCount } from './seats'
 import { makeCard, type CardView } from './cards'
 import { toProps } from './propsLayer'
-import type { Sena } from '@la-base/shared'
+import { randomAvatar, type AvatarSpec, type Sena } from '@la-base/shared'
+import { EYE_COLOR_LOOK, HAIR_COLOR_LOOK } from './avatarLook'
 
 // Placeholder anatomy for the demo (boxes/cylinders read fine at 360p under heavy post).
 // Production avatars: use the `modeling-3d-human-characters` skill for real arms and hands.
@@ -65,8 +66,110 @@ function glove(cuff: string, sx: number) {
   return toProps(g) as THREE.Group
 }
 
-// Puppet mask: a Buckshot-style mask that is ARTICULATED so the truco señas still read.
-function mask() {
+// ---- the face, put together from the avatar's four parts (see @la-base/shared avatar.ts) ----------------
+
+/** What a face looks like when nobody has chosen one: derived from the seat, so it is always the same one. */
+export function fallbackAvatar(seed: number): AvatarSpec {
+  let x = (seed + 1) * 2654435761
+  const rng = () => ((x = (x * 1664525 + 1013904223) >>> 0) / 4294967296)
+  return randomAvatar(rng)
+}
+
+const shade = (c: string, k: number) => '#' + new THREE.Color(hex(c)).multiplyScalar(k).getHexString()
+
+// Eyes: the dark hole, a coloured iris and a pupil on top of it, a lid that closes from above. `lid*`
+// is the size of the lid (it must cover the whole eye); `tilt` turns the outer corner (± per side).
+const EYES = [
+  { w: 1, h: 1, r: 0.022, iris: 0.014, pupil: 0.0065, lidW: 0.05, lidH: 0.05, tilt: 0 }, // redondos
+  { w: 1.55, h: 0.5, r: 0.022, iris: 0.0085, pupil: 0.0045, lidW: 0.078, lidH: 0.036, tilt: 0 }, // rasgados
+  { w: 1, h: 1, r: 0.031, iris: 0.021, pupil: 0.0095, lidW: 0.07, lidH: 0.07, tilt: 0 }, // grandes
+  { w: 1.25, h: 0.85, r: 0.022, iris: 0.012, pupil: 0.0055, lidW: 0.062, lidH: 0.046, tilt: 0.3 }, // caídos
+  { w: 1, h: 1, r: 0.013, iris: 0.0095, pupil: 0.0045, lidW: 0.036, lidH: 0.036, tilt: 0 }, // puntitos
+]
+
+// Brows: size, resting height and tilt (inner end down is positive; mirrored on the other side).
+const BROWS = [
+  { w: 0.05, h: 0.006, y: 0.073, tilt: 0 }, // finas
+  { w: 0.058, h: 0.02, y: 0.071, tilt: 0 }, // gruesas
+  { w: 0.055, h: 0.011, y: 0.068, tilt: 0.38 }, // bravas
+  { w: 0.05, h: 0.008, y: 0.082, tilt: -0.22 }, // arqueadas
+  { w: 0.03, h: 0.012, y: 0.069, tilt: 0 }, // cortitas
+]
+
+// Mouths: `curve` bends a strip into a smile (+) or a frown (−); 0 is a flat oval. `x` and `y` are the
+// resting size, and every seña below scales from that.
+const MOUTHS = [
+  { x: 0.035, y: 0.007, curve: 0 }, // línea
+  { x: 0.034, y: 0.034, curve: 0.34 }, // sonrisa
+  { x: 0.034, y: 0.034, curve: -0.34 }, // seria
+  { x: 0.052, y: 0.008, curve: 0 }, // ancha
+  { x: 0.017, y: 0.011, curve: 0 }, // chiquita
+]
+
+/** A unit-wide strip (x from −1 to 1) bent into an arc: the shape of a smile or a frown. */
+function arc(curve: number) {
+  const shape = new THREE.Shape()
+  const th = 0.17
+  const N = 14
+  const y = (x: number) => curve * (x * x - 0.5)
+  shape.moveTo(-1, y(-1) + th / 2)
+  for (let i = 1; i <= N; i++) { const x = -1 + (2 * i) / N; shape.lineTo(x, y(x) + th / 2) }
+  for (let i = N; i >= 0; i--) { const x = -1 + (2 * i) / N; shape.lineTo(x, y(x) - th / 2) }
+  return new THREE.ShapeGeometry(shape)
+}
+
+/** Hair on the head, in the avatar's colour: where it grows and how much of the skull it covers. */
+function hairOf(kind: number, color: string) {
+  const m = new THREE.MeshStandardMaterial({ color: hex(color), roughness: 0.95 })
+  const g = new THREE.Group()
+  const cap = (r: number, open: number, tilt: number, y = 0.015) => {
+    const c = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 12, 0, Math.PI * 2, 0, open), m)
+    c.position.set(0, y, 0.03)
+    c.scale.y = 1.12 // like the hood under it
+    c.rotation.x = tilt // tipped back: the forehead stays clear
+    return c
+  }
+  const ball = (r: number, x: number, y: number, z: number, sx = 1, sy = 1, sz = 1) => {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), m)
+    b.position.set(x, y, z)
+    b.scale.set(sx, sy, sz)
+    return b
+  }
+  const lock = (x: number, y: number, z: number, len: number, r = 0.03) => {
+    const c = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 10), m)
+    c.position.set(x, y, z)
+    return c
+  }
+  if (kind === 0) g.add(cap(0.166, 1.08, 0.18)) // corto: a close cap over the forehead
+  if (kind === 1) {
+    // largo: the cap, a soft mass behind the head and a lock hanging down each side
+    g.add(cap(0.168, 1.12, 0.2), ball(0.15, 0, -0.08, 0.15, 1.05, 1.7, 0.55), lock(-0.142, -0.04, 0.05, 0.2), lock(0.142, -0.04, 0.05, 0.2))
+  }
+  if (kind === 2) {
+    // cresta: a fan of spikes from ear to ear over the top
+    for (const x of [-0.1, -0.05, 0, 0.05, 0.1]) {
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1 - Math.abs(x) * 0.25, 6), m)
+      sp.position.set(x * 1.05, 0.165 + (0.022 - Math.abs(x) * 0.18), 0.03)
+      sp.rotation.z = -x * 3
+      g.add(sp)
+    }
+    g.add(cap(0.16, 0.7, 0.1)) // a little stubble under them
+  }
+  if (kind === 3) {
+    // rulos: a cloud of curls over the top and sides
+    for (const [x, y, z, r] of [[0, 0.17, 0.02, 0.06], [-0.085, 0.14, 0.0, 0.055], [0.085, 0.14, 0.0, 0.055], [-0.125, 0.07, 0.05, 0.05], [0.125, 0.07, 0.05, 0.05], [-0.06, 0.15, 0.1, 0.055], [0.06, 0.15, 0.1, 0.055], [0, 0.09, 0.16, 0.06]]) g.add(ball(r, x, y, z))
+  }
+  if (kind === 4) {
+    // rodete: a smooth cap and a bun on top
+    g.add(cap(0.166, 1.04, 0.2), ball(0.058, 0, 0.215, 0.07))
+  }
+  g.traverse((o) => (o.castShadow = true))
+  return g
+}
+
+// Puppet mask: a Buckshot-style mask that is ARTICULATED so the truco señas still read. Its face is the
+// avatar's: eyes, mouth, brows and hair, with the colours of the eyes and the hair.
+export function makeMask(avatar: AvatarSpec) {
   const head = new THREE.Group()
   const hood = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 12), mat(PALETTE.soot, 1))
   hood.scale.set(1, 1.15, 1)
@@ -76,23 +179,35 @@ function mask() {
   face.scale.set(1, 0.55, 1.3)
   face.position.z = -0.06
   const ink = new THREE.MeshBasicMaterial({ color: hex(PALETTE.ink) })
+  const eyeLook = EYES[avatar.eyes]
+  const irisMat = new THREE.MeshBasicMaterial({ color: hex(EYE_COLOR_LOOK[avatar.eyeColor].hex) })
+  const browLook = BROWS[avatar.brows]
+  const browMat = new THREE.MeshBasicMaterial({ color: hex(shade(HAIR_COLOR_LOOK[avatar.hairColor].hex, 0.85)) })
   const eyes = [-1, 1].map((sx) => {
-    const hole = new THREE.Mesh(new THREE.CircleGeometry(0.022, 12), ink)
-    hole.position.set(sx * 0.045, 0.03, -0.132)
-    hole.rotation.y = Math.PI
-    const lid = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.05), mat(PALETTE.bone, 0.55))
-    lid.geometry.translate(0, -0.025, 0) // hinge at the top edge
-    lid.position.set(sx * 0.045, 0.055, -0.135)
+    const flat = (r: number, z: number, m: THREE.Material, w = 1, h = 1) => {
+      const d = new THREE.Mesh(new THREE.CircleGeometry(r, 16), m)
+      d.position.set(sx * 0.045, 0.03, z)
+      d.rotation.set(0, Math.PI, -sx * eyeLook.tilt)
+      d.scale.set(w, h, 1)
+      return d
+    }
+    const hole = flat(eyeLook.r, -0.132, ink, eyeLook.w, eyeLook.h)
+    const iris = flat(eyeLook.iris, -0.1335, irisMat)
+    const pupil = flat(eyeLook.pupil, -0.1342, ink)
+    const lid = new THREE.Mesh(new THREE.PlaneGeometry(eyeLook.lidW, eyeLook.lidH), mat(PALETTE.bone, 0.55))
+    lid.geometry.translate(0, -eyeLook.lidH / 2, 0) // hinge at the top edge
+    lid.position.set(sx * 0.045, 0.03 + eyeLook.lidH / 2, -0.135)
     lid.rotation.y = Math.PI
     lid.scale.y = 0.01
-    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.012, 0.012), ink)
-    brow.position.set(sx * 0.045, 0.07, -0.132)
-    head.add(hole, lid, brow)
-    return { lid, brow }
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(browLook.w, browLook.h, 0.012), browMat)
+    brow.position.set(sx * 0.045, browLook.y, -0.132)
+    brow.rotation.z = sx * browLook.tilt
+    head.add(hole, iris, pupil, lid, brow)
+    return { lid, brow, sx }
   })
-  // mouth: a unit disc scaled into a line (rest), an O (kiss), an open oval (fish)...
-  const MOUTH = { x: 0.035, y: 0.007 }
-  const mouth = new THREE.Mesh(new THREE.CircleGeometry(1, 20), ink)
+  // mouth: a shape scaled into a line (rest), an O (kiss), an open oval (fish)...
+  const MOUTH = MOUTHS[avatar.mouth]
+  const mouth = new THREE.Mesh(MOUTH.curve === 0 ? new THREE.CircleGeometry(1, 20) : arc(MOUTH.curve), ink)
   mouth.position.set(0, -0.05, -0.134)
   mouth.rotation.y = Math.PI
   mouth.scale.set(MOUTH.x, MOUTH.y, 1)
@@ -111,7 +226,7 @@ function mask() {
   const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.035, 0.05), mat(PALETTE.bone, 0.55))
   jaw.position.set(0, -0.085, -0.1)
   jaw.visible = false // it poked out under the mouth at rest like a little tooth: only the 'porno' seña drops it
-  head.add(hood, face, mouth, lips, teeth, jaw)
+  head.add(hood, face, mouth, lips, teeth, jaw, hairOf(avatar.hair, HAIR_COLOR_LOOK[avatar.hairColor].hex))
   head.traverse((o) => (o.castShadow = true))
 
   // Each seña is a pose of lids / brows / mouth / jaw, seen from the signer: "right" is the
@@ -120,8 +235,8 @@ function mask() {
     const k = s ? amount : 0
     eyes.forEach((e) => {
       e.lid.scale.y = 0.01
-      e.brow.position.y = 0.07
-      e.brow.rotation.z = 0
+      e.brow.position.y = browLook.y
+      e.brow.rotation.z = e.sx * browLook.tilt
     })
     mouth.position.set(0, -0.05, -0.134)
     mouth.rotation.z = 0
@@ -129,11 +244,11 @@ function mask() {
     lips.visible = teeth.visible = false
     jaw.position.y = -0.085
     jaw.visible = false
-    if (s === 'ancho-espada') eyes.forEach((e) => (e.brow.position.y = 0.07 + 0.034 * k))
+    if (s === 'ancho-espada') eyes.forEach((e) => (e.brow.position.y = browLook.y + 0.034 * k))
     if (s === 'ancho-basto') {
       eyes[1].lid.scale.y = Math.max(0.01, k)
-      eyes[1].brow.position.y = 0.07 - 0.008 * k
-      eyes[1].brow.rotation.z = 0.25 * k
+      eyes[1].brow.position.y = browLook.y - 0.008 * k
+      eyes[1].brow.rotation.z = eyes[1].sx * browLook.tilt + 0.25 * k
     }
     if (s === 'ancho-copa' || s === 'ancho-oro') {
       const side = s === 'ancho-copa' ? 1 : -1
@@ -165,6 +280,7 @@ function mask() {
     }
     if (s === 'nada') eyes.forEach((e) => (e.lid.scale.y = Math.max(0.01, k)))
   }
+  sena(null, 0) // rest: lips, teeth and the jaw start hidden
   return { head, sena }
 }
 
@@ -187,7 +303,7 @@ export interface AvatarPose {
   headPitch: number
 }
 
-export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false): Avatar {
+export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false, face: AvatarSpec = fallbackAvatar(seat)): Avatar {
   const a = seatAngle(seat, n)
   const root = new THREE.Group()
   root.position.copy(polar(CHAIR_R, a, 0))
@@ -203,7 +319,7 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false): A
   coat.scale.z = 0.7
   coat.castShadow = true
   torso.add(coat)
-  const { head, sena } = mask()
+  const { head, sena } = makeMask(face)
   head.position.set(0, 1.3, -0.04)
   torso.add(head)
 

@@ -6,6 +6,7 @@ import { TableMenu } from '../menu/TableMenu';
 import { Rulebook } from './rulebook/Rulebook';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
+import { getAvatar } from '../settings/avatarSettings';
 
 export function Lobby() {
   const socket = useSocket();
@@ -36,6 +37,7 @@ export function Lobby() {
     socket.emit('room:create', {
       playerName: currentPlayer?.name,
       playerCount,
+      avatar: getAvatar(),
     }, (response: any) => {
       setLoading(false);
       if (response.success) {
@@ -52,6 +54,7 @@ export function Lobby() {
             name: response.player.name,
             team: response.player.team,
             isConnected: response.player.isConnected,
+            avatar: response.player.avatar,
           }]);
         }
         setCurrentPage('game:waiting');
@@ -73,6 +76,7 @@ export function Lobby() {
     socket.emit('room:join', {
       roomCode: joinCode.toUpperCase(),
       playerName: currentPlayer?.name,
+      avatar: getAvatar(),
     }, (response: any) => {
       setLoading(false);
       if (response.success) {
@@ -91,6 +95,8 @@ export function Lobby() {
             name: player.name,
             team: player.team,
             isConnected: player.isConnected,
+            isBot: player.isBot,
+            avatar: player.avatar,
           })));
         }
         setCurrentPage('game:waiting');

@@ -5,6 +5,16 @@ import type { Novedad } from './novedades';
 export const NOVEDADES: Novedad[] = [
   // ------------------------------------------------------------------ 4 de octubre
   {
+    id: '2026-10-04-avatares',
+    date: '2026-10-04',
+    title: 'Tu avatar',
+    items: [
+      'Cada máscara tiene su propia cara, armada con ojos, boca, cejas y pelo (5 tipos de cada uno), y color de ojos y de pelo.',
+      'Empezás con una cara al azar. En Ajustes → Avatar la cambiás como quieras y la ves moverse y hacer señas, igual que en la mesa.',
+      'Los demás jugadores ven tu cara en la mesa y en la sala. Los bots también se sientan con una cara distinta.',
+    ],
+  },
+  {
     id: '2026-10-04-ajustes-defecto',
     date: '2026-10-04',
     title: 'Ajustes de fábrica renovados',
