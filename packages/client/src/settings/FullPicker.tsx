@@ -7,7 +7,7 @@ import { uiSound } from '../table3d/audio';
 // ‹ › or the arrow keys — to go through them one by one; the list jumps straight to one; «Listo» closes it.
 // Every step is picked at once, as on the desktop.
 
-export interface PickOption { id: string; name: string; group?: string }
+export interface PickOption { id: string; name: string; group?: string; disabled?: boolean }
 
 interface Props {
   title: string;
@@ -24,8 +24,14 @@ const SWIPE = 45; // px across before a drag counts as a swipe
 export function FullPicker({ title, stage, options, value, note, onPick, onClose }: Props) {
   const i = Math.max(0, options.findIndex((o) => o.id === value));
   const step = (by: 1 | -1) => {
-    uiSound('chip');
-    onPick(options[(i + by + options.length) % options.length].id);
+    // (passing over the ones not on offer)
+    for (let k = 1; k < options.length; k++) {
+      const o = options[(i + by * k + options.length * k) % options.length];
+      if (o.disabled) continue;
+      uiSound('chip');
+      onPick(o.id);
+      return;
+    }
   };
   const stepRef = useRef(step);
   stepRef.current = step;
@@ -85,10 +91,10 @@ export function FullPicker({ title, stage, options, value, note, onPick, onClose
             {groups.map((g) =>
               g ? (
                 <optgroup key={g} label={g}>
-                  {options.filter((o) => o.group === g).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                  {options.filter((o) => o.group === g).map((o) => <option key={o.id} value={o.id} disabled={o.disabled}>{o.name}</option>)}
                 </optgroup>
               ) : (
-                options.filter((o) => !o.group).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)
+                options.filter((o) => !o.group).map((o) => <option key={o.id} value={o.id} disabled={o.disabled}>{o.name}</option>)
               ),
             )}
           </select>

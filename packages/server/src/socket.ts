@@ -7,7 +7,8 @@ import { roomManager } from './rooms.js';
 import { BOT_TOKEN, botNameFor, spawnBot } from './bots.js';
 import { SenaDelivery } from './senaDelivery.js';
 import type { RoomPlayer } from './rooms.js';
-import { BID_CLOCK_OPTIONS, avatarOrRandom, randomAvatar, sanitizeAvatar, CLOCK_AFTER_DEAL_MS, isPieBidRule, cardRank, clockLeft, dealAnimationMs, isSena, pressClock, startClock, type AssignedTeam, type GameState, type Card } from '@la-base/shared';
+import { BID_CLOCK_OPTIONS, avatarOrRandom, freeAvatar, randomAvatar, sameAvatar, sanitizeAvatar, CLOCK_AFTER_DEAL_MS, isPieBidRule, cardRank, clockLeft, dealAnimationMs, isSena, pressClock, startClock, type AssignedTeam, type GameState, type Card } from '@la-base/shared';
+import { clashesWith, settleAll, settleBots, settleKept, tidyKeeps } from './avatarClash.js';
 import {
   createShuffledDeck,
   dealCards,
@@ -55,6 +56,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
       isConnected: p.isConnected,
       isBot: Boolean(p.isBot),
       avatar: p.avatar,
+      avatarKeep: Boolean(p.avatarKeep),
       handCount: p.hand.length,
     }));
 
@@ -398,8 +400,17 @@ export function setupSocketHandlers(io: SocketIOServer) {
         const player = roomManager.joinRoom(payload.roomCode, playerId, payload.playerName, socket.id);
         // only our own in-process bots (holding the startup secret) may flag themselves as bots
         if (player && payload.isBot && socket.handshake.auth?.botToken === BOT_TOKEN) player.isBot = true;
-        // everyone has a face: the one they sent if it is well formed, the one they already had, or a random one (bots)
-        if (player) player.avatar = sanitizeAvatar(payload.avatar) ?? player.avatar ?? randomAvatar();
+        // everyone has a face: the one they sent if it is well formed, the one they already had, or a random one;
+        // a bot takes one nobody at the table wears, and a bot wearing the newcomer's face moves to another
+        if (player) {
+          const table = roomManager.getRoom(payload.roomCode)?.players ?? [player];
+          player.avatar = player.isBot
+            ? freeAvatar(table.filter((p) => p !== player && p.avatar).map((p) => p.avatar!))
+            : (sanitizeAvatar(payload.avatar) ?? player.avatar ?? randomAvatar());
+          player.avatarKeep = false;
+          settleBots(table);
+          tidyKeeps(table);
+        }
 
         if (!player) {
           console.log(`[room:join] FAILED: Cannot join room ${payload.roomCode}`);
@@ -437,6 +448,41 @@ export function setupSocketHandlers(io: SocketIOServer) {
         console.log(`[room:join] ERROR:`, (err as Error).message);
         callback({ success: false, error: (err as Error).message });
       }
+    });
+
+    /**
+     * avatar:set - A player changed their face in the settings (only before the game starts). A face another
+     * person wears is refused; a bot wearing it moves to another.
+     */
+    socket.on('avatar:set', (payload: { roomCode: string; avatar: unknown }, callback?: (res: { success: boolean; error?: string }) => void) => {
+      const room = roomManager.getRoom(payload?.roomCode);
+      const player = room?.players.find((p) => p.socketId === socket.id);
+      const avatar = sanitizeAvatar(payload?.avatar);
+      if (!room || !player || !avatar) return callback?.({ success: false, error: 'No se pudo cambiar la cara' });
+      if (room.gameState) return callback?.({ success: false, error: 'La partida ya empezó: la cara nueva va a estar en la próxima' });
+      const wearer = room.players.find((p) => p !== player && !p.isBot && p.avatar && sameAvatar(p.avatar, avatar));
+      if (wearer) return callback?.({ success: false, error: `Esa cara ya la tiene ${wearer.name}` });
+      player.avatar = avatar;
+      player.avatarKeep = false;
+      settleBots(room.players);
+      tidyKeeps(room.players);
+      io.to(room.roomCode).emit('room:updated', { players: publicRoomPlayers(room.players) });
+      callback?.({ success: true });
+    });
+
+    /**
+     * avatar:keep - "Me la quedo": the player keeps the face somebody else also wears. Once everyone wearing it
+     * says so, the first to sit keeps it and the others get it in another colour.
+     */
+    socket.on('avatar:keep', (payload: { roomCode: string }, callback?: (res: { success: boolean; error?: string }) => void) => {
+      const room = roomManager.getRoom(payload?.roomCode);
+      const player = room?.players.find((p) => p.socketId === socket.id);
+      if (!room || !player || room.gameState) return callback?.({ success: false });
+      if (clashesWith(room.players, player).length === 0) return callback?.({ success: true });
+      player.avatarKeep = true;
+      settleKept(room.players);
+      io.to(room.roomCode).emit('room:updated', { players: publicRoomPlayers(room.players) });
+      callback?.({ success: true });
     });
 
     /**
@@ -538,6 +584,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
 
         const updatedRoom = roomManager.getRoom(payload.roomCode);
         if (updatedRoom) {
+          tidyKeeps(updatedRoom.players); // (whoever left may have been the other half of a clash)
           io.to(payload.roomCode).emit('room:updated', {
             players: publicRoomPlayers(updatedRoom.players),
           });
@@ -592,6 +639,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
 
         const updatedRoom = roomManager.getRoom(payload.roomCode);
         if (updatedRoom) {
+          tidyKeeps(updatedRoom.players); // (whoever left may have been the other half of a clash)
           io.to(payload.roomCode).emit('room:updated', {
             players: publicRoomPlayers(updatedRoom.players),
           });
@@ -710,6 +758,9 @@ export function setupSocketHandlers(io: SocketIOServer) {
           }
           console.log(`Auto-assigned player ${player.name} to team: ${player.team}`);
         });
+
+        // nobody sits at the table with somebody else's face: what clash is left gets colour variants
+        settleAll(room.players);
 
         // Reorder players so teams alternate around the table
         room.players = reorderPlayersForTeamBalance(room.players);

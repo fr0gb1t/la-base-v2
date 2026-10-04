@@ -10,7 +10,8 @@ import type { AvatarSpec, GameStructure } from '@la-base/shared';
 export interface RoomPlayer extends Player {
   socketId: string;
   isBot?: boolean;
-  avatar?: AvatarSpec; // the face of the mask (validated; bots get a random one)
+  avatar?: AvatarSpec; // the face of the mask (validated; bots get one nobody wears)
+  avatarKeep?: boolean; // said "me la quedo" while somebody else wears the same face (see avatarClash.ts)
   isConnected: boolean;
   lastActivity: Date;
 }

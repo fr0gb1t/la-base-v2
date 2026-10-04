@@ -16,7 +16,7 @@ export const FACE_SCALE = { led: 1.5, cabeza: 1.65 }
 
 export function makeFace(avatar: AvatarSpec, seed = 0): FaceRig {
   const f = faceKind(avatar.face)
-  const rig = f.kind === 'led' ? makeLedMask(f.name, seed) : makeHeadMask(f.name, seed)
+  const rig = f.kind === 'led' ? makeLedMask(f.name, seed, avatar.tint) : makeHeadMask(f.name, seed, avatar.tint)
   rig.head.scale.setScalar(f.kind === 'led' ? FACE_SCALE.led : FACE_SCALE.cabeza)
   return rig
 }

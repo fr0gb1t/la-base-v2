@@ -2108,6 +2108,61 @@ button {
   border-color: #3d461f;
 }
 
+.room-item-clash {
+  color: #8e2a22;
+  font-style: normal;
+  font-family: var(--font-sc);
+  font-size: 14px;
+}
+
+/* two people with the same face: a note pinned to the sheet, asking one of them to change it */
+.face-clash {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1.6px dashed #8e2a22;
+  font-size: 17px;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.face-clash b {
+  font-family: var(--font-sc);
+  font-weight: normal;
+}
+
+.face-clash-wait {
+  margin-top: 6px;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.face-clash-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.face-clash-btn {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1.6px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-sc);
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.face-clash-btn:hover,
+.face-clash-btn:focus-visible {
+  background: var(--ink);
+  color: var(--paper, #efe4c8);
+}
+
+.face-clash-tint {
+  margin-top: 8px;
+}
+
 .pad-error {
   margin-top: 6px;
   font-style: italic;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FACES, HEAD_FACES, LED_FACES, avatarOrRandom, faceKind, isFace, randomAvatar, sameAvatar, sanitizeAvatar } from './avatar.js';
+import { FACES, HEAD_FACES, LED_FACES, TINT_COUNT, avatarKey, avatarOrRandom, faceKind, freeAvatar, isFace, randomAvatar, sameAvatar, sanitizeAvatar, untangleAvatars } from './avatar.js';
 
 test('there are thirty LED masks and six heads, all different', () => {
   assert.equal(LED_FACES.length, 30);
@@ -53,4 +53,31 @@ test('avatarOrRandom keeps a good one and replaces a bad one', () => {
 test('faceKind splits the kind from the name', () => {
   assert.deepEqual(faceKind('led:calavera-rosa'), { kind: 'led', name: 'calavera-rosa' });
   assert.deepEqual(faceKind('cabeza:ventrilocuo'), { kind: 'cabeza', name: 'ventrilocuo' });
+});
+
+test('a colour variant travels only when it is a real one', () => {
+  assert.deepEqual(sanitizeAvatar({ face: 'led:oni', tint: 2 }), { face: 'led:oni', tint: 2 });
+  assert.deepEqual(sanitizeAvatar({ face: 'led:oni', tint: 0 }), { face: 'led:oni' });
+  assert.deepEqual(sanitizeAvatar({ face: 'led:oni', tint: TINT_COUNT }), { face: 'led:oni' });
+  assert.deepEqual(sanitizeAvatar({ face: 'led:oni', tint: 1.5 }), { face: 'led:oni' });
+  assert.deepEqual(sanitizeAvatar({ face: 'led:oni', tint: '3' }), { face: 'led:oni' });
+  assert.equal(sameAvatar({ face: 'led:oni' }, { face: 'led:oni', tint: 1 }), false);
+  assert.equal(avatarKey({ face: 'led:oni' }), avatarKey({ face: 'led:oni', tint: 0 }));
+});
+
+test('a bot never gets a face someone already wears', () => {
+  const taken = FACES.slice(0, 35).map((face) => ({ face }));
+  for (const r of [0, 0.5, 0.99]) assert.deepEqual(freeAvatar(taken, () => r), { face: FACES[35] });
+  const all = FACES.map((face) => ({ face }));
+  const a = freeAvatar(all);
+  assert.ok(!all.some((b) => sameAvatar(a, b)));
+});
+
+test('untangling: the first keeps the face, the ones after get variants, and nothing else changes', () => {
+  const out = untangleAvatars([{ face: 'led:oni' }, { face: 'cabeza:gallo' }, { face: 'led:oni' }, { face: 'led:oni' }]);
+  assert.deepEqual(out, [{ face: 'led:oni' }, { face: 'cabeza:gallo' }, { face: 'led:oni', tint: 1 }, { face: 'led:oni', tint: 2 }]);
+  // a variant someone after already wears is skipped
+  assert.deepEqual(untangleAvatars([{ face: 'led:oni' }, { face: 'led:oni' }, { face: 'led:oni', tint: 1 }]), [{ face: 'led:oni' }, { face: 'led:oni', tint: 2 }, { face: 'led:oni', tint: 1 }]);
+  const many = Array.from({ length: 8 }, () => ({ face: 'led:payaso' as const }));
+  assert.equal(new Set(untangleAvatars(many).map(avatarKey)).size, 8);
 });

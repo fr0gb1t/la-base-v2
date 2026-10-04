@@ -11,6 +11,7 @@ export interface RoomPlayer {
   isConnected: boolean;
   isBot?: boolean;
   avatar?: AvatarSpec;
+  avatarKeep?: boolean; // said "me la quedo" while somebody else wears the same face
   handCount?: number;
 }
 

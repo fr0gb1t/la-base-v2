@@ -10,6 +10,7 @@ import { AvatarStage } from './AvatarStage';
 import { AvatarPicker } from './AvatarPicker';
 import { setAvatar, useAvatar } from './avatarSettings';
 import { FullPicker, type PickOption } from './FullPicker';
+import { useTakenFaces } from './takenFaces';
 import { FACES, type FaceId } from '@la-base/shared';
 import { FACE_INFO } from '../table3d/faces/catalog';
 import { BACK_DESIGNS, backPicture, drawBackDesign, type BackDesign } from '../table3d/cardBacks';
@@ -76,6 +77,7 @@ const BACK_OPTIONS: PickOption[] = BACK_DESIGNS.map((d) => ({ id: d.id, name: d.
 
 export function SettingsHost() {
   const [open, setOpen] = useState(false);
+  const taken = useTakenFaces();
   const s = useAudioSettings();
   // the ledger is paper: it rustles open and shut
   const wasOpen = useRef(false);
@@ -121,7 +123,7 @@ export function SettingsHost() {
         <FullPicker
           title="Tu cara"
           stage={<AvatarStage avatar={avatar} />}
-          options={FACE_OPTIONS}
+          options={FACE_OPTIONS.map((o) => (taken.has(o.id as FaceId) && o.id !== avatar.face ? { ...o, name: `${o.name} — la tiene ${taken.get(o.id as FaceId)}`, disabled: true } : o))}
           value={avatar.face}
           note={FACE_INFO[avatar.face].idea}
           onPick={(id) => setAvatar({ face: id as FaceId })}

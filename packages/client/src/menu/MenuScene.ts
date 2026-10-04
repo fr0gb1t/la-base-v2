@@ -1,5 +1,5 @@
 import { isTouch } from '../lib/device'
-import type { AvatarSpec } from '@la-base/shared'
+import { avatarKey, type AvatarSpec } from '@la-base/shared'
 import { KamikazeDial } from './kamikazeDial'
 import { attachAudio, uiSound } from '../table3d/audio'
 import * as THREE from 'three'
@@ -116,7 +116,7 @@ export class MenuScene {
   // card, so the lift animation can't flicker the hover
   private options: Array<{ view: CardView; mesh: THREE.Mesh; hit: THREE.Mesh; lift: number }> = []
   private aces: Array<{ view: CardView; flip: number; on: boolean }> = []
-  private avatars: Array<{ av: Avatar; rise: number; name: string; tag: NameTag; tagFade: number }> = []
+  private avatars: Array<{ av: Avatar; rise: number; name: string; face: string; tag: NameTag; tagFade: number }> = []
   private hovered = -1
   private focusIndex = -1
   private floating = new FloatingItems()
@@ -218,18 +218,19 @@ export class MenuScene {
     const mine = players[0]?.team
     const rel = (t?: string) => (!t || t === 'random' || !mine || mine === 'random' ? 'random' : t === mine ? 'nosotros' : 'ellos')
     players.forEach((p, i) => {
-      if (!this.avatars[i] || this.avatars[i].name !== p.name) {
+      const face = p.avatar ? avatarKey(p.avatar) : ''
+      if (!this.avatars[i] || this.avatars[i].name !== p.name || this.avatars[i].face !== face) {
         if (this.avatars[i]) {
           this.scene.remove(this.avatars[i].av.root, this.avatars[i].tag.mesh)
           this.avatars[i].tag.dispose()
         }
-        if (arrived && i > 0) uiSound('sit')
+        if (arrived && i > 0 && this.avatars[i]?.name !== p.name) uiSound('sit') // (not when somebody only changed face)
         const av = makeAvatar(i, n, i === 0, p.avatar) // seat 0 is you, the camera: only your arms
         av.setHandCount(0)
         this.scene.add(av.root)
         const tag = new NameTag(MENU_NAME_H) // small: the waiting room must not look crowded
         this.scene.add(tag.mesh)
-        this.avatars[i] = { av, rise: 0, name: p.name, tag, tagFade: 0 }
+        this.avatars[i] = { av, rise: 0, name: p.name, face, tag, tagFade: 0 }
       }
       this.avatars[i].tag.set(p.name, rel(p.team), true)
     })
