@@ -1,4 +1,5 @@
 // Player audio settings: persisted per browser, observable by the audio engine and the UI.
+import { isTouch } from '../lib/device'
 
 export interface AudioSettings {
   volume: number // 0..1 master
@@ -7,7 +8,8 @@ export interface AudioSettings {
 }
 
 const KEY = 'laBase.audio'
-const DEFAULTS: AudioSettings = { volume: 0.8, ambient: true, effects: true }
+// desktop starts with the game's sounds but without the room tone; phones keep both
+const DEFAULTS: AudioSettings = { volume: 0.8, ambient: isTouch, effects: true }
 
 function load(): AudioSettings {
   try {

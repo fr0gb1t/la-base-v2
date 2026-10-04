@@ -28,8 +28,11 @@ export const SENS_MAX = 3
 export const FOV_MIN = 50
 export const FOV_MAX = 80
 const KEY = 'laBase.view'
-// phones start with: hand not reset on your turn, no table guides, view returns to your seat (gyroscope and reticle on, camera not inverted)
-const DEFAULTS: ViewSettings = { cameraReturn: isTouch, reticle: true, invertLook: false, handResetOnTurn: !isTouch, guides: !isTouch, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja', handHeight: 0, senaOrder: '', senaSeenFlash: false, gyro: true, smoothProps: !isLowEnd, smoothChosen: false }
+// What a new player starts with. Desktop: hand not reset on your turn, no table guides, view not sent back to
+// your seat, aiming dot on, camera not inverted, your seña flashes when a rival catches it, soft edges on
+// (unless the device is modest). Phones: the view returns to your seat (gyroscope and reticle on, camera not
+// inverted), no hand reset, no guides, no seña flash. Everybody: the Brújula card back.
+const DEFAULTS: ViewSettings = { cameraReturn: isTouch, reticle: true, invertLook: false, handResetOnTurn: false, guides: false, lookSensitivity: 1, fov: 63, cardBack: 'brujula', handHeight: 0, senaOrder: '', senaSeenFlash: !isTouch, gyro: true, smoothProps: !isLowEnd, smoothChosen: false }
 
 function load(): ViewSettings {
   try {

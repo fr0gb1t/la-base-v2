@@ -6,6 +6,12 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Ajustes por defecto nuevos (para quien empieza de cero):** en la PC, sonido ambiente **no** y sonidos
+  del juego **sí**; mano a la vista en tu turno **no**; guías en la mesa **no**; volver a tu lugar **no**;
+  invertir cámara **no**; punto de mira **sí**; aviso de seña vista **sí**; bordes suaves **sí** (no en
+  equipos modestos). El celular conserva los suyos (volver a tu lugar sí, sin aviso de seña vista, con el
+  sonido ambiente). La carta por defecto es la **Brújula**, en PC y celular. Quien ya tiene ajustes
+  guardados conserva los que tiene (salvo bordes suaves, que sigue al equipo si nunca lo eligió).
 - **«Bordes suaves» viene encendido salvo en equipos modestos:** el valor automático es «sí» salvo en
   pantallas táctiles, 4 núcleos o menos, 4 GB de memoria o menos (`deviceMemory`, solo Chromium), ahorro de
   datos o WebGL por software (SwiftShader, llvmpipe…): `judgeLowEnd` / `isLowEnd` en `lib/device.ts`.
