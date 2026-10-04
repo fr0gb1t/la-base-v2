@@ -5,6 +5,15 @@ import type { Novedad } from './novedades';
 export const NOVEDADES: Novedad[] = [
   // ------------------------------------------------------------------ 4 de octubre
   {
+    id: '2026-10-04-senas-zona',
+    date: '2026-10-04',
+    title: 'Señas rivales, más fáciles de captar',
+    items: [
+      'Para ver la seña de un rival alcanza con apuntar a donde está sentado, no hace falta clavar la mira en la cara.',
+      'Cuando entrás en esa zona, el punto de mira se agranda para avisarte.',
+    ],
+  },
+  {
     id: '2026-10-04-ajustes-defecto',
     date: '2026-10-04',
     title: 'Ajustes de fábrica renovados',
