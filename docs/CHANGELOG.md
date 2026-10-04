@@ -15,6 +15,9 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
 - **Novedades por fecha:** la hoja de novedades muestra un día a la vez (el más nuevo primero) con
   «‹ Antes» / «Después ›» (o las flechas ← →) para revisar los cambios de fechas anteriores. Las
   entradas se agrupan con `groupByDate` en `client/src/changelog/novedades.ts`.
+- **Ajustes solo por el televisor:** se quitó el botón «ajustes» suelto de la esquina en todas las
+  pantallas del menú (también en celular); se abre desde el televisor del inicio, con la tecla `O` o desde
+  el de la sala. Los televisores de las mesitas son bastante más chicos (`SIDE_TV_SCALE` en `MenuScene.ts`).
 - **Quién gana la base, corregido:** al invertirse el sentido con el As de Copas, el servidor leía las
   cartas al revés y **se saltaba la última carta jugada** (un 3 le ganaba a un 5 jugado después). Ahora
   las cartas se leen siempre desde el Mano, silla por silla, en el sentido vigente al cerrarse la base;

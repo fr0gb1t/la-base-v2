@@ -25,6 +25,9 @@ import { buildSideTable, SIDE_TABLE_H } from './sideTable'
 
 // the two side tables, one television each: off the felt on both sides, up in the free corners of the
 // seated shot, turned to face the camera. The first set goes left, the second right.
+// the sets outside the room are small: just enough to find and read at a glance
+const SIDE_TV_SCALE = 0.55
+
 export const TV_DECKS = [
   { x: -1.2, z: -0.7, yaw: 0.5 },
   { x: 1.2, z: -0.7, yaw: -0.5 },
@@ -277,7 +280,8 @@ export class MenuScene {
       const spot = TV_DECKS[i]
       const lamp = new THREE.PointLight(0xe8e4dc, 1.6, 2.4, 1.6) // the basement is dark: a little light on each set
       lamp.position.set(0, SIDE_TABLE_H + 0.7, 0.35)
-      d.board.group.position.set(0, SIDE_TABLE_H + HUD_SET_H / 2 + 0.02, 0)
+      d.board.group.scale.setScalar(SIDE_TV_SCALE)
+      d.board.group.position.set(0, SIDE_TABLE_H + (HUD_SET_H * SIDE_TV_SCALE) / 2 + 0.02, 0)
       d.group.add(buildSideTable(), d.board.group, lamp)
       d.group.position.set(spot.x, 0, spot.z)
       d.group.rotation.y = spot.yaw

@@ -8,7 +8,7 @@ import { GamePage } from './components/GamePage';
 import { useSocket } from './hooks/useSocket';
 import { MenuBackdrop } from './menu/MenuBackdrop';
 import { RulebookHost } from './components/rulebook/Rulebook';
-import { SettingsHost, SettingsButton } from './settings/SettingsPanel';
+import { SettingsHost } from './settings/SettingsPanel';
 
 function App() {
   const currentPage = useGameStore((state) => state.currentPage);
@@ -31,11 +31,6 @@ function App() {
       {currentPage === 'game:waiting' && <RoomWaiting />}
       {currentPage === 'game:config' && <GameConfig />}
       {currentPage === 'game' && <GamePage />}
-      {currentPage !== 'game' && (
-        <div className="menu-settings-btn">
-          <SettingsButton className="hud-tab" />
-        </div>
-      )}
       <SettingsHost />
       <RulebookHost />
     </>

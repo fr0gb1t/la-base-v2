@@ -5,7 +5,6 @@ import { useMenuScene } from '../menu/MenuBackdrop';
 import { openSettings } from '../settings/SettingsPanel';
 import { NOVEDADES, markNovedadesSeen, useUnseenNovedades } from '../changelog/novedades';
 import { NovedadesPanel } from './NovedadesPanel';
-import { isTouch } from '../lib/device';
 
 // The home screen's televisions, on the side table in the 3D basement: ajustes and novedades. The
 // novedades set turns amber and pulses until it's been opened. The DOM keeps real buttons (hidden)
@@ -46,13 +45,6 @@ export function MenuTelevisions() {
       scene.onHud = () => undefined;
     };
   }, [scene, openNovedades]);
-
-  // the television replaces the corner "ajustes" button on a computer (a phone keeps it: the sets are small there)
-  useEffect(() => {
-    if (isTouch) return;
-    document.body.classList.add('menu-tvs');
-    return () => document.body.classList.remove('menu-tvs');
-  }, []);
 
   const close = useCallback(() => setOpen(false), []);
   return (
