@@ -28,20 +28,16 @@ export const handStyleOf = (avatar: AvatarSpec): HandStyleKey => {
 }
 
 // The sleeve the hand comes out of: a short, loose black cuff, wide even at the wrist (the hand comes out of it
-// without touching it), opening a little more toward the back, with soft folds that deepen toward the open end, which sags a little under its own weight. Dark inside (the
+// without touching it), opening a little more toward the back, round all the way. Dark inside (the
 // arm is lost in the dark); only the hem round the open end is in the team's colour. It runs back from the wrist,
 // down −z.
 const SLEEVE_LEN = 0.06
 const SLEEVE_SEG = 32
 const SLEEVE_RINGS = 14
-/** The sleeve's radius at a point: u from 0 (wrist) to 1 (open end), a the angle round it. */
-function sleeveR(u: number, a: number) {
-  const base = 0.039 + 0.014 * Math.pow(u, 1.4) // loose all along: the wrist floats inside it, wider at the back
-  const folds = (0.004 + 0.005 * u) * (Math.sin(a * 5 + u * 1.7) * 0.7 + Math.sin(a * 3 - 0.8) * 0.3) // folds, deeper toward the end
-  return base + folds
-}
-/** How far the sleeve hangs down at a point (cloth sags at the open end, more at the bottom than the top). */
-const sleeveSag = (u: number, a: number) => -0.012 * u * u * (1 - 0.4 * Math.sin(a))
+/** The sleeve's radius at a point: u from 0 (wrist) to 1 (open end). Round, no folds. */
+const sleeveR = (u: number, _a: number) => 0.039 + 0.014 * Math.pow(u, 1.4) // loose all along, a little wider at the back
+/** How far the open end hangs down (a little, evenly: it stays round). */
+const sleeveSag = (u: number, _a: number) => -0.006 * u * u
 let sleeveGeo: { sleeve: THREE.BufferGeometry; hem: THREE.BufferGeometry } | null = null
 function sleeveGeometry() {
   if (sleeveGeo) return sleeveGeo
@@ -49,11 +45,10 @@ function sleeveGeometry() {
   const idx: number[] = []
   for (let j = 0; j <= SLEEVE_RINGS; j++) {
     const u = j / SLEEVE_RINGS
-    // the open end is cut on a slant, longer underneath, as a sleeve falls
     for (let i = 0; i <= SLEEVE_SEG; i++) {
       const a = (i / SLEEVE_SEG) * Math.PI * 2
       const r = sleeveR(u, a)
-      const len = SLEEVE_LEN * (1 + 0.18 * Math.max(0, -Math.sin(a)) * u)
+      const len = SLEEVE_LEN
       pos.push(Math.cos(a) * r, Math.sin(a) * r + sleeveSag(u, a), 0.012 - u * len) // back from the wrist, down −z
     }
   }
@@ -67,7 +62,7 @@ function sleeveGeometry() {
   sleeve.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
   sleeve.setIndex(idx)
   sleeve.computeVertexNormals()
-  // the hem: a thin roll along the open end, following its folds
+  // the hem: a thin roll round the open end
   const last = SLEEVE_RINGS * (SLEEVE_SEG + 1)
   const edge = Array.from({ length: SLEEVE_SEG }, (_, i) => new THREE.Vector3(pos[(last + i) * 3], pos[(last + i) * 3 + 1], pos[(last + i) * 3 + 2]))
   const hem = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edge, true), 64, 0.0032, 6, true)

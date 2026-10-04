@@ -7,8 +7,8 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
 - **Manos con puño y en movimiento:** la mano ya no termina en un muñón redondo con un aro (se veía cortada):
-  sale de una manga negra corta y suelta (holgada ya en la muñeca, un poco más ancha atrás, con pliegues que
-  se hacen más hondos hacia la boca y que cae un poco por su peso), con solo el borde ondulado del color del equipo
+  sale de una manga negra corta, redonda y holgada (ya en la muñeca, y un poco más ancha atrás), con solo el
+  borde del color del equipo
   (`makeHand` en `table3d/faces/index.ts`). Y se mueven solas mientras esperan, en stop-motion
   (`handIdle`): respiran, se balancean, y la mano abierta tamborilea dos veces sobre el paño cada tanto; la que
   sostiene el abanico apenas se inclina. En la mesa, una mano que está jugando queda quieta. Igual en la vista
