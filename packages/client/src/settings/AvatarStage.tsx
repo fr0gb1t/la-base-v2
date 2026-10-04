@@ -5,7 +5,7 @@ import { makeFace, makeHand, handStyleOf, type FaceRig } from '../table3d/faces'
 import { NOD_HZ, PUPPET_FPS, SENA_HOLD, senaAmount } from '../table3d/senaPlay';
 import { PALETTE, hex } from '../table3d/look';
 
-// Your face in a pool of lamplight beside the settings ledger, alive the way it is at the table: it floats and
+// Your face under a spotlight from the ceiling beside the settings ledger, alive the way it is at the table: it floats and
 // looks around a little, blinks, and now and then makes a seña (a random one) — stop-motion, like a puppet. Your
 // two hands float under it. Picking another face in the ledger swaps it on the spot.
 
@@ -34,7 +34,7 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
     camera.position.set(0, 0.0, -1.9); // the face looks down −z: look at it from there, the hands in view below it
     camera.lookAt(0, -0.12, 0);
     scene.add(new THREE.AmbientLight(0xffeedd, 0.55));
-    const lamp = new THREE.SpotLight(0xffe2c0, 9, 10, 0.55, 0.6, 1.5);
+    const lamp = new THREE.SpotLight(0xffe2c0, 14, 10, 0.5, 0.55, 1.5);
     lamp.target.position.set(0, 0, 0);
     scene.add(lamp, lamp.target);
 
@@ -113,7 +113,7 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
       mask.sena(face, amount);
       mask.tick(t); // (it blinks by itself)
       hands.forEach((h, i) => (h.group.position.y = -0.36 + Math.sin(ts * 1.1 + i * 2) * 0.004));
-      lamp.position.set(Math.sin(t * 0.5) * 0.9, 0.95, -1.1 + Math.cos(t * 0.4) * 0.3);
+      lamp.position.set(Math.sin(t * 0.3) * 0.06, 1.7, -0.35); // overhead, a little in front: a spotlight from the ceiling
       renderer.render(scene, camera);
       raf = requestAnimationFrame(frame);
     };

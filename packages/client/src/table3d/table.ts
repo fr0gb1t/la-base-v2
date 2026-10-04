@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { PALETTE, hex } from './look'
-import { TABLE_R, TABLE_Y, CHAIR_R, PLAY_R, CARD_W, CARD_H, seatAngle, type PlayerCount } from './seats'
+import { TABLE_R, TABLE_Y, PLAY_R, CARD_W, CARD_H, seatAngle, type PlayerCount } from './seats'
 
 export interface SeatLabel { name: string; team: 'nosotros' | 'ellos' | 'random' }
 const TEAM_CHALK = { nosotros: PALETTE.teal, ellos: PALETTE.rose, random: PALETTE.chalk } as const
@@ -104,23 +104,7 @@ export function buildRoom(scene: THREE.Scene, n: PlayerCount, labels: SeatLabel[
   floor.receiveShadow = true
   scene.add(floor)
 
-  // Always 8 chairs: the empty ones stay pushed back in the dark (they are part of the dread).
-  const chairMat = new THREE.MeshStandardMaterial({ color: hex(PALETTE.soot), roughness: 0.8 })
-  for (let k = 0; k < 8; k++) {
-    const occupied = k < n
-    const a = occupied ? seatAngle(k, n) : seatAngle(k, 8) + Math.PI / 8
-    const r = occupied ? CHAIR_R : CHAIR_R + 0.9
-    const chair = new THREE.Group()
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.05, 0.45), chairMat)
-    seat.position.y = 0.46
-    const back = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.6, 0.05), chairMat)
-    back.position.set(0, 0.78, 0.2)
-    chair.add(seat, back)
-    chair.position.set(Math.cos(a) * r, 0, Math.sin(a) * r)
-    chair.rotation.y = -a + Math.PI / 2
-    chair.traverse((o) => (o.castShadow = true))
-    scene.add(chair)
-  }
+  // (no chairs: nobody at this table has a body to sit on one, only a face and two hands floating over it)
   let cur = { labels, guides }
   return {
     setLabels: (l: SeatLabel[]) => chalk.redraw((cur = { ...cur, labels: l }).labels, cur.guides),

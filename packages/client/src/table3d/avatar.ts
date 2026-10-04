@@ -85,7 +85,7 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false, av
   root.add(torso)
   const face = makeFace(avatarSpec, seat)
   const head = new THREE.Group() // turned and nodded by the table; the face inside it floats
-  head.position.set(0, 1.3, -0.04)
+  head.position.set(0, 1.18, -0.04) // a little lower than a seated head: the faces hang close over the felt
   head.add(face.head)
   torso.add(head)
   const sena = face.sena

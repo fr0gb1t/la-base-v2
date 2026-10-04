@@ -3158,13 +3158,12 @@ button {
   margin-right: 18px;
 }
 
-/* the lamp's cone, and the pool of light it leaves below */
+/* a spotlight straight overhead: a soft round glow round what is on the stage, brightest just above it */
 .back-stage::before {
   content: '';
   position: absolute;
-  inset: -40px 0 -10px;
-  background: linear-gradient(to bottom, rgba(255, 197, 138, 0.16), rgba(255, 197, 138, 0.03) 80%);
-  clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%);
+  inset: 0;
+  background: radial-gradient(ellipse 46% 40% at 50% 46%, rgba(255, 214, 160, 0.17), rgba(255, 214, 160, 0.05) 60%, transparent 100%);
   pointer-events: none;
 }
 
@@ -3213,30 +3212,26 @@ button {
 
 .avatar-step { height: 26px; font-size: 18px; line-height: 1; }
 
-.avatar-idea { margin: 0 0 8px; font-size: 13px; font-style: italic; opacity: 0.8; }
+.avatar-idea { margin: 4px 0 0; font-size: 13px; font-style: italic; opacity: 0.85; display: flex; align-items: flex-start; gap: 10px; justify-content: space-between; }
 
-.avatar-faces { margin: 6px 0 4px; }
-
-.avatar-face-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
-
-.avatar-face {
+.avatar-select {
   font: inherit;
-  font-size: 13px;
+  font-size: 15px;
+  font-variant: small-caps;
   color: inherit;
-  cursor: pointer;
-  padding: 2px 8px;
-  border: 1px solid rgba(20, 14, 12, 0.35);
-  border-radius: 3px;
+  text-align: center;
+  text-align-last: center;
   background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(20, 14, 12, 0.35);
+  padding: 1px 4px;
+  cursor: pointer;
+  min-width: 0;
 }
 
-.avatar-face:hover { background: rgba(20, 14, 12, 0.1); }
+.avatar-select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-.avatar-face.on { border-color: var(--ink); background: rgba(20, 14, 12, 0.14); font-weight: 600; }
-
-.avatar-face:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-
-.avatar-dice { margin-top: 8px; padding: 4px 12px; display: inline-flex; align-items: center; gap: 6px; }
+.avatar-dice { flex: none; padding: 2px 10px; display: inline-flex; align-items: center; gap: 6px; font-style: normal; font-size: 13px; }
 
 .avatar-step:hover,
 .avatar-dice:hover { background: rgba(20, 14, 12, 0.1); }

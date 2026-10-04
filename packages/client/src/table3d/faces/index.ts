@@ -12,7 +12,7 @@ import type { HandStyleKey } from './sculptJobs'
 export type { FaceRig }
 
 /** How big the faces are at the table: a little over life size, so the señas read from across it. */
-export const FACE_SCALE = { led: 1.3, cabeza: 1.45 }
+export const FACE_SCALE = { led: 1.5, cabeza: 1.65 }
 
 export function makeFace(avatar: AvatarSpec, seed = 0): FaceRig {
   const f = faceKind(avatar.face)
