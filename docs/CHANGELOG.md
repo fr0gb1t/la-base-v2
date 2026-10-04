@@ -6,6 +6,13 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **«Bordes suaves» ahora también para todas las cartas y botones (prueba):** además de los televisores,
+  el anotador y el reloj, la capa suave (full resolución + MSAA 4x) cubre todas las cartas (mazo, mano,
+  jugadas, pilas, las de los demás), las manos/guantes, los nombres, los carteles de decisión y, en los
+  menús, las cartas de opciones, los ases, los botones flotantes, la carta del nombre y los kamikazes. Con
+  la opción apagada se ve igual que antes. Marcado por `toProps()` (`table3d/propsLayer.ts`; `makeCard`
+  ya lo hace) y `PropColors` apaga/devuelve el color de todo lo marcado en el pase pixelado, salvo los
+  materiales que ya eran solo-sombra. Rama `feat/aliasing-cartas-botones`.
 - **Televisores del menú en todas las pantallas, juntos y con bordes suaves:** Novedades y Ajustes
   están desde el ingreso en adelante (antes solo en el inicio), uno al lado del otro sobre una sola
   mesita a la derecha, donde la ven las cámaras de todas las pantallas. «Bordes suaves» (anti-aliasing)

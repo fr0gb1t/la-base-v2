@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { PALETTE, hex } from './look'
 import { CHAIR_R, LEAN_REACH, SHOULDER_R, SHOULDER_Y, TABLE_R, TABLE_Y, seatAngle, teamOf, polar, type PlayerCount } from './seats'
 import { makeCard, type CardView } from './cards'
+import { toProps } from './propsLayer'
 import type { Sena } from '@la-base/shared'
 
 // Placeholder anatomy for the demo (boxes/cylinders read fine at 360p under heavy post).
@@ -61,7 +62,7 @@ function glove(cuff: string, sx: number) {
       ;(o.material as THREE.Material).transparent = true
     }
   })
-  return g
+  return toProps(g) as THREE.Group
 }
 
 // Puppet mask: a Buckshot-style mask that is ARTICULATED so the truco señas still read.

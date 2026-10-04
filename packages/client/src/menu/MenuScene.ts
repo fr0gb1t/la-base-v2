@@ -11,6 +11,7 @@ import { makeCard, type CardView } from '../table3d/cards'
 import { drawFace, toTexture, type Rank, type Suit } from '../table3d/cardFace'
 import { makePost } from '../table3d/post'
 import { PALETTE } from '../table3d/look'
+import { PROPS_LAYER, PropColors, toProps } from '../table3d/propsLayer'
 import { FloatingItems, type FloatItem } from './floating'
 import { InputCard, type InputCardState } from './inputCard'
 import { HudBoard, HUD_SET_H, type HudItem } from '../table3d/hudBoard'
@@ -67,7 +68,6 @@ const FACE_UP = -Math.PI / 2
 const MENU_EXPOSURE = 0.95
 const MENU_NAME_H = 0.032 // metres of name text in the menus (the table uses 0.07)
 const OPTION_SCALE = 1.8 // cards are already 1.75x real size in the game
-const PROPS_LAYER = 2 // the televisions: drawn at full resolution with anti-aliasing when «Bordes suaves» is on
 const reduced = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** A big option card: a real deck figure with the option's name printed on a banner. */
@@ -568,7 +568,7 @@ export class MenuScene {
 
     this.placeTvTable(dt)
     this.syncPropLayers(time)
-    this.post.render(this.scene, this.camera, time, getViewSettings().smoothProps, (on) => this.propsColor(on))
+    this.post.render(this.scene, this.camera, time, getViewSettings().smoothProps, (on) => (on ? this.propColors.on() : this.propColors.off(this.scene)))
   }
 
   /**
@@ -608,8 +608,11 @@ export class MenuScene {
   // ---- the televisions drawn smooth: their own layer, lit by the same lights (as the game table's props)
   private lightsAt = -1
   private syncPropLayers(time: number) {
-    // every frame: the sets are built (and rebuilt) whenever the screen's items change
-    for (const d of this.decks) d.board.group.traverse((o) => o.layers.set(PROPS_LAYER))
+    // every frame: the sets, the buttons and the cards are built (and rebuilt) whenever the screen's items change
+    for (const d of this.decks) toProps(d.board.group)
+    toProps(this.floating.group)
+    toProps(this.inputCard.mesh)
+    toProps(this.kamikaze.group)
     this.raycaster.layers.enable(PROPS_LAYER) // …and still pointable
     // every light of the world also lights them (and casts their shadows)
     if (Math.floor(time) !== this.lightsAt) {
@@ -623,21 +626,7 @@ export class MenuScene {
       })
     }
   }
-
-  /** Hide / show the sets' colours in the world pass (drawn smooth on top, so they must not show through low-res). */
-  private propMats = new Set<THREE.Material>()
-  private propsColor(on: boolean) {
-    if (!on) {
-      this.propMats.clear()
-      for (const d of this.decks) {
-        d.board.group.traverse((o) => {
-          if (!(o instanceof THREE.Mesh) || !o.visible) return
-          for (const m of Array.isArray(o.material) ? o.material : [o.material]) this.propMats.add(m)
-        })
-      }
-    }
-    for (const m of this.propMats) m.colorWrite = on
-  }
+  private propColors = new PropColors()
 }
 
 function ease(x: number) {

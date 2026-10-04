@@ -4,6 +4,7 @@ import { buildLamp, buildRoom } from './table'
 import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, PLAY_R, seatAngle, polar, playSlot } from './seats'
 import { makeAvatar, MAX_HAND, FAN_Y, type Avatar, type AvatarPose } from './avatar'
 import { makeCard, type CardView } from './cards'
+import { PROPS_LAYER, PropColors, toProps } from './propsLayer'
 import { drawFace, toTexture } from './cardFace'
 import { backTexture } from './cardBacks'
 import { playPose, PLAY_DURATION } from './play'
@@ -69,7 +70,6 @@ interface RemoteArm { slot: number; fwd: number; lat: number; holding: boolean; 
 
 const FACE_DOWN = Math.PI / 2
 const CARD_T = 0.0009
-const PROPS_LAYER = 2 // televisions, notepad and clock: drawn at full resolution with anti-aliasing
 const CARD_ORDER = 100 // drawing priority of the cards on the table: this + the order they were laid
 const HOLD_FWD = -0.35
 const REACH = 0.88
@@ -1922,14 +1922,13 @@ export class TableScene {
   }
 
   // ---- props drawn smooth (televisions, notepad, clock): their own layer, lit by the same lights
-  private propsDone = false
   private lightsAt = -1
   private syncPropLayers(time: number) {
-    if (!this.propsDone) {
-      this.propsDone = true
-      for (const g of [this.hud.group, this.notepad.group, this.notepad.hitRoot, this.clock.group]) g.traverse((o) => o.layers.set(PROPS_LAYER))
-      this.raycaster.layers.enable(PROPS_LAYER) // …and still pointable
-    }
+    // every frame: the sets, the signs and the cards are built (and rebuilt) as the game goes on. (Cards made by
+    // makeCard, the hands and the names are already on the layer.)
+    for (const g of [this.hud.group, this.notepad.group, this.notepad.hitRoot, this.clock.group, this.choices.group, this.centerDeck]) toProps(g)
+    for (const v of this.vm) toProps(v.mesh) // your own fan (its hit boxes stay out: they are never drawn)
+    this.raycaster.layers.enable(PROPS_LAYER) // …and still pointable
     // every light of the world also lights the props (and casts their shadows); rooms can be rebuilt, so look again from time to time
     if (Math.floor(time) !== this.lightsAt) {
       this.lightsAt = Math.floor(time)
@@ -1943,20 +1942,7 @@ export class TableScene {
     }
   }
 
-  /** Hide / show the props' colours in the world pass (drawn smooth on top, so they must not show through low-res). */
-  private propMats = new Set<THREE.Material>()
-  private propsColor(on: boolean) {
-    if (!on) {
-      this.propMats.clear()
-      for (const g of [this.hud.group, this.notepad.group, this.notepad.hitRoot, this.clock.group]) {
-        g.traverse((o) => {
-          if (!(o instanceof THREE.Mesh) || !o.visible) return
-          for (const m of Array.isArray(o.material) ? o.material : [o.material]) this.propMats.add(m)
-        })
-      }
-    }
-    for (const m of this.propMats) m.colorWrite = on
-  }
+  private propColors = new PropColors()
 
   private resize() {
     const w = Math.max(1, this.container.clientWidth)
@@ -2155,7 +2141,7 @@ export class TableScene {
     } else this.post.duotone(null, 0)
 
     this.syncPropLayers(time)
-    this.post.render(this.scene, this.camera, time, getViewSettings().smoothProps, (on) => this.propsColor(on))
+    this.post.render(this.scene, this.camera, time, getViewSettings().smoothProps, (on) => (on ? this.propColors.on() : this.propColors.off(this.scene)))
   }
 
   // ------------------------------------------------------------------ test hooks

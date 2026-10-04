@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { CARD_W, CARD_H } from './seats'
 import { drawFace, toTexture, type Rank, type Suit } from './cardFace'
 import { backTexture } from './cardBacks'
+import { toProps } from './propsLayer'
 
 const geo = new THREE.PlaneGeometry(CARD_W, CARD_H)
 const backMat = new THREE.MeshStandardMaterial({ map: backTexture(), roughness: 0.85 })
@@ -38,6 +39,7 @@ export function makeCard(): CardView {
   const face = new THREE.Mesh(geo, backMat) // placeholder: back texture on both sides
   back.castShadow = face.castShadow = true
   root.add(face, back)
+  toProps(root) // drawn smooth with «Bordes suaves»
   return {
     root,
     setIdentity(suit, rank) {

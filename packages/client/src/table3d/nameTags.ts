@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { PALETTE } from './look'
+import { toProps } from './propsLayer'
 
 // Player names floating in front of each body at belly height, in the team's colour. They turn
 // to face your camera (mostly), keeping a slight tilt from where the player sits.
@@ -33,6 +34,7 @@ export class NameTag {
     const mat = new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, depthWrite: false, depthTest: false, color: new THREE.Color(0.85, 0.85, 0.85) })
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat)
     this.mesh.renderOrder = 9000 // names are drawn over everything (they ignore depth)
+    toProps(this.mesh)
   }
 
   set(name: string, team: Team, connected: boolean) {
