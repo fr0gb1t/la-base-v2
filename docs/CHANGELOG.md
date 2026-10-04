@@ -9,8 +9,9 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
 - **Avatares (las caras de las máscaras):** cada máscara se arma con 3 partes al azar —ojos, boca y cejas, 5
   tipos de cada una— y un color de ojos (6), dentro de la gama apagada del juego (un test rechaza cualquier
   color saturado, sin neón). **Sin pelo**: todas llevan la misma capucha negra (una capucha de impermeable ceñida: un cascarón hueco, sin cabeza adentro, solo oscuridad;
-  la abertura abraza la máscara, apenas un poco más grande, con una costura finísima en lugar de borde, y la tela
-  se ensancha detrás; es del negro del traje y sin brillo, para fundirse con el ambiente; la máscara **flota**
+  tiene el volumen de una cabeza entera (de atrás y de arriba es una capucha completa, no un
+  casquete recortado) y la abertura al frente es ancha, con una costura finísima en lugar de borde, para que
+  los rivales vistos de costado no pierdan la cara; es del negro del traje y sin brillo, para fundirse con el ambiente; la máscara **flota**
   adentro, a un pelo de la tela, con un vaivén lento en stop-motion (`float(t)` de `makeMask`, que llaman
   `pose()` y el escenario de Ajustes); una punta atrás y la tela baja por el cuello hasta el saco;
   `hoodShell` en `table3d/avatar.ts`) y solo la cara las distingue. El contrato vive en `shared/avatar.ts` (`AvatarSpec`,

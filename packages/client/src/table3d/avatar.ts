@@ -123,9 +123,9 @@ function arc(curve: number) {
  * cloth runs down over the neck into the coat.
  */
 const HOOD_R = 0.17
-const HOOD_CUT = 0.84 // rad from the front pole where the opening is cut: a snug mouth, with the cloth flaring out behind it
-const HOOD_SCALE = { x: 1.118, y: 1.4, z: 1.0 }
-const HOOD_Z = -0.15 // where the opening is (the mask sits behind it, inside)
+const HOOD_CUT = 1.0 // rad from the front pole where the opening is cut: a snug mouth with the cloth flaring out well behind it (a hood with a head's worth of volume)
+const HOOD_SCALE = { x: 1.2, y: 1.5, z: 1.25 }
+const HOOD_Z = -0.162 // where the opening is: just in front of the mask, so seen from the side the cloth does not hide the face
 function hoodShell() {
   const g = new THREE.Group()
   const cloth = new THREE.MeshStandardMaterial({ color: hex(PALETTE.soot), roughness: 1 }) // the suit's black, no sheen: it must not catch the eye
@@ -142,10 +142,10 @@ function hoodShell() {
   seam.scale.set(HOOD_SCALE.x, HOOD_SCALE.y, 1)
   seam.position.z = HOOD_Z
   const peak = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.13, 12), cloth)
-  peak.position.set(0, 0.21, 0.09)
+  peak.position.set(0, 0.27, 0.13)
   peak.rotation.x = -0.9 // a point trailing back and up
   const cowl = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.19, 0.2, 20, 1, true), cloth)
-  cowl.position.set(0, -0.31, 0.02) // below the opening: from the front nothing but the dark shows inside the hood
+  cowl.position.set(0, -0.4, 0.04) // below the opening: from the front nothing but the dark shows inside the hood
   cowl.scale.z = 0.95
   g.add(seam, peak, cowl)
   return g
