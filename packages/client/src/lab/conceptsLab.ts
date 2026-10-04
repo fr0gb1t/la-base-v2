@@ -1,9 +1,10 @@
 // Character concepts for La Base (development only: open /conceptos-lab.html on the dev server). Six directions for
 // the player at the table, all inventions of ours (not copies of anything): each one keeps what the game needs —
 // a dark hood with the mask floating inside it, floating hands, a face that can make the señas — and changes the
-// material and the story of the character. Rendered with the same PS1 chain the game would use.
+// material and the story of the character. Rendered with the same PS1 chain the game would use. A second round
+// (the default) goes nocturnal and cryptic: moonlight, a candle, glowing eyes.
 import * as THREE from 'three/webgpu'
-import { Fn, float, vec2, vec3, uniform, mix, dot, smoothstep, positionLocal, abs, fract, sin, texture, mx_noise_float, mx_fractal_noise_float, renderOutput, posterize } from 'three/tsl'
+import { Fn, color, float, vec2, vec3, uniform, mix, dot, smoothstep, positionLocal, abs, fract, sin, texture, mx_noise_float, mx_fractal_noise_float, renderOutput, posterize } from 'three/tsl'
 import { retroPass } from 'three/addons/tsl/display/RetroPassNode.js'
 import { bayerDither } from 'three/addons/tsl/math/Bayer.js'
 import { vignette } from 'three/addons/tsl/display/CRT.js'
@@ -186,7 +187,11 @@ function fan(backColor: number) {
 }
 
 // ------------------------------------------------------------------------------------------------ the six concepts
-interface Concept { name: string; idea: string; build: () => { head: THREE.Group; hands: HandStyle; fanColor: number; hoodColor?: number; noHood?: boolean } }
+interface Concept {
+  name: string
+  idea: string
+  build: () => { head: THREE.Group; hands: HandStyle; handsRight?: HandStyle; fanColor: number; hoodColor?: number; noHood?: boolean; tick?: (t: number) => void }
+}
 
 const CONCEPTS: Concept[] = [
   {
@@ -495,10 +500,343 @@ const CONCEPTS: Concept[] = [
   },
 ]
 
+// ------------------------------------------------------------------------------------------------ second round: night
+// Cryptic, nocturnal, a little creepy: moonlight and one candle instead of the warm lamp.
+
+/** A point on the front of the mask (the face looks towards −z); lift pushes it out of (or, negative, into) the surface. */
+const onFace = (x: number, y: number, lift = 0) => new THREE.Vector3(x, y, -FACE.d * Math.sqrt(Math.max(0, 1 - (x / FACE.a) ** 2 - (y / FACE.b) ** 2)) - lift)
+
+/** Something that gives off its own light (eyes, flames): unlit, scaled by a level that can pulse. */
+function glowMat(col: THREE.ColorRepresentation, level: N) {
+  const m = new THREE.MeshBasicNodeMaterial()
+  m.colorNode = (color as N)(col).mul(level)
+  return m
+}
+
+const NIGHT: Concept[] = [
+  {
+    name: '1 · Lechuza',
+    idea: 'la lechuza de campanario, el mal agüero del campo: disco facial en corazón y ojos enteros negros; sus señas: tuerce la cabeza de más, de golpe',
+    build: () => {
+      const p: N = positionLocal
+      const tex = paint(512, 640, (c, w) => {
+        c.fillStyle = '#8a6a40'
+        c.fillRect(0, 0, w, 640)
+        const heart = () => {
+          c.beginPath()
+          c.moveTo(w / 2, 150)
+          c.bezierCurveTo(w / 2 - 60, 20, w / 2 - 250, 60, w / 2 - 230, 300)
+          c.bezierCurveTo(w / 2 - 210, 470, w / 2 - 60, 560, w / 2, 625)
+          c.bezierCurveTo(w / 2 + 60, 560, w / 2 + 210, 470, w / 2 + 230, 300)
+          c.bezierCurveTo(w / 2 + 250, 60, w / 2 + 60, 20, w / 2, 150)
+          c.closePath()
+        }
+        // a dark rim around the disc, the disc itself pale, fine feathers fanning out from each eye
+        heart()
+        c.lineWidth = 36
+        c.strokeStyle = '#4a321e'
+        c.stroke()
+        c.fillStyle = '#ebe3d2'
+        c.fill()
+        c.save()
+        heart()
+        c.clip()
+        c.strokeStyle = 'rgba(140,118,92,0.4)'
+        c.lineWidth = 2
+        for (const sx of [-1, 1]) {
+          for (let k = 0; k < 48; k++) {
+            const an = (k / 48) * Math.PI * 2
+            c.beginPath()
+            c.moveTo(w / 2 + sx * 95 + Math.cos(an) * 45, 300 + Math.sin(an) * 45)
+            c.lineTo(w / 2 + sx * 95 + Math.cos(an) * 160, 300 + Math.sin(an) * 190)
+            c.stroke()
+          }
+        }
+        c.fillStyle = '#d6c9ae'
+        c.fillRect(w / 2 - 9, 160, 18, 290)
+        c.restore()
+      })
+      const feathers = mix(float(0.86), float(1.04), mx_noise_float(p.mul(vec3(170, 18, 170))).mul(0.5).add(0.5))
+      const head = new THREE.Group()
+      const face = new THREE.Group() // what tilts: the whole face, as an owl turns its head
+      head.add(face)
+      face.add(maskShell(lit(texture(tex, faceUV()).rgb.mul(feathers), 0.9)))
+      const eyeMat = new THREE.MeshStandardMaterial({ color: 0x020202, roughness: 0.06 })
+      for (const sx of [-1, 1]) {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 24, 16), eyeMat)
+        eye.position.copy(onFace(sx * 0.047, 0.012, -0.013))
+        face.add(eye)
+      }
+      const beak = new THREE.Mesh(new THREE.ConeGeometry(0.009, 0.032, 10), new THREE.MeshStandardMaterial({ color: 0xbca684, roughness: 0.5 }))
+      beak.position.copy(onFace(0, -0.028, 0.006))
+      beak.rotation.x = Math.PI + 0.35
+      face.add(beak)
+      const tick = (t: number) => {
+        const s = Math.sin(t * 0.7)
+        face.rotation.z = s > 0.75 ? 0.6 : s < -0.85 ? -0.35 : 0 // still, still, then all at once
+      }
+      return { head, tick, hands: { mat: new THREE.MeshStandardMaterial({ color: 0xa9a196, roughness: 0.7 }), thick: 0.72 }, fanColor: 0x2a2620, hoodColor: 0x0e0d12 }
+    },
+  },
+  {
+    name: '2 · Luz mala',
+    idea: 'la luz mala del campo: una máscara negra que no se ve, solo dos ojos y una boca que brillan y laten; los nudillos también',
+    build: () => {
+      const pulse = uniform(1)
+      const head = new THREE.Group()
+      head.add(maskShell(new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.9 })))
+      const eyeMat = glowMat(0xc8ffd0, pulse)
+      for (const sx of [-1, 1]) {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.009, 12, 8), eyeMat)
+        eye.scale.set(1.3, 0.8, 1)
+        eye.position.copy(onFace(sx * 0.042, 0.02, 0.002))
+        head.add(eye)
+      }
+      const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.003, 0.004), glowMat(0x8fe0a0, pulse.mul(0.55)))
+      mouth.position.copy(onFace(0, -0.052, 0.001))
+      head.add(mouth)
+      const light = new THREE.PointLight(0x9dffb0, 0.12, 0.7, 2)
+      light.position.set(0, 0.02, -0.16)
+      head.add(light)
+      const tick = (t: number) => {
+        const v = 0.7 + 0.3 * Math.sin(t * 2.1) * Math.sin(t * 0.7 + 1)
+        pulse.value = v
+        light.intensity = 0.12 * v
+      }
+      return { head, tick, hands: { mat: new THREE.MeshStandardMaterial({ color: 0x111216, roughness: 0.9 }), joints: glowMat(0x9dffb0, pulse.mul(0.35)), thick: 0.85 }, fanColor: 0x14201a, hoodColor: 0x0b0c10 }
+    },
+  },
+  {
+    name: '3 · Vela',
+    idea: 'una cara de cera derretida, ojos cerrados, con una vela encendida en la cabeza que es la única luz dentro de la capucha',
+    build: () => {
+      const p: N = positionLocal
+      const flick = uniform(1)
+      const wax: N = mix(vec3(0.76, 0.68, 0.5), vec3(0.93, 0.88, 0.72), mx_fractal_noise_float(p.mul(25), 2, 2, 0.5).mul(0.5).add(0.5))
+      const tex = paint(512, 640, (c, w) => {
+        c.strokeStyle = '#000'
+        c.lineCap = 'round'
+        c.lineWidth = 12
+        for (const sx of [-1, 1]) {
+          // eyes shut, sagging; a run of wax from one of them
+          c.beginPath()
+          c.arc(w / 2 + sx * 100, 280, 55, Math.PI * 0.15, Math.PI * 0.85)
+          c.stroke()
+        }
+        c.lineWidth = 16
+        c.beginPath()
+        c.moveTo(w / 2 + 110, 340)
+        c.lineTo(w / 2 + 105, 470)
+        c.stroke()
+        c.lineWidth = 9
+        c.beginPath()
+        c.moveTo(w / 2 - 50, 500)
+        c.quadraticCurveTo(w / 2, 488, w / 2 + 50, 506)
+        c.stroke()
+      })
+      // drips from the top of the face, painted: red is the raised wax (lighter), green its shadow on the side
+      const drips = paint(512, 640, (c, w) => {
+        c.fillStyle = '#000'
+        c.fillRect(0, 0, w, 640)
+        for (let k = 0; k < 8; k++) {
+          const x = 120 + k * 38 + Math.sin(k * 3.7) * 8
+          const L = 60 + (Math.sin(k * 12.9) * 0.5 + 0.5) * 170
+          const r = 9 + (k % 3) * 3
+          const run = () => {
+            c.beginPath()
+            c.moveTo(x - r * 0.6, 0)
+            c.lineTo(x - r * 0.6, L)
+            c.arc(x, L, r, Math.PI, 0, true)
+            c.lineTo(x + r * 0.6, 0)
+            c.closePath()
+          }
+          c.save()
+          c.translate(5, 4)
+          run()
+          c.fillStyle = '#00ff00'
+          c.fill()
+          c.restore()
+          run()
+          c.fillStyle = '#ff0000'
+          c.fill()
+        }
+      })
+      const dr: N = texture(drips, faceUV())
+      const waxed: N = wax.mul(float(1).add(dr.r.mul(0.22))).mul(float(1).sub(dr.g.mul(0.5)))
+      const waxMat = lit(waxed.mul(float(1).sub(texture(tex, faceUV()).a.mul(0.5))), 0.35)
+      const head = new THREE.Group()
+      head.add(maskShell(waxMat))
+      const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.023, 0.05, 16), waxMat)
+      candle.position.set(0, FACE.b + 0.015, 0)
+      const flame = new THREE.Mesh(new THREE.SphereGeometry(0.008, 10, 8), glowMat(0xffb040, flick.mul(1.6)))
+      flame.position.set(0, FACE.b + 0.058, 0)
+      const light = new THREE.PointLight(0xffa860, 0.35, 1.2, 2)
+      light.position.set(0, FACE.b + 0.06, -0.04)
+      head.add(candle, flame, light)
+      const tick = (t: number) => {
+        const f = 0.85 + 0.15 * Math.sin(t * 13) * Math.sin(t * 7.3)
+        flick.value = f
+        light.intensity = 0.35 * f
+        flame.scale.set(1, 2.3 * f, 1)
+      }
+      return { head, tick, hands: { mat: waxMat, thick: 0.95 }, fanColor: 0x3a2a1c, hoodColor: 0x0d0c10 }
+    },
+  },
+  {
+    name: '4 · Liso',
+    idea: 'una máscara sin cara, de marfil, con los cuatro palos grabados apenas; la seña es uno de los palos que se enciende',
+    build: () => {
+      const p: N = positionLocal
+      const pulse = uniform(0)
+      const draw = (c: CanvasRenderingContext2D, w: number, only?: 'oro') => {
+        c.strokeStyle = '#000'
+        c.lineCap = 'round'
+        c.lineWidth = 7
+        c.beginPath() // oro, on the forehead
+        c.arc(w / 2, 130, 40, 0, Math.PI * 2)
+        c.moveTo(w / 2 + 18, 130)
+        c.arc(w / 2, 130, 18, 0, Math.PI * 2)
+        c.stroke()
+        if (only) return
+        const cx = w / 2 - 125 // copa, one cheek
+        c.beginPath()
+        c.moveTo(cx - 38, 300)
+        c.quadraticCurveTo(cx, 380, cx + 38, 300)
+        c.closePath()
+        c.moveTo(cx, 342)
+        c.lineTo(cx, 378)
+        c.moveTo(cx - 22, 382)
+        c.lineTo(cx + 22, 382)
+        c.stroke()
+        const ex = w / 2 + 125 // espada, the other
+        c.beginPath()
+        c.moveTo(ex, 270)
+        c.lineTo(ex, 390)
+        c.moveTo(ex - 26, 360)
+        c.lineTo(ex + 26, 360)
+        c.stroke()
+        c.lineWidth = 13 // basto, the chin
+        c.beginPath()
+        c.moveTo(w / 2 - 10, 560)
+        c.lineTo(w / 2 + 10, 455)
+        c.stroke()
+      }
+      const marks = paint(512, 640, (c, w) => draw(c, w))
+      const lamp = paint(512, 640, (c, w) => draw(c, w, 'oro'))
+      const ivory: N = mix(vec3(0.84, 0.8, 0.72), vec3(0.93, 0.9, 0.84), mx_noise_float(p.mul(12)).mul(0.5).add(0.5))
+      const m = lit(ivory.mul(float(1).sub(texture(marks, faceUV()).a.mul(0.6))), 0.3)
+      m.emissiveNode = color(0xffb050).mul(texture(lamp, faceUV()).a).mul(pulse)
+      const head = new THREE.Group()
+      head.add(maskShell(m))
+      const tick = (t: number) => {
+        pulse.value = Math.max(0, Math.sin(t * 1.4)) ** 3 * 1.4
+      }
+      return { head, tick, hands: { mat: new THREE.MeshStandardMaterial({ color: 0xdcd8d0, roughness: 0.45 }), thick: 0.82 }, fanColor: 0x1c1a24, hoodColor: 0x0c0b10 }
+    },
+  },
+  {
+    name: '5 · Luna',
+    idea: 'media cara de luna con cráteres, dormida; la otra mitad es noche y tiene una sola pupila que mira. Una mano clara y otra negra',
+    build: () => {
+      const p: N = positionLocal
+      const pupilLevel = uniform(1)
+      const tex = paint(512, 640, (c, w) => {
+        c.strokeStyle = '#000'
+        c.lineCap = 'round'
+        c.lineWidth = 9
+        c.beginPath() // the sleeping eye, lashes down, on the moon's half
+        c.arc(w / 2 - 100, 285, 50, Math.PI * 0.1, Math.PI * 0.9)
+        c.stroke()
+        for (let k = 0; k < 5; k++) {
+          const an = Math.PI * (0.25 + k * 0.125)
+          c.beginPath()
+          c.moveTo(w / 2 - 100 + Math.cos(an) * 50, 285 + Math.sin(an) * 50)
+          c.lineTo(w / 2 - 100 + Math.cos(an) * 72, 285 + Math.sin(an) * 72)
+          c.stroke()
+        }
+        c.beginPath() // half a smile, ending at the dark
+        c.moveTo(w / 2 - 110, 480)
+        c.quadraticCurveTo(w / 2 - 50, 520, w / 2, 505)
+        c.stroke()
+      })
+      const lightSide = smoothstep(-0.012, 0.012, p.x.add(sin(p.y.mul(30)).mul(0.004))) // +x is the viewer's left
+      const moon: N = mix(vec3(0.55, 0.57, 0.6), vec3(0.88, 0.88, 0.84), smoothstep(-0.35, 0.4, mx_noise_float(p.mul(30))))
+      const col = mix(vec3(0.012, 0.013, 0.018), moon.mul(float(1).sub(texture(tex, faceUV()).a.mul(0.8))), lightSide)
+      const head = new THREE.Group()
+      head.add(maskShell(lit(col, 0.85)))
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.006, 10, 8), glowMat(0xe2ebff, pupilLevel))
+      head.add(pupil)
+      const tick = (t: number) => {
+        pupil.position.copy(onFace(-0.046 + Math.sin(t * 0.6) * 0.008, 0.022 + Math.sin(t * 0.37) * 0.004, 0.001))
+        pupilLevel.value = Math.sin(t * 0.9) > 0.97 ? 0.1 : 1 // it blinks, rarely
+      }
+      return {
+        head,
+        tick,
+        hands: { mat: new THREE.MeshStandardMaterial({ color: 0xc9c8c2, roughness: 0.6 }), thick: 0.85 },
+        handsRight: { mat: new THREE.MeshStandardMaterial({ color: 0x0d0d10, roughness: 0.6 }), thick: 0.85 },
+        fanColor: 0x1d2236,
+        hoodColor: 0x0c0d14,
+      }
+    },
+  },
+  {
+    name: '6 · Ojo',
+    idea: 'cuero cosido y un solo ojo grande en el medio, sin boca; las señas las hace el ojo y sus párpados',
+    build: () => {
+      const p: N = positionLocal
+      const leather: N = mix(vec3(0.28, 0.19, 0.14), vec3(0.44, 0.31, 0.22), mx_fractal_noise_float(p.mul(40), 3, 2, 0.5).mul(0.5).add(0.5))
+      const tex = paint(512, 640, (c, w) => {
+        c.strokeStyle = '#000'
+        c.lineWidth = 6
+        for (const [a, b] of [[30, 215], [400, 630]]) {
+          c.beginPath() // the seam, and the cross stitches over it
+          c.moveTo(w / 2, a)
+          c.lineTo(w / 2, b)
+          c.stroke()
+          for (let y = a + 10; y < b; y += 26) {
+            c.beginPath()
+            c.moveTo(w / 2 - 14, y - 8)
+            c.lineTo(w / 2 + 14, y + 8)
+            c.moveTo(w / 2 + 14, y - 8)
+            c.lineTo(w / 2 - 14, y + 8)
+            c.stroke()
+          }
+        }
+      })
+      const skin = lit(leather.mul(float(1).sub(texture(tex, faceUV()).a.mul(0.7))), 0.6)
+      const head = new THREE.Group()
+      head.add(maskShell(skin))
+      // the eye: sclera with veins, a dull gold iris, the pupil; looking down its own −z
+      const d: N = positionLocal.normalize()
+      const front = d.z.negate()
+      const vein = float(1).sub(smoothstep(0.0, 0.035, abs(mx_noise_float(d.mul(9))))).mul(smoothstep(0.75, 0.3, front))
+      const sclera = mix(vec3(0.84, 0.79, 0.66), vec3(0.55, 0.16, 0.14), vein.mul(0.8))
+      const iris = mix(vec3(0.55, 0.42, 0.12), vec3(0.28, 0.2, 0.06), mx_noise_float(d.mul(40)).mul(0.5).add(0.5))
+      const eyeCol = mix(mix(sclera, iris, smoothstep(0.92, 0.93, front)), vec3(0.01, 0.01, 0.01), smoothstep(0.982, 0.985, front))
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.044, 32, 24), lit(eyeCol, 0.15))
+      const socket = new THREE.Group()
+      socket.position.copy(onFace(0, 0.015, -0.014))
+      socket.add(eye)
+      const upper = new THREE.Mesh(new THREE.SphereGeometry(0.047, 28, 12, 0, Math.PI * 2, 0, Math.PI / 2), skin)
+      const lower = new THREE.Mesh(new THREE.SphereGeometry(0.047, 28, 8, 0, Math.PI * 2, Math.PI * 0.66, Math.PI * 0.34), skin)
+      lower.rotation.x = 0.25
+      socket.add(upper, lower)
+      head.add(socket)
+      const tick = (t: number) => {
+        eye.rotation.y = Math.sin(t * 0.45) * 0.45
+        eye.rotation.x = Math.sin(t * 0.31) * 0.15
+        upper.rotation.x = Math.sin(t * 0.8) > 0.96 ? -1.5 : -0.15 // heavy lid, now and then a slow blink
+      }
+      return { head, tick, hands: { mat: lit(leather.mul(0.7), 0.6), cuff: lit(vec3(0.12, 0.08, 0.06), 0.8) }, fanColor: 0x3a1e16, hoodColor: 0x0e0c0c }
+    },
+  },
+]
+
 // ------------------------------------------------------------------------------------------------ one scene per concept
-function sceneFor(c: Concept) {
+function sceneFor(c: Concept, night: boolean) {
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x070504)
+  scene.background = new THREE.Color(night ? 0x030409 : 0x070504)
   const built = c.build()
   const player = new THREE.Group()
   if (!built.noHood) player.add(hood(built.hoodColor ?? 0x1c1714))
@@ -513,13 +851,13 @@ function sceneFor(c: Concept) {
   f.position.set(0.1, -0.2, -0.235)
   f.rotation.set(-0.25, Math.PI, 0)
   player.add(f)
-  const right = hand(1, built.hands, [0.3, 0.38, 0.46, 0.55])
+  const right = hand(1, built.handsRight ?? built.hands, [0.3, 0.38, 0.46, 0.55])
   right.position.set(-0.13, -0.3, -0.24)
   right.rotation.set(0.15, -0.35, 0.1, 'YXZ')
   player.add(left, right)
   scene.add(player)
   // the table edge, felt, with one card face up (ours: the Spanish deck)
-  const felt = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.04, 48), new THREE.MeshStandardMaterial({ color: 0x4a4927, roughness: 1 }))
+  const felt = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.04, 48), new THREE.MeshStandardMaterial({ color: night ? 0x2c2e20 : 0x4a4927, roughness: 1 }))
   felt.position.set(0, -0.36, -1.32)
   scene.add(felt)
   const cardTex = new THREE.CanvasTexture(drawFace('oros', 12))
@@ -528,6 +866,24 @@ function sceneFor(c: Concept) {
   card.rotation.set(-Math.PI / 2, 0, 0.3)
   card.position.set(0.03, -0.338, -0.33)
   scene.add(card)
+  if (night) {
+    // moonlight through a window on one side, and a candle stub on the table
+    scene.add(new THREE.AmbientLight(0x7080b0, 0.16))
+    const moon = new THREE.DirectionalLight(0x8fa6d8, 1.7)
+    moon.position.set(-1, 1.2, -0.6)
+    const rim = new THREE.DirectionalLight(0x6f8fc8, 1.2) // the window behind: an outline for the hood
+    rim.position.set(0.6, 0.9, 1.3)
+    scene.add(moon, rim)
+    const stub = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.017, 0.035, 12), new THREE.MeshStandardMaterial({ color: 0xd8ccb0, roughness: 0.5 }))
+    stub.position.set(-0.32, -0.322, -0.18)
+    const flame = new THREE.Mesh(new THREE.SphereGeometry(0.006, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffc070 }))
+    flame.scale.y = 2.2
+    flame.position.set(-0.32, -0.29, -0.18)
+    const candle = new THREE.PointLight(0xff9a50, 0.12, 1.2, 2)
+    candle.position.set(-0.32, -0.27, -0.18)
+    scene.add(stub, flame, candle)
+    return { scene, player, head: built.head, tick: built.tick }
+  }
   // the lamp over the table, warm; a little cold fill from behind
   scene.add(new THREE.AmbientLight(0xffe8d0, 0.1))
   const lamp = new THREE.SpotLight(0xffc58a, 11, 6, 0.75, 0.6, 1.5)
@@ -537,7 +893,7 @@ function sceneFor(c: Concept) {
   const back = new THREE.PointLight(0x5ea2b0, 0.5, 3, 1.5)
   back.position.set(-0.6, 0.4, 0.6)
   scene.add(back)
-  return { scene, player, head: built.head }
+  return { scene, player, head: built.head, tick: built.tick }
 }
 
 // ------------------------------------------------------------------------------------------------ renderer and PS1 chain
@@ -549,38 +905,54 @@ const isWebGPU = (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBac
 Object.assign(window, { __renderer: renderer })
 
 const camera = new THREE.PerspectiveCamera(36, 1, 0.02, 20)
-const scenes = CONCEPTS.map(sceneFor)
+// two rounds: the first six (the warm basement) and the night ones; N switches, ?ronda=1 opens the first
+const ROUNDS = [
+  { title: 'Ronda 1', night: false, concepts: CONCEPTS },
+  { title: 'Ronda 2 · nocturna', night: true, concepts: NIGHT },
+]
+const scenes = ROUNDS.map((r) => r.concepts.map((c) => sceneFor(c, r.night)))
 const steps = uniform(30)
-const pipelines = scenes.map(({ scene }) => {
-  const grade = Fn(([c]: N[]) => {
-    const col: N = vec3(c)
-    const l = dot(col, vec3(0.299, 0.587, 0.114))
-    return mix(col, vec3(l).mul(vec3(1.08, 0.98, 0.86)), 0.25) // a touch warm, a touch faded: the basement
-  })
-  let chain: N = renderOutput(retroPass(scene, camera))
-  chain = grade(chain)
-  chain = bayerDither(chain, steps)
-  chain = posterize(chain, steps)
-  chain = vignette(chain, float(0.4), float(0.55))
-  chain = film(chain, float(0.25))
-  const pl = new THREE.RenderPipeline(renderer)
-  pl.outputColorTransform = false
-  pl.outputNode = chain
-  return pl
-})
+const pipelines = ROUNDS.map((r, ri) =>
+  scenes[ri].map(({ scene }) => {
+    const grade = Fn(([c]: N[]) => {
+      const col: N = vec3(c)
+      const l = dot(col, vec3(0.299, 0.587, 0.114))
+      return r.night
+        ? mix(col, vec3(l).mul(vec3(0.8, 0.92, 1.12)), 0.4) // cold and drained: night
+        : mix(col, vec3(l).mul(vec3(1.08, 0.98, 0.86)), 0.25) // a touch warm, a touch faded: the basement
+    })
+    let chain: N = renderOutput(retroPass(scene, camera))
+    chain = grade(chain)
+    chain = bayerDither(chain, steps)
+    chain = posterize(chain, steps)
+    chain = vignette(chain, float(0.4), float(r.night ? 0.45 : 0.55))
+    chain = film(chain, float(0.25))
+    const pl = new THREE.RenderPipeline(renderer)
+    pl.outputColorTransform = false
+    pl.outputNode = chain
+    return pl
+  }),
+)
 
+let round = params.get('ronda') === '1' ? 0 : 1
 let current = Number(params.get('c') ?? 0) // which concept (0..5), or -1 for the overview of all six
 let retroOn = true
 let paused = false
 let orbit = 0
 function setCurrent(i: number) {
   current = i
-  label.innerHTML = i < 0 ? '<b>Los seis conceptos</b> (sin filtro) · 1–6 para ver cada uno con el filtro PS1' : `<b>${CONCEPTS[i].name}</b><br>${CONCEPTS[i].idea}`
+  const r = ROUNDS[round]
+  label.innerHTML = i < 0 ? `<b>${r.title}: los seis</b> (sin filtro) · 1–6 para ver cada uno con el filtro PS1 · N: otra ronda` : `<b>${r.concepts[i].name}</b> <small>(${r.title})</small><br>${r.concepts[i].idea}`
+}
+function setRound(r: number) {
+  round = r
+  setCurrent(current)
 }
 setCurrent(current)
 addEventListener('keydown', (e) => {
   if (e.key >= '1' && e.key <= '6') setCurrent(Number(e.key) - 1)
   if (e.key === '0') setCurrent(-1)
+  if (e.key === 'n' || e.key === 'N') setRound(1 - round)
   if (e.key === 'r' || e.key === 'R') retroOn = !retroOn
   if (e.key === ' ') paused = !paused
   if (e.key === 'ArrowLeft') setCurrent((current + 5) % 6)
@@ -602,16 +974,17 @@ renderer.setAnimationLoop((now) => {
   const W = innerWidth
   const H = innerHeight
   renderer.setSize(W, H, false)
-  scenes.forEach(({ player, head }, i) => {
+  scenes[round].forEach(({ player, head, tick }, i) => {
     player.rotation.y = Math.sin(ts * 0.5 + i) * 0.12
     head.position.y = 0.005 + Math.sin(ts * 1.3 + i) * 0.004 // the mask hangs and drifts
+    tick?.(ts + i)
   })
   const a = orbit
   camera.position.set(Math.sin(a) * 1.35, 0.1, -Math.cos(a) * 1.35)
   camera.lookAt(0, -0.08, 0)
   if (current < 0) {
     renderer.setScissorTest(true)
-    scenes.forEach(({ scene }, i) => {
+    scenes[round].forEach(({ scene }, i) => {
       const cw = W / 3
       const ch = H / 2
       const x = (i % 3) * cw
@@ -627,7 +1000,7 @@ renderer.setAnimationLoop((now) => {
   }
   camera.aspect = W / H
   camera.updateProjectionMatrix()
-  if (retroOn) pipelines[current].render()
-  else renderer.render(scenes[current].scene, camera)
+  if (retroOn) pipelines[round][current].render()
+  else renderer.render(scenes[round][current].scene, camera)
 })
-Object.assign(window, { __lab: { set: setCurrent, pause: (v: boolean) => (paused = v), retro: (v: boolean) => (retroOn = v), orbit: (v: number) => (orbit = v), backend: isWebGPU ? 'WebGPU' : 'WebGL2' } })
+Object.assign(window, { __lab: { set: setCurrent, round: setRound, pause: (v: boolean) => (paused = v), retro: (v: boolean) => (retroOn = v), orbit: (v: number) => (orbit = v), backend: isWebGPU ? 'WebGPU' : 'WebGL2' } })
