@@ -6,6 +6,11 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **La mesita de los televisores esquiva las sillas en «Armar mesa»:** al elegir 6 u 8 jugadores las sillas
+  caían sobre la mesita. Ahora (`tvSpot` en `MenuScene.ts`) se tienen en cuenta las 8 sillas (las ocupadas en la
+  mesa y las vacías empujadas atrás) y la mesita se desliza al lugar más cercano a su sitio que las libra y
+  se ve de lleno desde la cámara de esa pantalla, sin irse tras el borde de la mesa. Igual en la sala y la
+  configuración.
 - **Televisores del menú en todas las pantallas, juntos y con bordes suaves:** Novedades y Ajustes
   están desde el ingreso en adelante (antes solo en el inicio), uno al lado del otro sobre una sola
   mesita a la derecha, donde la ven las cámaras de todas las pantallas. «Bordes suaves» (anti-aliasing)
