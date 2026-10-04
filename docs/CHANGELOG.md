@@ -24,6 +24,11 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   la opción apagada se ve igual que antes. Marcado por `toProps()` (`table3d/propsLayer.ts`; `makeCard`
   ya lo hace) y `PropColors` apaga/devuelve el color de todo lo marcado en el pase pixelado, salvo los
   materiales que ya eran solo-sombra. Rama `feat/aliasing-cartas-botones`.
+- **La mesita de los televisores esquiva las sillas en «Armar mesa»:** al elegir 6 u 8 jugadores las sillas
+  caían sobre la mesita. Ahora (`tvSpot` en `MenuScene.ts`) se tienen en cuenta las 8 sillas (las ocupadas en la
+  mesa y las vacías empujadas atrás) y la mesita se desliza al lugar más cercano a su sitio que las libra y
+  se ve de lleno desde la cámara de esa pantalla, sin irse tras el borde de la mesa. Igual en la sala y la
+  configuración.
 - **Televisores del menú en todas las pantallas, juntos y con bordes suaves:** Novedades y Ajustes
   están desde el ingreso en adelante (antes solo en el inicio), uno al lado del otro sobre una sola
   mesita a la derecha, donde la ven las cámaras de todas las pantallas. «Bordes suaves» (anti-aliasing)

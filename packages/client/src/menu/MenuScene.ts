@@ -571,28 +571,66 @@ export class MenuScene {
     this.post.render(this.scene, this.camera, time, getViewSettings().smoothProps, (on) => (on ? this.propColors.on() : this.propColors.off(this.scene)))
   }
 
+  /** Where the room's 8 chairs stand (as table.ts builds them): the occupied ones at the table, the empty ones pushed back in the dark. */
+  private chairSpots(): Array<{ x: number; z: number }> {
+    return Array.from({ length: 8 }, (_, k) => {
+      const occupied = k < this.seats
+      const a = occupied ? seatAngle(k, this.seats) : seatAngle(k, 8) + Math.PI / 8
+      const r = occupied ? CHAIR_R : CHAIR_R + 0.9
+      return { x: Math.cos(a) * r, z: Math.sin(a) * r }
+    })
+  }
+
+  private tvSpotKey = ''
+  private tvSpotAt = { x: TV_TABLE.x, z: TV_TABLE.z }
+
   /**
-   * Where the television table stands. Off to the right of the felt in every screen but the room and
-   * the config, where people sit around the table: there it slides into the widest gap between two of
-   * them (on the back-right side the camera sees best), so it never overlaps a character.
+   * Where the television table stands. Off to the right of the felt, as always, except where chairs or people
+   * would be under it: in the room and the config (people sit around the table) and in «Armar mesa» (chairs
+   * appear as the player count grows). There it goes to the nearest spot, back-right, that clears every
+   * chair, so nothing is under it or through it.
    */
   private tvSpot(): { x: number; z: number } {
     const home = { x: TV_TABLE.x, z: TV_TABLE.z }
-    if (this.station !== 'sala' && this.station !== 'config') return home
-    const wrap = (a: number) => Math.abs(((a + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
-    const seats = Array.from({ length: this.seats }, (_, i) => seatAngle(i, this.seats))
-    const want = (-62 * Math.PI) / 180 // toward the back, a little to the right
-    let best = home
+    const room = this.station === 'sala' || this.station === 'config'
+    if (!room && this.station !== 'crear') return home
+    const key = `${this.station}|${this.seats}|${this.camera.aspect.toFixed(2)}`
+    if (key === this.tvSpotKey) return this.tvSpotAt
+    const chairs = this.chairSpots()
+    const clear = (c: { x: number; z: number }) => Math.min(...chairs.map((k) => Math.hypot(c.x - k.x, c.z - k.z)))
+    const a0 = (-62 * Math.PI) / 180
+    const pref = room ? { x: Math.cos(a0) * TV_TABLE_R, z: Math.sin(a0) * TV_TABLE_R } : home // where it likes to be
+    const NEED = 0.62 // the table (0.3) + half a chair (0.225) + a hand's breadth
+    const candidates = [home, pref]
+    for (let deg = -85; deg <= -5; deg += 2.5) for (const r of [1.5, 1.6, 1.7, 1.8, 1.95, 2.1]) candidates.push({ x: Math.cos((deg * Math.PI) / 180) * r, z: Math.sin((deg * Math.PI) / 180) * r })
+    // it has to be on screen (with room to spare) from this screen's camera: not cut by an edge, nor under the header
+    const shot = SHOTS[this.station]
+    const cam = new THREE.PerspectiveCamera(shot.fov, this.camera.aspect, 0.05, 40)
+    cam.position.copy(shot.pos)
+    cam.lookAt(shot.target)
+    cam.updateMatrixWorld()
+    // 0 = well in view, 1 = on screen but close to an edge, 2 = out of frame
+    const framing = (c: { x: number; z: number }) => {
+      const v = new THREE.Vector3(c.x, 0.8, c.z).project(cam)
+      if (v.z >= 1) return 2
+      if (Math.abs(v.x) < 0.7 && v.y < 0.72 && v.y > -0.4) return 0 // (the pair is about 0.4 m wide: leave room at the sides)
+      return Math.abs(v.x) < 0.8 && v.y < 0.86 && v.y > -0.5 ? 1 : 2
+    }
+    let best = pref
     let bestScore = -Infinity
-    for (let deg = -85; deg <= -10; deg += 2.5) {
-      const a = (deg * Math.PI) / 180
-      const sep = Math.min(...seats.map((s) => wrap(a - s))) // how far from the nearest person
-      const score = Math.min(sep, 0.45) * 10 - Math.abs(a - want) // roomy enough counts the same; then the nicest corner
+    for (const c of candidates) {
+      const f = framing(c)
+      // roomy enough counts the same; then the nearest to its place. An edge costs a little, out of frame a lot, and in the
+      // menus too far back is hidden by the rim of the table
+      const behindRim = room ? 0 : Math.max(0, Math.hypot(c.x, c.z) - 1.65) * 45
+      const score = Math.min(clear(c), NEED) * 70 - Math.hypot(c.x - pref.x, c.z - pref.z) * 10 - (f === 0 ? 0 : f === 1 ? 6 : 1000) - behindRim
       if (score > bestScore) {
         bestScore = score
-        best = { x: Math.cos(a) * TV_TABLE_R, z: Math.sin(a) * TV_TABLE_R }
+        best = c
       }
     }
+    this.tvSpotKey = key
+    this.tvSpotAt = best
     return best
   }
 
