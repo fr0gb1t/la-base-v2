@@ -1969,6 +1969,13 @@ button {
   margin-top: 12px;
 }
 
+.setting-volume-hint {
+  display: block;
+  font-size: 14px;
+  line-height: 1.15;
+  opacity: 0.7;
+}
+
 .setting-volume-head {
   display: flex;
   align-items: center;

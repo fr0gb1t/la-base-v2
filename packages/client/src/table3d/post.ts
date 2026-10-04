@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { isTouch } from '../lib/device'
 import { DARK_SNAP, DUOTONES, hex } from './look'
+import { getViewSettings } from '../settings/viewSettings'
 
 // Pass 1 (low-res, e.g. 640×360): scene → selective dark snap + Bayer dither + duotone.
 // Pass 2 (full-res): nearest upscale + mip bloom + chromatic aberration + grain + vignette.
@@ -91,6 +92,9 @@ void main() {
   #include <colorspace_fragment>
 }`
 
+/** The bloom as made (the setting multiplies it). */
+const BLOOM = 0.6
+
 const vert = /* glsl */ `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`
 
 export function makePost(renderer: THREE.WebGLRenderer, lowHeight = 360) {
@@ -136,7 +140,7 @@ export function makePost(renderer: THREE.WebGLRenderer, lowHeight = 360) {
       uCA: { value: 0.003 },
       uGrain: { value: isTouch ? 0 : 0.035 }, // no film grain on a phone: at its pixel density it reads as TV static
       uVignette: { value: 1.1 },
-      uBloom: { value: 0.6 },
+      uBloom: { value: BLOOM },
     },
   })
 
@@ -162,6 +166,7 @@ export function makePost(renderer: THREE.WebGLRenderer, lowHeight = 360) {
 
   /** `propsColor(false)` hides the props' colours from the world pass (they still cast shadows and hide what is behind them); `(true)` restores them. */
   function render(scene: THREE.Scene, camera: THREE.Camera, time: number, smoothProps = false, propsColor: (on: boolean) => void = () => undefined) {
+    final.uniforms.uBloom.value = BLOOM * getViewSettings().bloom // (the player's setting)
     // the world: the props are in it too (their shadows, their depth), but without colour when they are drawn smooth
     camera.layers.set(0)
     camera.layers.enable(PROPS)

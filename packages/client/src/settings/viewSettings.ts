@@ -18,6 +18,7 @@ export interface ViewSettings {
   handHeight: number // where the wheel left your fan (metres, camera space); 0 = resting
   senaSeenFlash: boolean // your seña flashes red on your screen when a rival catches it (off: you never know)
   senaOrder: string // your señas ring, comma-separated ids in your order ('' = the default order)
+  bloom: number // how far bright lights (the bulb, the candles, the LED masks) spill their glow: 0 = none, 1 = as made, up to BLOOM_MAX
 }
 
 export const SENS_MIN = 0.25
@@ -27,12 +28,13 @@ export const SENS_MAX = 3
 // always out of view.
 export const FOV_MIN = 50
 export const FOV_MAX = 80
+export const BLOOM_MAX = 2
 const KEY = 'laBase.view'
 // What a new player starts with. Desktop: hand not reset on your turn, no table guides, view not sent back to
 // your seat, aiming dot on, camera not inverted, your seña flashes when a rival catches it, soft edges on
 // (unless the device is modest). Phones: the view returns to your seat (gyroscope and reticle on, camera not
 // inverted), no hand reset, no guides, no seña flash. Everybody: the Brújula card back.
-const DEFAULTS: ViewSettings = { cameraReturn: isTouch, reticle: true, invertLook: false, handResetOnTurn: false, guides: false, lookSensitivity: 1, fov: 63, cardBack: 'brujula', handHeight: 0, senaOrder: '', senaSeenFlash: !isTouch, gyro: true, smoothProps: !isLowEnd, smoothChosen: false }
+const DEFAULTS: ViewSettings = { cameraReturn: isTouch, reticle: true, invertLook: false, handResetOnTurn: false, guides: false, lookSensitivity: 1, fov: 63, cardBack: 'brujula', handHeight: 0, senaOrder: '', senaSeenFlash: !isTouch, gyro: true, smoothProps: !isLowEnd, smoothChosen: false, bloom: 1 }
 
 function load(): ViewSettings {
   try {
@@ -45,6 +47,7 @@ function load(): ViewSettings {
     out.lookSensitivity = Math.min(SENS_MAX, Math.max(SENS_MIN, Number(out.lookSensitivity) || 1))
     out.fov = Math.min(FOV_MAX, Math.max(FOV_MIN, Number(out.fov) || DEFAULTS.fov))
     if (out.fov === 66) out.fov = DEFAULTS.fov // the previous default: move it along
+    out.bloom = Math.min(BLOOM_MAX, Math.max(0, Number.isFinite(out.bloom) ? out.bloom : 1))
     out.handHeight = Math.min(0.04, Math.max(-0.2, Number(out.handHeight) || 0))
     if (!isBackDesign(out.cardBack)) out.cardBack = DEFAULTS.cardBack
     return out

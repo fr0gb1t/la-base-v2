@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare, GiMouse, GiEyeTarget, GiCompass } from 'react-icons/gi';
-import { getViewSettings, onViewSettings, setViewSettings, orderedSenas, SENS_MIN, SENS_MAX, FOV_MIN, FOV_MAX, type ViewSettings } from './viewSettings';
+import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare, GiMouse, GiEyeTarget, GiCompass, GiLightBulb } from 'react-icons/gi';
+import { getViewSettings, onViewSettings, setViewSettings, orderedSenas, SENS_MIN, SENS_MAX, FOV_MIN, FOV_MAX, BLOOM_MAX, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
 import { previewSound, audioReady, uiSound } from '../table3d/audio';
 import { isTouch } from '../lib/device';
@@ -247,6 +247,24 @@ export function SettingsHost() {
             hint={view.smoothProps ? 'las cartas, las manos, los botones, los televisores, el anotador y el reloj se dibujan nítidos y sin escalones (más pesado)' : 'todo con el mismo aspecto pixelado de la mesa'}
             onToggle={() => setViewSettings({ smoothProps: !view.smoothProps, smoothChosen: true })}
           />
+          <label className="setting-volume">
+            <span className="setting-volume-head">
+              <GiLightBulb aria-hidden className="setting-icon" />
+              <b>Resplandor de las luces</b>
+              <span className="setting-state">{view.bloom === 0 ? 'no' : `${Math.round(view.bloom * 100)}%`}</span>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={BLOOM_MAX}
+              step={0.05}
+              value={view.bloom}
+              style={{ ['--fill' as string]: `${(view.bloom / BLOOM_MAX) * 100}%` }}
+              onChange={(e) => setViewSettings({ bloom: Number(e.target.value) })}
+              aria-label="Resplandor de las luces (bloom)"
+            />
+            <small className="setting-volume-hint">bloom: cuánto se abre la luz de la lámpara, las velas y las máscaras LED</small>
+          </label>
           <Switch
             on={view.guides}
             icon={<GiDividedSquare aria-hidden className="setting-icon" />}
