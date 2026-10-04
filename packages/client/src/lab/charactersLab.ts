@@ -1,9 +1,7 @@
-// Characters for La Base, sculpted (development only: open /personajes-lab.html on the dev server). After looking at
-// how big games build them — the hood as a shell of cloth with a thickness, a rolled hem round the opening, a peak over
-// the brow and a seam from the forehead to the nape, falling into a cowl and a mantle over the shoulders (Assassin's
-// Creed Mirage, Pathologic 2); bodies that sit at the table with their forearms on it and hands out of the sleeves
-// (Liar's Bar); everything looking like worked clay with deep, dark hollows (Buckshot Roulette) — six heads of our
-// own: horse, rooster, ram, a carnival devil, a ventriloquist's dummy and a saint carved in wood.
+// Characters for La Base, sculpted (development only: open /personajes-lab.html on the dev server). As in Buckshot
+// Roulette's multiplayer, each player is a head floating over the table — no neck, no body — and two floating hands,
+// everything looking like worked clay with deep, dark hollows. Six heads of our own: horse, rooster, ram, a carnival
+// devil, a ventriloquist's dummy and a saint carved in wood.
 import * as THREE from 'three/webgpu'
 import { Fn, float, vec3, uniform, mix, dot, renderOutput, posterize } from 'three/tsl'
 import { retroPass } from 'three/addons/tsl/display/RetroPassNode.js'
@@ -21,71 +19,10 @@ const label = document.getElementById('label')!
 const params = new URLSearchParams(location.search)
 const DEBUG = params.has('debug')
 
-// ------------------------------------------------------------------------------------------------ the cloak
-// player space: the middle of the head at the origin, the face looking down −z, the table top at y = −0.34
-const HC: V3 = [0, 0.02, 0.02] // the middle of the hood
-const HR: V3 = [0.125, 0.155, 0.145]
-const T = 0.013 // the cloth's thickness
-const SH = (s: number): V3 => [s * 0.2, -0.235, 0.04] // shoulder
-// s = 1 is the arm that holds the cards up (the player's left), s = −1 the one resting on the felt
-const EL = (s: number): V3 => (s > 0 ? [0.25, -0.32, -0.06] : [-0.25, -0.33, -0.08]) // elbow
-const WR = (s: number): V3 => (s > 0 ? [0.15, -0.255, -0.235] : [-0.15, -0.318, -0.25]) // wrist, where the sleeve ends
-
-interface CloakStyle { cloth: number; lining: number; pierce?: Part[] }
-
-function cloakModel(st: CloakStyle): Model {
-  const cloth = col(st.cloth)
-  const lining = col(st.lining)
-  const sub = (p: Part) => ({ ...p, sub: true })
-  const fwd = (s: number) => {
-    const w = WR(s)
-    const e = EL(s)
-    const l = Math.hypot(w[0] - e[0], w[1] - e[1], w[2] - e[2])
-    return [(w[0] - e[0]) / l, (w[1] - e[1]) / l, (w[2] - e[2]) / l] as V3
-  }
-  const parts: Part[] = [
-    // the hood, its peak over the brow, the back falling to the nape
-    ell(HC, HR, cloth),
-    ell([0, 0.112, -0.065], [0.06, 0.042, 0.06], cloth, 0.05),
-    ell([0, -0.03, 0.09], [0.1, 0.12, 0.085], cloth, 0.05),
-    // the cowl gathered under the chin, the mantle over the shoulders, the body under it
-    ell([0, -0.15, -0.045], [0.115, 0.06, 0.075], cloth, 0.05),
-    ell([0, -0.265, 0.04], [0.27, 0.15, 0.19], cloth, 0.07),
-    ell([0, -0.42, 0.05], [0.21, 0.17, 0.15], cloth, 0.05),
-    // sleeves: shoulder to elbow to the wrist, resting on the table
-    ...both((s) => [cone(SH(s), EL(s), 0.064, 0.056, cloth, 0.03), cone(EL(s), WR(s), 0.056, 0.05, cloth, 0.02)]),
-    // hollows: inside the hood (and its peak), the face opening, the sleeve ends the hands come out of
-    sub(ell(HC, [HR[0] - T, HR[1] - T, HR[2] - T], lining, 0.006)),
-    sub(ell([0, 0.112, -0.065], [0.06 - T, 0.042 - T, 0.06 - T], lining, 0.006)),
-    sub(ell([0, -0.005, -0.205], [0.11, 0.14, 0.12], lining, 0.022)),
-    ...both((s) => {
-      const f = fwd(s)
-      const w = WR(s)
-      return sub(cone([w[0] - f[0] * 0.03, w[1] - f[1] * 0.03, w[2] - f[2] * 0.03], [w[0] + f[0] * 0.05, w[1] + f[1] * 0.05, w[2] + f[2] * 0.05], 0.034, 0.038, lining, 0.006))
-    }),
-    ...(st.pierce ?? []).map(sub),
-    // the seam down the middle of the hood
-    ...chain(
-      Array.from({ length: 9 }, (_, i) => {
-        const t = -0.55 + i * 0.32
-        return [0, HC[1] + (HR[1] + 0.001) * Math.cos(t), HC[2] + (HR[2] + 0.001) * Math.sin(t)] as V3
-      }),
-      Array(9).fill(0.0034),
-      cloth,
-      0.006,
-    ),
-  ]
-  return {
-    parts,
-    // folds falling from the neck over the mantle, and a softer crumple everywhere
-    disp: (x, y, z) => {
-      const below = Math.min(1, Math.max(0, (-0.13 - y) / 0.12))
-      const a = Math.atan2(x, z - 0.04)
-      return below * 0.0055 * Math.sin(a * 11 + noise3(x * 9, y * 9, z * 9) * 2.5) + noise3(x * 45, y * 45, z * 45) * 0.0016
-    },
-    ao: 1.2,
-  }
-}
+// ------------------------------------------------------------------------------------------------ layout
+// player space: the middle of the head at the origin, the face looking down −z, the table top at y = −0.34.
+// Where each floating hand starts (its wrist): s = 1 holds the cards up, s = −1 rests on the felt.
+const WR = (s: number): V3 => (s > 0 ? [0.15, -0.255, -0.235] : [-0.15, -0.318, -0.25])
 
 // ------------------------------------------------------------------------------------------------ hands
 // hand space: the wrist at the origin, fingers along −z, palm down (−y); the thumb on the +x side for s = 1
@@ -160,12 +97,9 @@ function eyeball(r: number, white: number, iris: number, irisR: number, slit = f
 interface Head {
   name: string
   idea: string
-  cloth: number
-  lining?: number
   hands: HandStyle
   model: () => Model
   bounds: [V3, V3]
-  pierce?: () => Part[] // what goes through the hood (ears, horns, a comb)
   extra?: (g: THREE.Group) => void // eyes and other separate pieces
 }
 
@@ -174,8 +108,7 @@ const BONE = 0xd8ccb2
 const HEADS: Head[] = [
   {
     name: '1 · Caballo',
-    idea: 'máscara de caballo de papel maché, hueso sucio, crin oscura; las orejas atraviesan la capucha',
-    cloth: 0x231c17,
+    idea: 'cabeza de caballo de papel maché, hueso sucio, crin oscura; guantes de cuero',
     hands: { skin: 0x3b2a1f, thin: 1.02 }, // leather gloves
     bounds: [[-0.11, -0.15, -0.25], [0.11, 0.24, 0.13]],
     model: () => {
@@ -192,6 +125,7 @@ const HEADS: Head[] = [
           ...both((s) => ell([s * 0.05, 0.05, -0.04], [0.022, 0.008, 0.015], bone, 0.012)),
           ...both((s) => cone([s * 0.034, 0.1, 0.03], [s * 0.06, 0.215, 0.04], 0.026, 0.007, bone, 0.012)),
           ...chain([[0, 0.12, -0.0], [0, 0.098, -0.045], [0.006, 0.075, -0.07], [-0.004, 0.06, -0.08]], [0.016, 0.016, 0.012, 0.008], mane, 0.012),
+          ...chain([[0, 0.12, 0.0], [0, 0.11, 0.06], [0, 0.07, 0.105], [0, 0.02, 0.115], [0, -0.03, 0.1]], [0.016, 0.02, 0.022, 0.018, 0.012], mane, 0.014),
           ...both((s) => ell([s * 0.047, 0.04, -0.052], [0.02, 0.015, 0.018], dark, 0.008, true)),
           ...both((s) => ell([s * 0.05, 0.056, -0.05], [0.024, 0.009, 0.014], bone, 0.012)),
           ...both((s) => ell([s * 0.022, -0.062, -0.208], [0.009, 0.014, 0.01], dark, 0.005, true, [0, 0, s * 0.35])),
@@ -202,7 +136,6 @@ const HEADS: Head[] = [
         paint: (x, y, z, c) => mixc(c, col(0x5a4e3c), Math.max(0, Math.min(1, (-0.02 - y) * 4)) * 0.35 * (0.6 + 0.4 * noise3(x * 30, y * 30, z * 30))),
       }
     },
-    pierce: () => both((s) => cone([s * 0.034, 0.1, 0.03], [s * 0.06, 0.215, 0.04], 0.034, 0.012, [0, 0, 0], 0.006)),
     extra: (g) => {
       for (const s of [1, -1]) {
         const e = eyeball(0.013, 0x0a0806, 0x0a0806, 0)
@@ -214,8 +147,7 @@ const HEADS: Head[] = [
   },
   {
     name: '2 · Gallo',
-    idea: 'gallo de riña: cresta roja que asoma por la capucha, pico de hueso, barbas, ojo naranja; manos con garras',
-    cloth: 0x1c1712,
+    idea: 'gallo de riña: cresta roja, pico de hueso, barbas, ojo naranja; manos con garras',
     hands: { skin: 0xb59a5a, claws: 0x2a2018, thin: 0.82 },
     bounds: [[-0.1, -0.17, -0.16], [0.1, 0.23, 0.12]],
     model: () => {
@@ -230,7 +162,7 @@ const HEADS: Head[] = [
           ...chain([[0, 0.016, -0.06], [0, 0.006, -0.1], [0, -0.008, -0.128], [0, -0.022, -0.132]], [0.02, 0.012, 0.005, 0.002], beak, 0.006),
           ...chain([[0, -0.006, -0.058], [0, -0.014, -0.09], [0, -0.016, -0.11]], [0.015, 0.008, 0.003], beak, 0.006),
           ...chain([[-0.02, -0.004, -0.07], [0, -0.007, -0.1], [0.02, -0.004, -0.07]], [0.0016, 0.0016, 0.0016], dark, 0.002, true),
-          ...[0, 1, 2, 3, 4, 5].map((i) => ball([0, 0.1 + [0.025, 0.07, 0.095, 0.11, 0.1, 0.075][i], -0.075 + i * 0.026], [0.018, 0.02, 0.022, 0.022, 0.02, 0.018][i], red, 0.022)),
+          ...[0, 1, 2, 3, 4, 5].map((i) => ball([0, 0.1 + [0.0, 0.03, 0.048, 0.055, 0.045, 0.022][i], -0.07 + i * 0.026], [0.017, 0.019, 0.021, 0.021, 0.019, 0.016][i], red, 0.024)),
           cone([0, 0.085, -0.075], [0, 0.12, 0.06], 0.016, 0.014, red, 0.02),
           ...both((s) => ell([s * 0.013, -0.058, -0.072], [0.012, 0.026, 0.012], red, 0.012)),
           ...both((s) => ell([s * 0.052, -0.002, -0.022], [0.006, 0.014, 0.012], col(0xe6dccb), 0.006)),
@@ -243,7 +175,6 @@ const HEADS: Head[] = [
         disp: (x, y, z) => noise3(x * 70, y * 70, z * 70) * 0.001,
       }
     },
-    pierce: () => [cone([0, 0.15, -0.06], [0, 0.17, 0.06], 0.04, 0.036, [0, 0, 0], 0.008)],
     extra: (g) => {
       for (const s of [1, -1]) {
         const e = eyeball(0.0115, 0xd0861a, 0xd0861a, 0)
@@ -255,8 +186,7 @@ const HEADS: Head[] = [
   },
   {
     name: '3 · Carnero',
-    idea: 'carnero de lana sucia con cuernos en espiral que salen por los costados de la capucha; ojos de pupila horizontal',
-    cloth: 0x201a16,
+    idea: 'carnero de lana sucia con cuernos en espiral; ojos de pupila horizontal',
     hands: { skin: 0xc9b9a0, nails: 0x3a2e24 },
     bounds: [[-0.2, -0.13, -0.16], [0.2, 0.2, 0.15]],
     model: () => {
@@ -295,16 +225,6 @@ const HEADS: Head[] = [
         disp: (x, y, z) => (Math.abs(x) < 0.075 && (z > -0.03 || y > 0.06) ? Math.abs(noise3(x * 140, y * 140, z * 140)) * 0.003 : 0),
       }
     },
-    pierce: () => both((s) => {
-      const out: Part[] = []
-      for (let i = 2; i <= 18; i += 2) {
-        const t = i / 18
-        const th = -0.4 + t * 1.55 * Math.PI * 2
-        const rho = 0.055 * (1 - 0.5 * t)
-        out.push(ball([s * (0.05 + 0.1 * t), 0.045 + rho * Math.cos(th), 0.015 + rho * Math.sin(th)], 0.03 * (1 - 0.7 * t) + 0.012, [0, 0, 0], 0.006))
-      }
-      return out
-    }),
     extra: (g) => {
       for (const s of [1, -1]) {
         const e = eyeball(0.012, 0xb7832a, 0xb7832a, 0, true)
@@ -317,9 +237,8 @@ const HEADS: Head[] = [
   {
     name: '4 · Diablo',
     idea: 'máscara de diablo de carnaval del norte: roja, cejas negras, ojos saltones, sonrisa llena de dientes, cuernos dorados',
-    cloth: 0x1a1414,
     hands: { skin: 0xe6ddcc, thin: 0.95 }, // white gloves
-    bounds: [[-0.11, -0.12, -0.15], [0.11, 0.24, 0.1]],
+    bounds: [[-0.13, -0.12, -0.15], [0.13, 0.24, 0.11]],
     model: () => {
       const red = col(0xa3241a)
       const black = col(0x14100e)
@@ -329,6 +248,8 @@ const HEADS: Head[] = [
       return {
         parts: [
           ell([0, 0.025, 0.0], [0.078, 0.105, 0.075], red),
+          ell([0, 0.075, 0.03], [0.074, 0.065, 0.068], black, 0.02),
+          ...both((s) => cone([s * 0.074, 0.03, 0.0], [s * 0.115, 0.075, 0.02], 0.016, 0.003, red, 0.012)),
           ...both((s) => cone([s * 0.065, 0.07, -0.045], [s * 0.012, 0.052, -0.083], 0.017, 0.012, black, 0.014)),
           ...both((s) => ball([s * 0.034, 0.028, -0.072], 0.022, white, 0.008)),
           cone([0, 0.04, -0.08], [0, -0.008, -0.108], 0.011, 0.017, red, 0.012),
@@ -351,12 +272,10 @@ const HEADS: Head[] = [
         },
       }
     },
-    pierce: () => both((s) => chain([[s * 0.045, 0.1, -0.03], [s * 0.07, 0.15, -0.035], [s * 0.078, 0.2, -0.015], [s * 0.07, 0.23, 0.01]], [0.026, 0.02, 0.014, 0.01], [0, 0, 0], 0.006)),
   },
   {
     name: '5 · Ventrílocuo',
     idea: 'muñeco de ventrílocuo: madera pintada y brillante, pelo pintado, mejillas rosadas, ojos enormes, la mandíbula separada por dos ranuras',
-    cloth: 0x1b1a1f,
     hands: { skin: 0xe2c6aa, thin: 0.92, nails: 0xd6b29a },
     bounds: [[-0.09, -0.12, -0.12], [0.09, 0.15, 0.12]],
     model: () => {
@@ -395,7 +314,6 @@ const HEADS: Head[] = [
   {
     name: '6 · Santo',
     idea: 'cara de santo de madera policromada, la pintura saltada, ojos de vidrio mirando arriba, una lágrima roja; rayos dorados sobre la frente',
-    cloth: 0x1d1814,
     hands: { skin: 0xd5bc9c, nails: 0xc3a688, thin: 0.9 },
     bounds: [[-0.1, -0.13, -0.13], [0.1, 0.22, 0.12]],
     model: () => {
@@ -474,26 +392,24 @@ function fan() {
   return g
 }
 
-interface Built { scene: THREE.Scene; player: THREE.Group; head: THREE.Group }
+interface Built { scene: THREE.Scene; player: THREE.Group; head: THREE.Group; hands: THREE.Object3D[] }
 
 function build(h: Head): Built {
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x070504)
   const player = new THREE.Group()
-  const pierce = h.pierce?.() ?? []
-  const cloak = sculpt(cloakModel({ cloth: h.cloth, lining: h.lining ?? 0x0b0807, pierce }), [-0.34, -0.5, -0.33], [0.34, 0.22, 0.25], 0.005)
-  player.add(new THREE.Mesh(cloak, clay(1)))
   const head = new THREE.Group()
   head.add(new THREE.Mesh(sculpt(h.model(), h.bounds[0], h.bounds[1], 0.003), clay(0.6)))
   h.extra?.(head)
   player.add(head)
-  // hands out of the sleeves. The left one stands up holding the cards: thumb up, palm towards the player, fingers
-  // round the back of the fan (that is what the others see); the right one rests on the felt, thumb inwards.
+  // two floating hands, ending at the wrist. The left one stands up holding the cards: thumb up, palm towards the
+  // player, fingers round the back of the fan (that is what the others see); the right one rests on the felt.
   const HB = [-0.08, -0.08, -0.19] as V3
-  const HT = [0.08, 0.04, 0.05] as V3
+  const HT = [0.08, 0.04, 0.075] as V3
   const holdG = new THREE.Group()
   holdG.add(new THREE.Mesh(sculpt(handModel(-1, [1.0, 1.1, 1.18, 1.25], 0.35, h.hands), HB, HT, 0.0022), clay(0.7)))
   holdG.position.set(...WR(1))
+  holdG.scale.setScalar(1.15)
   holdG.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(1, 0, 0)))
   holdG.rotateY(-0.35) // fingers a little towards the table, as a wrist would
   const f = fan()
@@ -503,6 +419,7 @@ function build(h: Head): Built {
   restG.add(new THREE.Mesh(sculpt(handModel(1, [0.25, 0.3, 0.38, 0.45], 0.25, h.hands), HB, HT, 0.0022), clay(0.7)))
   restG.position.copy(new THREE.Vector3(...WR(-1))).add(new THREE.Vector3(0, -0.006, -0.015))
   restG.rotation.set(0, -0.4, 0, 'YXZ')
+  restG.scale.setScalar(1.15)
   player.add(holdG, restG, f)
   scene.add(player)
   // the table: felt with a worn wooden rim, one card face up
@@ -523,7 +440,7 @@ function build(h: Head): Built {
   const back = new THREE.PointLight(0x5ea2b0, 0.9, 3, 1.5)
   back.position.set(-0.5, 0.45, 0.6)
   scene.add(back)
-  return { scene, player, head }
+  return { scene, player, head, hands: [holdG, f, restG] }
 }
 
 // ------------------------------------------------------------------------------------------------ renderer and PS1 chain
@@ -618,8 +535,11 @@ renderer.setAnimationLoop((now) => {
   }
   for (const b of built) {
     if (!b) continue
-    b.head.position.y = Math.sin(ts * 1.3) * 0.003 // the mask hangs and drifts
-    b.head.rotation.y = Math.sin(ts * 0.6) * 0.06
+    // the head hangs in the air and drifts; the hand with the cards breathes with it
+    b.head.position.y = -0.05 + Math.sin(ts * 1.3) * 0.006
+    b.head.rotation.set(Math.sin(ts * 0.9) * 0.04, Math.sin(ts * 0.6) * 0.1, Math.sin(ts * 0.7) * 0.03)
+    b.hands[0].position.y = WR(1)[1] + Math.sin(ts * 1.1 + 1) * 0.004
+    b.hands[1].position.y = WR(1)[1] + 0.035 + Math.sin(ts * 1.1 + 1) * 0.004
   }
   if (DEBUG && current >= 0) {
     // four views of one character: front, three quarters, side, close on the face
