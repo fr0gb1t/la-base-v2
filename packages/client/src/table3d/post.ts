@@ -182,11 +182,20 @@ export function makePost(renderer: THREE.WebGLRenderer, lowHeight = 360) {
       renderer.setClearAlpha(0)
       renderer.clear()
       camera.layers.set(0)
+      // (the shadow-only stand-ins — the invisible footprints under floating buttons and the config aces, which
+      // write no colour and no depth — must not take part: the override would make them opaque in depth, and a
+      // footprint through an ace hid a band of it)
+      const shadowOnly: THREE.Object3D[] = []
+      scene.traverseVisible((o) => {
+        if (o instanceof THREE.Mesh && !Array.isArray(o.material) && !o.material.colorWrite && !o.material.depthWrite) shadowOnly.push(o)
+      })
+      shadowOnly.forEach((o) => (o.visible = false))
       scene.overrideMaterial = depthOnly
       const auto = renderer.autoClear
       renderer.autoClear = false
       renderer.render(scene, camera)
       scene.overrideMaterial = null
+      shadowOnly.forEach((o) => (o.visible = true))
       camera.layers.set(PROPS)
       renderer.render(scene, camera)
       renderer.autoClear = auto
