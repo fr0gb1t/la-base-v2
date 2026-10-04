@@ -1,7 +1,6 @@
 import * as THREE from 'three'
-import { PALETTE, hex } from './look'
 import { makeFace, makeHand, handStyleOf } from './faces'
-import { CHAIR_R, LEAN_REACH, SHOULDER_R, SHOULDER_Y, TABLE_R, TABLE_Y, seatAngle, teamOf, polar, type PlayerCount } from './seats'
+import { CHAIR_R, LEAN_REACH, SHOULDER_R, SHOULDER_Y, TABLE_R, TABLE_Y, seatAngle, polar, type PlayerCount } from './seats'
 import { makeCard, type CardView } from './cards'
 import { toProps } from './propsLayer'
 import { randomAvatar, type AvatarSpec, type Sena } from '@la-base/shared'
@@ -78,7 +77,6 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false, av
   const root = new THREE.Group()
   root.position.copy(polar(CHAIR_R, a, 0))
   root.rotation.y = Math.PI / 2 - a // local -Z faces the table centre
-  const cuff = teamOf(seat) ? PALETTE.rose : PALETTE.teal // teal = your team (seat 0 and your partners), as on the name tags
 
   // where the body would be: nothing shows, but it still leans in and carries the face
   const torso = new THREE.Group()
@@ -93,7 +91,7 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false, av
   // the hands, cut at the wrist: the right one open, resting on the felt and playing; the left one closed round the fan
   const style = handStyleOf(avatarSpec)
   const arms = ([-1, 1] as const).map((sx) => {
-    const h = makeHand(style, sx > 0 ? 'rest' : 'hold', sx, hex(cuff), asHand, seat * 1.9)
+    const h = makeHand(style, sx > 0 ? 'rest' : 'hold', sx, asHand, seat * 1.9)
     return { sx, glove: h.group, hand: h }
   })
   arms.forEach((r) => root.add(r.glove))

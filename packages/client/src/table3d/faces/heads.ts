@@ -425,8 +425,6 @@ export const HAND_CURL: Record<HandPose, { curl: number[]; thumb: number }> = {
   hold: { curl: [1.0, 1.1, 1.18, 1.25], thumb: 0.35 },
   rest: { curl: [0.25, 0.3, 0.38, 0.45], thumb: 0.25 },
 }
-/** The ring finger's knuckle and first bone, as handModel lays it out (the ring sits on it). */
-export const RING_FINGER = { x: -0.009, z: -0.084, len: 0.041, yaw: -0.06 }
 export const HAND_BOX: [V3, V3] = [[-0.08, -0.08, -0.19], [0.08, 0.04, 0.075]]
 
 /**

@@ -6,7 +6,7 @@ import { faceKind, type AvatarSpec } from '@la-base/shared'
 import { makeLedMask, type FaceRig } from './ledMask'
 import { makeHeadMask } from './headMask'
 import { sculpted } from './sculpted'
-import { HAND_CURL, HEADS, LED_HANDS, RING_FINGER, type HandPose } from './heads'
+import type { HandPose } from './heads'
 import type { HandStyleKey } from './sculptJobs'
 
 export type { FaceRig }
@@ -60,25 +60,13 @@ export function handIdle(t: number, pose: HandPose, seed: number) {
   return { y: breathe * 0.004, rx: tap + Math.sin(ts * 0.6 + seed) * 0.05, ry: Math.sin(ts * 0.4 + seed * 0.9) * 0.08, rz: Math.sin(ts * 0.8 + seed) * 0.04 }
 }
 
-const RING_GEO = new THREE.TorusGeometry(0.01, 0.0026, 6, 16)
-/** Where the ring sits: round the first bone of the ring finger, a little past the knuckle (sculpt space). */
-function ringOn(s: 1 | -1, pose: HandPose, style: HandStyleKey) {
-  const f = RING_FINGER
-  const th = (style === 'led' ? LED_HANDS : HEADS[style].hands).thin ?? 1
-  const pitch = HAND_CURL[pose].curl[2] * 0.8
-  const yaw = s * f.yaw
-  const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch)).normalize()
-  const at = new THREE.Vector3(s * f.x * th, 0.002, f.z).addScaledVector(dir, f.len * 0.42)
-  return { at, dir, radius: 0.0091 * th + 0.0008 }
-}
-
 /**
- * A floating bare hand, its wrist lost in the dark, with a ring in the team's colour. `side` is the arm it would be on (+1 right,
+ * A floating bare hand, its wrist lost in the dark. `side` is the arm it would be on (+1 right,
  * −1 left); its fingers point down +z (the way the table's arms aim a hand) and the thumb points inward, toward the
  * body's midline. The hand shows once the sculptor has made it; `prepare` is run on the group then and at once.
  * `idle(t)` moves the hand inside its group (the group itself is placed and aimed by the caller).
  */
-export function makeHand(style: HandStyleKey, pose: HandPose, side: 1 | -1, cuffColor: THREE.ColorRepresentation, prepare: (o: THREE.Object3D) => void = () => {}, seed = 0) {
+export function makeHand(style: HandStyleKey, pose: HandPose, side: 1 | -1, prepare: (o: THREE.Object3D) => void = () => {}, seed = 0) {
   const g = new THREE.Group()
   const inner = new THREE.Group() // what the idle animation turns, about the wrist
   g.add(inner)
@@ -92,18 +80,10 @@ export function makeHand(style: HandStyleKey, pose: HandPose, side: 1 | -1, cuff
     if (gone) return
     fadeWrist(p.geometry)
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: p.rough })
-    // the team's colour: a thin ring on the ring finger
-    const ringMat = new THREE.MeshStandardMaterial({ color: cuffColor, roughness: 0.35, metalness: 0.4 })
-    mats.push(mat, ringMat)
+    mats.push(mat)
     const mesh = new THREE.Mesh(p.geometry, mat)
     mesh.rotation.y = Math.PI
     mesh.castShadow = true
-    const r = ringOn(s, pose, style)
-    const ring = new THREE.Mesh(RING_GEO, ringMat)
-    ring.position.copy(r.at)
-    ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), r.dir)
-    ring.scale.setScalar(r.radius / 0.01)
-    mesh.add(ring)
     inner.add(mesh)
     prepare(g) // (the table puts hands on their own layer and draws them last: the new mesh too)
   })

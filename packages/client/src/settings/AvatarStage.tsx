@@ -3,7 +3,6 @@ import * as THREE from 'three';
 import { SENAS, isHeadSena, type AvatarSpec, type Sena } from '@la-base/shared';
 import { makeFace, makeHand, handStyleOf, type FaceRig } from '../table3d/faces';
 import { NOD_HZ, PUPPET_FPS, SENA_HOLD, senaAmount } from '../table3d/senaPlay';
-import { PALETTE, hex } from '../table3d/look';
 
 // Your face under a spotlight from the ceiling beside the settings ledger, alive the way it is at the table: it floats and
 // looks around a little, blinks, and now and then makes a seña (a random one) — stop-motion, like a puppet. Your
@@ -47,8 +46,9 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
       mask = makeFace(a, 3);
       holder.add(mask.head);
       hands = ([-1, 1] as const).map((sx) => {
-        const h = makeHand(handStyleOf(a), sx > 0 ? 'rest' : 'hold', sx, hex(PALETTE.teal), undefined, sx > 0 ? 0 : 1.3);
-        h.group.position.set(-sx * 0.17, -0.36, -0.08); // the face looks down −z, so its right is on our left
+        const h = makeHand(handStyleOf(a), sx > 0 ? 'rest' : 'hold', sx, undefined, sx > 0 ? 0 : 1.3);
+        // its right hand on its right (+x: the face looks down −z, so it is on our left), thumbs inward
+        h.group.position.set(sx * 0.17, -0.36, -0.08);
         h.group.rotation.set(-0.5, Math.PI + sx * 0.35, 0); // fingers toward you, the backs of the hands up
         scene.add(h.group);
         return h;
