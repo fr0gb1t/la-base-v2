@@ -14,9 +14,10 @@ export type { FaceRig }
 /** How big the faces are at the table: a little over life size, so the señas read from across it. */
 export const FACE_SCALE = { led: 1.5, cabeza: 1.65 }
 
-export function makeFace(avatar: AvatarSpec, seed = 0): FaceRig {
+/** `ledGlow`: how bright an LED mask's lights are (by default as at the table, where the bloom spreads them). */
+export function makeFace(avatar: AvatarSpec, seed = 0, ledGlow?: number): FaceRig {
   const f = faceKind(avatar.face)
-  const rig = f.kind === 'led' ? makeLedMask(f.name, seed) : makeHeadMask(f.name, seed)
+  const rig = f.kind === 'led' ? makeLedMask(f.name, seed, ledGlow) : makeHeadMask(f.name, seed)
   rig.head.scale.setScalar(f.kind === 'led' ? FACE_SCALE.led : FACE_SCALE.cabeza)
   return rig
 }

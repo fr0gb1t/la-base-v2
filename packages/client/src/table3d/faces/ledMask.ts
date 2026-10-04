@@ -88,6 +88,7 @@ void main() {
 const LED_FRAG = /* glsl */ `
 uniform sampler2D map;
 uniform vec2 grid;
+uniform float glow;
 varying vec2 vUv;
 void main() {
   vec2 g = vUv * grid;
@@ -97,11 +98,19 @@ void main() {
   float dotMask = 1.0 - smoothstep(0.2, 0.36 + px, r);
   float far = clamp((px - 0.3) / 0.5, 0.0, 1.0);
   vec3 lit = texture2D(map, (cell + 0.5) / grid).rgb;
-  vec3 near = vec3(0.006) + vec3(0.022, 0.022, 0.026) * dotMask + lit * (dotMask * 2.6 + 0.09);
-  vec3 blur = vec3(0.012) + lit * 1.0;
+  // a lit LED is far brighter than anything the lamp lights (so it blooms), with a hot core and a halo that
+  // spreads through the diffuser behind the glass
+  float halo = exp(-r * r * 9.0);
+  vec3 near = vec3(0.006) + vec3(0.022, 0.022, 0.026) * dotMask + lit * (dotMask * glow + halo * glow * 0.35 + 0.12);
+  vec3 blur = vec3(0.012) + lit * glow * 0.55;
   gl_FragColor = vec4(mix(near, blur, far), 1.0);
   #include <colorspace_fragment>
 }`
+
+/** How bright a lit LED is, in the scene's linear light (the lamp lights the felt to about 1): well over the bloom's threshold. */
+const LED_GLOW = 11.0
+/** How strongly a full face lights what is before it. */
+const SPILL = 2.5
 
 export interface FaceRig {
   head: THREE.Group // what to place, turn and nod; the face looks down −z
@@ -113,7 +122,8 @@ export interface FaceRig {
 const plastic = new THREE.MeshStandardMaterial({ color: 0x0b0b0e, roughness: 0.35, metalness: 0.1 })
 const shellMat = new THREE.MeshStandardMaterial({ color: 0x08080a, roughness: 0.8, side: THREE.DoubleSide })
 
-export function makeLedMask(name: LedFace, seed: number): FaceRig {
+/** `glow`: how bright a lit LED is (LED_GLOW at the table, where the bloom gathers it; less where nothing does). */
+export function makeLedMask(name: LedFace, seed: number, glow = LED_GLOW): FaceRig {
   const geo = geometry()
   const design = ledDesign(name, LED_FACES)
   const data = new Uint8Array(COLS * ROWS * 4)
@@ -123,7 +133,7 @@ export function makeLedMask(name: LedFace, seed: number): FaceRig {
   tex.colorSpace = THREE.SRGBColorSpace
   tex.needsUpdate = true
   const mat = new THREE.ShaderMaterial({
-    uniforms: { map: { value: tex }, grid: { value: new THREE.Vector2(COLS, ROWS) } },
+    uniforms: { map: { value: tex }, grid: { value: new THREE.Vector2(COLS, ROWS) }, glow: { value: glow } },
     vertexShader: LED_VERT,
     fragmentShader: LED_FRAG,
     side: THREE.DoubleSide,
@@ -139,6 +149,10 @@ export function makeLedMask(name: LedFace, seed: number): FaceRig {
     head.add(tab)
   }
   head.traverse((o) => (o.castShadow = true))
+  // the face lights what is in front of it (its own hands, the edge of the felt) in its colours
+  const spill = new THREE.PointLight(0xffffff, 0, 0.9, 2)
+  spill.position.set(0, -0.02, -0.12)
+  head.add(spill)
 
   const px = new Px()
   let s: Sena | null = null
@@ -164,6 +178,15 @@ export function makeLedMask(name: LedFace, seed: number): FaceRig {
       }
     }
     // the drawing's row 0 is the top; the texture's is the bottom
+    let r = 0, g = 0, b = 0
+    for (let i = 0; i < px.data.length; i += 4) {
+      r += px.data[i]
+      g += px.data[i + 1]
+      b += px.data[i + 2]
+    }
+    const sum = r + g + b
+    if (sum > 0) spill.color.setRGB(r / sum, g / sum, b / sum, THREE.SRGBColorSpace)
+    spill.intensity = Math.min(1, sum / (COLS * ROWS * 255 * 0.25)) * SPILL
     for (let y = 0; y < ROWS; y++) data.set(px.data.subarray(y * COLS * 4, (y + 1) * COLS * 4), (ROWS - 1 - y) * COLS * 4)
     tex.needsUpdate = true
   }

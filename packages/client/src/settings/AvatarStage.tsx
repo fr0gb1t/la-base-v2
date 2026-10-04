@@ -43,7 +43,7 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
     let mask: FaceRig;
     let hands: ReturnType<typeof makeHand>[] = [];
     const build = (a: AvatarSpec) => {
-      mask = makeFace(a, 3);
+      mask = makeFace(a, 3, 2.6); // (no bloom here: at the table's brightness the colours would burn to white)
       holder.add(mask.head);
       hands = ([-1, 1] as const).map((sx) => {
         const h = makeHand(handStyleOf(a), sx > 0 ? 'rest' : 'hold', sx, undefined, sx > 0 ? 0 : 1.3);
