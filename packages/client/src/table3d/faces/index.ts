@@ -27,22 +27,52 @@ export const handStyleOf = (avatar: AvatarSpec): HandStyleKey => {
   return f.kind === 'led' ? 'led' : f.name
 }
 
-// The cuff the hand comes out of: a short black glove cuff, flared toward the back and open, dark inside (the arm is lost
-// in the dark), so the hand reads as coming out of a sleeve rather than cut off at the wrist. Built along +y and
-// turned so the cuff runs back from the wrist, down −z.
-const CUFF_PROFILE: [number, number][] = [
-  [0.0255, -0.012], [0.0285, -0.004], [0.031, 0.012], [0.0345, 0.032], [0.039, 0.052], [0.0435, 0.068], [0.0445, 0.072],
-]
-let cuffGeo: THREE.LatheGeometry | null = null
-let cuffHem: THREE.TorusGeometry | null = null
-function cuffGeometry() {
-  if (!cuffGeo) {
-    cuffGeo = new THREE.LatheGeometry(CUFF_PROFILE.map(([r, y]) => new THREE.Vector2(r, y)), 24)
-    cuffGeo.rotateX(-Math.PI / 2) // +y (the back of the cuff) becomes −z
-    cuffHem = new THREE.TorusGeometry(0.0445, 0.0035, 6, 24) // the rolled hem at the open end
-    cuffHem.translate(0, 0, -0.072)
+// The sleeve the hand comes out of: loose black cloth, snug at the wrist and opening wide toward the back, with soft
+// folds running along it that deepen toward the open end, which sags a little under its own weight. Dark inside (the
+// arm is lost in the dark); only the hem round the open end is in the team's colour. It runs back from the wrist,
+// down −z.
+const SLEEVE_LEN = 0.11
+const SLEEVE_SEG = 32
+const SLEEVE_RINGS = 14
+/** The sleeve's radius at a point: u from 0 (wrist) to 1 (open end), a the angle round it. */
+function sleeveR(u: number, a: number) {
+  const base = 0.026 + 0.034 * Math.pow(u, 1.4) // snug at the wrist, wide at the end
+  const folds = (0.002 + 0.0075 * u) * (Math.sin(a * 5 + u * 1.7) * 0.7 + Math.sin(a * 3 - 0.8) * 0.3) // folds, deeper toward the end
+  return base + folds
+}
+/** How far the sleeve hangs down at a point (cloth sags at the open end, more at the bottom than the top). */
+const sleeveSag = (u: number, a: number) => -0.012 * u * u * (1 - 0.4 * Math.sin(a))
+let sleeveGeo: { sleeve: THREE.BufferGeometry; hem: THREE.BufferGeometry } | null = null
+function sleeveGeometry() {
+  if (sleeveGeo) return sleeveGeo
+  const pos: number[] = []
+  const idx: number[] = []
+  for (let j = 0; j <= SLEEVE_RINGS; j++) {
+    const u = j / SLEEVE_RINGS
+    // the open end is cut on a slant, longer underneath, as a sleeve falls
+    for (let i = 0; i <= SLEEVE_SEG; i++) {
+      const a = (i / SLEEVE_SEG) * Math.PI * 2
+      const r = sleeveR(u, a)
+      const len = SLEEVE_LEN * (1 + 0.18 * Math.max(0, -Math.sin(a)) * u)
+      pos.push(Math.cos(a) * r, Math.sin(a) * r + sleeveSag(u, a), 0.012 - u * len) // back from the wrist, down −z
+    }
   }
-  return { cuff: cuffGeo, hem: cuffHem! }
+  for (let j = 0; j < SLEEVE_RINGS; j++) {
+    for (let i = 0; i < SLEEVE_SEG; i++) {
+      const k = j * (SLEEVE_SEG + 1) + i
+      idx.push(k, k + SLEEVE_SEG + 1, k + 1, k + 1, k + SLEEVE_SEG + 1, k + SLEEVE_SEG + 2) // wound so the outside faces out
+    }
+  }
+  const sleeve = new THREE.BufferGeometry()
+  sleeve.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  sleeve.setIndex(idx)
+  sleeve.computeVertexNormals()
+  // the hem: a thin roll along the open end, following its folds
+  const last = SLEEVE_RINGS * (SLEEVE_SEG + 1)
+  const edge = Array.from({ length: SLEEVE_SEG }, (_, i) => new THREE.Vector3(pos[(last + i) * 3], pos[(last + i) * 3 + 1], pos[(last + i) * 3 + 2]))
+  const hem = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edge, true), 64, 0.0032, 6, true)
+  sleeveGeo = { sleeve, hem }
+  return sleeveGeo
 }
 
 /**
@@ -61,7 +91,7 @@ export function handIdle(t: number, pose: HandPose, seed: number) {
 }
 
 /**
- * A floating hand coming out of a black glove cuff whose hem is in the team's colour. `side` is the arm it would be on (+1 right,
+ * A floating hand coming out of a loose black sleeve whose hem is in the team's colour. `side` is the arm it would be on (+1 right,
  * −1 left); its fingers point down +z (the way the table's arms aim a hand) and the thumb points inward, toward the
  * body's midline. The hand shows once the sculptor has made it; `prepare` is run on the group then and at once.
  * `idle(t)` moves the hand inside its group (the group itself is placed and aimed by the caller).
@@ -76,9 +106,9 @@ export function makeHand(style: HandStyleKey, pose: HandPose, side: 1 | -1, cuff
   const hemMat = new THREE.MeshStandardMaterial({ color: cuffColor, roughness: 0.7 }) // only the hem tells the team
   const darkMat = new THREE.MeshBasicMaterial({ color: 0x050403, side: THREE.BackSide }) // inside the cuff: only the dark
   mats.push(cuffMat, hemMat, darkMat)
-  const geo = cuffGeometry()
-  const cuff = new THREE.Mesh(geo.cuff, cuffMat)
-  const inside = new THREE.Mesh(geo.cuff, darkMat)
+  const geo = sleeveGeometry()
+  const cuff = new THREE.Mesh(geo.sleeve, cuffMat)
+  const inside = new THREE.Mesh(geo.sleeve, darkMat)
   const hem = new THREE.Mesh(geo.hem, hemMat)
   cuff.castShadow = hem.castShadow = true
   inner.add(cuff, inside, hem)
