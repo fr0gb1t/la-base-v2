@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GiNewspaper } from 'react-icons/gi';
 import { NOVEDADES, groupByDate } from '../changelog/novedades';
 import { uiSound } from '../table3d/audio';
@@ -21,6 +21,22 @@ export function NovedadesPanel({ onClose }: { onClose: () => void }) {
     setDay(to);
   };
   const current = DAYS[day];
+
+  // a breathing arrow says there is more below; it goes away once the end has been reached
+  const listRef = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  const check = useCallback(() => {
+    const el = listRef.current;
+    if (el) setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 6);
+  }, []);
+  useLayoutEffect(() => {
+    listRef.current?.scrollTo({ top: 0 }); // each day starts at its top
+    check();
+  }, [day, check]);
+  useEffect(() => {
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, [check]);
 
   useEffect(() => {
     uiSound('paper');
@@ -47,17 +63,20 @@ export function NovedadesPanel({ onClose }: { onClose: () => void }) {
             <button type="button" onClick={() => go(day - 1)} disabled={day === 0} aria-label="Fecha siguiente">Después ›</button>
           </nav>
         )}
-        <div className="novedades-list">
-          {current?.entries.map((n) => (
-            <article key={n.id} className="novedad">
-              <h3>{n.title}</h3>
-              <ul>
-                {n.items.map((it) => (
-                  <li key={it}>{it}</li>
-                ))}
-              </ul>
-            </article>
-          ))}
+        <div className="novedades-body">
+          <div className="novedades-list" ref={listRef} onScroll={check}>
+            {current?.entries.map((n) => (
+              <article key={n.id} className="novedad">
+                <h3>{n.title}</h3>
+                <ul>
+                  {n.items.map((it) => (
+                    <li key={it}>{it}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+          {more && <div className="novedades-more" aria-hidden><span>▾</span></div>}
         </div>
         <p className="ledger-note">{DAYS.length > 1 ? '← → cambian de fecha · Esc cierra' : 'Esc cierra'}</p>
       </section>

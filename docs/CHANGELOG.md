@@ -9,6 +9,8 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
 - **Novedades completas desde el 30/9:** la lista para jugadores (`client/src/changelog/entries.ts`) ahora
   cubre todo lo de este registro, agrupado por día real de cada commit (30/9, 2/10, 3/10, 4/10), en
   lenguaje de jugador. Un test cuida ids únicos y orden por fecha.
+  Si hay más para leer abajo se muestra una flechita que respira (se oculta al llegar al final) y
+  cada día arranca desde arriba.
 - **Novedades y televisores en el inicio:** la pantalla de inicio del menú tiene dos televisores sobre
   mesitas, uno a cada lado (Novedades a la izquierda, Ajustes a la derecha), con el mismo `HudBoard` de
   la mesa en un modo «apoyado» (sin cables ni panel LED). El de Novedades se pone ámbar, pulsa y dice
