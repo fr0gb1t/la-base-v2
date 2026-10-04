@@ -3654,8 +3654,15 @@ button {
 /* ---- novedades: the player-facing list of what changed ---- */
 .ledger.novedades {
   width: min(480px, 94vw);
-  max-height: calc(100vh - 60px);
-  overflow-y: auto;
+  height: min(560px, calc(100vh - 60px)); /* always the same size: the list scrolls inside it */
+  display: flex;
+  flex-direction: column;
+}
+
+.ledger.novedades > h2,
+.ledger.novedades > .novedades-nav,
+.ledger.novedades > .ledger-note {
+  flex: none;
 }
 
 .novedades-nav {
@@ -3688,6 +3695,10 @@ button {
 }
 
 .novedades-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
   display: flex;
   flex-direction: column;
   gap: 14px;

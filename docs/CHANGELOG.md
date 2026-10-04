@@ -17,7 +17,8 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   agregó `vitest` al cliente (`pnpm test`).
 - **Novedades por fecha:** la hoja de novedades muestra un día a la vez (el más nuevo primero) con
   «‹ Antes» / «Después ›» (o las flechas ← →) para revisar los cambios de fechas anteriores. Las
-  entradas se agrupan con `groupByDate` en `client/src/changelog/novedades.ts`.
+  entradas se agrupan con `groupByDate` en `client/src/changelog/novedades.ts`. La hoja tiene siempre
+  el mismo tamaño; si el contenido no entra, la lista de entradas hace scroll por dentro.
 - **Ajustes solo por el televisor:** se quitó el botón «ajustes» suelto de la esquina en todas las
   pantallas del menú (también en celular); se abre desde el televisor del inicio, con la tecla `O` o desde
   el de la sala. Los televisores de las mesitas son bastante más chicos (`SIDE_TV_SCALE` en `MenuScene.ts`).
