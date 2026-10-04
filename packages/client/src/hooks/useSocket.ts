@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useGameStore } from '../store/gameStore';
 import { getServerUrl } from '../lib/serverUrl';
+import { getAvatar, onAvatar, restoreAvatar, restoring } from '../settings/avatarSettings';
 
 let globalSocket: Socket | null = null;
 let coreListenersRegistered = false;
@@ -9,6 +10,23 @@ let coreListenersRegistered = false;
 function ensureCoreListeners(socket: Socket) {
   if (coreListenersRegistered) return;
   coreListenersRegistered = true;
+
+  // a face changed in the settings while waiting in a room goes to the table at once; one somebody else there
+  // already wears is refused by the server (the picker does not offer it), and the face you had comes back
+  let sentAvatar = getAvatar();
+  onAvatar((a) => {
+    const { roomCode, gameState } = useGameStore.getState();
+    const before = sentAvatar;
+    sentAvatar = a;
+    if (!roomCode || gameState || restoring()) return;
+    socket.emit('avatar:set', { roomCode, avatar: a }, (res: { success: boolean; error?: string }) => {
+      if (!res?.success) {
+        console.warn('[useSocket] Face refused:', res?.error);
+        sentAvatar = before;
+        restoreAvatar(before);
+      }
+    });
+  });
 
   socket.on('connect', () => {
     console.log('[useSocket] Connected:', socket.id);

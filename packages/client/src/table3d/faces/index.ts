@@ -17,7 +17,7 @@ export const FACE_SCALE = { led: 1.5, cabeza: 1.65 }
 /** `ledGlow`: how bright an LED mask's lights are (by default as at the table, where the bloom spreads them). */
 export function makeFace(avatar: AvatarSpec, seed = 0, ledGlow?: number): FaceRig {
   const f = faceKind(avatar.face)
-  const rig = f.kind === 'led' ? makeLedMask(f.name, seed, ledGlow) : makeHeadMask(f.name, seed)
+  const rig = f.kind === 'led' ? makeLedMask(f.name, seed, ledGlow, avatar.tint) : makeHeadMask(f.name, seed, avatar.tint)
   rig.head.scale.setScalar(f.kind === 'led' ? FACE_SCALE.led : FACE_SCALE.cabeza)
   return rig
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { FACE_BACK_DOT, seatUnderAim, isHeadSena, type AimOptions, type Card, type Sena } from '@la-base/shared'
-import type { AvatarSpec } from '@la-base/shared'
+import { avatarKey, type AvatarSpec } from '@la-base/shared'
 import { NOD_HZ, SENA_HOLD, senaAmount } from './senaPlay'
 import { buildLamp, buildRoom } from './table'
 import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, PLAY_R, seatAngle, polar, playSlot } from './seats'
@@ -296,8 +296,9 @@ export class TableScene {
   // ------------------------------------------------------------------ public API
 
   setPlayers(players: TablePlayer[], myId: string) {
-    const order = players.map((p) => p.id).join('|')
-    const prevOrder = this.players.map((p) => p.id).join('|')
+    // (a face changing — the colour variants handed out as the game starts — reseats everybody too)
+    const order = players.map((p) => p.id + (p.avatar ? avatarKey(p.avatar) : '')).join('|')
+    const prevOrder = this.players.map((p) => p.id + (p.avatar ? avatarKey(p.avatar) : '')).join('|')
     this.players = players
     this.myId = myId
     if (order !== prevOrder || this.n !== players.length) this.rebuildSeats()

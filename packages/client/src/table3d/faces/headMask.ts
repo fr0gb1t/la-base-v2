@@ -7,6 +7,7 @@ import type { HeadFace, Sena } from '@la-base/shared'
 import { HEADS, MORPH_SENAS, type EyeSpec } from './heads'
 import { sculpted, type PieceGeometry } from './sculpted'
 import type { FaceRig } from './ledMask'
+import { tintMaterial } from './tint'
 
 /** A glossy eyeball, with an iris and a pupil looking down −z (or a slit pupil, for rams). */
 function eyeball(e: EyeSpec) {
@@ -35,7 +36,7 @@ function eyeball(e: EyeSpec) {
   return { g, lid, s: e.s, mats, shut: (k: number) => (lid.rotation.x = THREE.MathUtils.lerp(1.05, -1.57, k)) }
 }
 
-export function makeHeadMask(name: HeadFace, seed: number): FaceRig {
+export function makeHeadMask(name: HeadFace, seed: number, tint = 0): FaceRig {
   const spec = HEADS[name]
   const head = new THREE.Group()
   const materials: THREE.Material[] = []
@@ -58,6 +59,7 @@ export function makeHeadMask(name: HeadFace, seed: number): FaceRig {
     }
     for (const p of pieces) {
       const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: p.rough })
+      tintMaterial(mat, tint)
       materials.push(mat)
       const mesh = new THREE.Mesh(p.geometry, mat)
       mesh.castShadow = true

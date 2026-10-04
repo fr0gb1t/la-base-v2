@@ -7,6 +7,7 @@ import * as THREE from 'three'
 import type { LedFace, Sena } from '@la-base/shared'
 import { LED_FACES } from '@la-base/shared'
 import { COLS, ROWS, Px, faceState, ledDesign } from './ledFaces'
+import { HUE_GLSL, tintAngle, tintWhite } from './tint'
 
 const HW = 0.086 // half width (m)
 const HH = 0.113 // half height
@@ -89,6 +90,9 @@ const LED_FRAG = /* glsl */ `
 uniform sampler2D map;
 uniform vec2 grid;
 uniform float glow;
+uniform float hue; // the colour variant (0: as designed)
+uniform vec3 white; // what white turns into in this variant
+${HUE_GLSL}
 varying vec2 vUv;
 void main() {
   vec2 g = vUv * grid;
@@ -98,6 +102,11 @@ void main() {
   float dotMask = 1.0 - smoothstep(0.2, 0.36 + px, r);
   float far = clamp((px - 0.3) / 0.5, 0.0, 1.0);
   vec3 lit = texture2D(map, (cell + 0.5) / grid).rgb;
+  if (hue != 0.0) {
+    float mx = max(lit.r, max(lit.g, lit.b));
+    float sat = mx > 0.0 ? (mx - min(lit.r, min(lit.g, lit.b))) / mx : 0.0;
+    lit = mix(mx * white, hueTurn(lit, hue), smoothstep(0.15, 0.4, sat)); // greys have no hue to turn: they take the variant's colour
+  }
   // a lit LED is far brighter than anything the lamp lights (so it blooms), with a hot core and a halo that
   // spreads through the diffuser behind the glass
   float halo = exp(-r * r * 9.0);
@@ -122,8 +131,8 @@ export interface FaceRig {
 const plastic = new THREE.MeshStandardMaterial({ color: 0x0b0b0e, roughness: 0.35, metalness: 0.1 })
 const shellMat = new THREE.MeshStandardMaterial({ color: 0x08080a, roughness: 0.8, side: THREE.DoubleSide })
 
-/** `glow`: how bright a lit LED is (LED_GLOW at the table, where the bloom gathers it; less where nothing does). */
-export function makeLedMask(name: LedFace, seed: number, glow = LED_GLOW): FaceRig {
+/** `glow`: how bright a lit LED is (LED_GLOW at the table, where the bloom gathers it; less where nothing does). `tint`: the colour variant. */
+export function makeLedMask(name: LedFace, seed: number, glow = LED_GLOW, tint = 0): FaceRig {
   const geo = geometry()
   const design = ledDesign(name, LED_FACES)
   const data = new Uint8Array(COLS * ROWS * 4)
@@ -133,7 +142,7 @@ export function makeLedMask(name: LedFace, seed: number, glow = LED_GLOW): FaceR
   tex.colorSpace = THREE.SRGBColorSpace
   tex.needsUpdate = true
   const mat = new THREE.ShaderMaterial({
-    uniforms: { map: { value: tex }, grid: { value: new THREE.Vector2(COLS, ROWS) }, glow: { value: glow } },
+    uniforms: { map: { value: tex }, grid: { value: new THREE.Vector2(COLS, ROWS) }, glow: { value: glow }, hue: { value: tintAngle(tint) }, white: { value: tintWhite(tint) } },
     vertexShader: LED_VERT,
     fragmentShader: LED_FRAG,
     side: THREE.DoubleSide,

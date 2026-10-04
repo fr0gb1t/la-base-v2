@@ -4,6 +4,9 @@ import { useMenuScene } from '../menu/MenuBackdrop';
 import { TableMenu } from '../menu/TableMenu';
 import { useGameStore } from '../store/gameStore';
 import { useSocket } from '../hooks/useSocket';
+import { avatarKey } from '@la-base/shared';
+import { FACE_INFO } from '../table3d/faces/catalog';
+import { openSettings } from '../settings/SettingsPanel';
 
 export function RoomWaiting() {
   const socket = useSocket();
@@ -79,6 +82,17 @@ export function RoomWaiting() {
     setRoomPlayers([]);
     setCurrentPage('lobby');
   };
+
+  // two people with the same face: both are told, and asked to change it; «Me la quedo» if not (once everybody
+  // wearing it says so, the first to sit keeps it and the others wear it in another colour)
+  const keyOf = (p: { avatar?: { face: string; tint?: number } }) => (p.avatar ? avatarKey(p.avatar as never) : '');
+  const sameFace = currentPlayerData?.avatar ? players.filter((p) => p.id !== currentPlayerData.id && keyOf(p) === keyOf(currentPlayerData)) : [];
+  const clashing = (p: (typeof players)[number]) => Boolean(p.avatar) && players.some((q) => q.id !== p.id && keyOf(q) === keyOf(p));
+  const handleKeepFace = () => {
+    if (!socket || !roomCode) return;
+    socket.emit('avatar:keep', { roomCode });
+  };
+  const names = (ps: typeof players) => (ps.length === 1 ? ps[0].name : `${ps.slice(0, -1).map((p) => p.name).join(', ')} y ${ps[ps.length - 1].name}`);
 
   const [botError, setBotError] = useState('');
   const handleAddBot = () => {
@@ -162,7 +176,7 @@ export function RoomWaiting() {
                 {p.isBot && <GiRobotGolem aria-label="bot" className="room-item-icon" />}
                 {p.id === hostPlayer?.id && <small> anfitrión</small>}
               </span>
-              <span className="room-item-team">{teamLabel[p.team] ?? '—'}</span>
+              <span className="room-item-team">{clashing(p) && <small className="room-item-clash">misma cara · </small>}{teamLabel[p.team] ?? '—'}</span>
               {isHost && p.id !== currentPlayer?.id && (
                 <button type="button" className="icon-btn" onClick={() => handleKickPlayer(p.id)} title={`Sacar a ${p.name}`} aria-label={`Sacar a ${p.name}`}>
                   <GiCancel aria-hidden />
@@ -174,6 +188,27 @@ export function RoomWaiting() {
         {players.length >= 4 && !canGameStart && randomPlayers.length === 0 && (
           <p className="pad-error">Los equipos tienen que quedar parejos.</p>
         )}
+        {sameFace.length > 0 && currentPlayerData?.avatar && (
+          <div className="face-clash" role="alert">
+            <p>
+              {names(sameFace)} {sameFace.length > 1 ? 'eligieron' : 'eligió'} tu misma cara, <b>{FACE_INFO[currentPlayerData.avatar.face].name}</b>.
+              En una mesa no puede haber dos iguales: alguno tiene que cambiarla.
+            </p>
+            {currentPlayerData.avatarKeep ? (
+              <p className="face-clash-wait">
+                Te la quedás. Si {sameFace.length > 1 ? 'ellos también se la quedan' : `${sameFace[0].name} también se la queda`}, la usa quien llegó primero y el resto, en otro color.
+              </p>
+            ) : (
+              <div className="face-clash-actions">
+                <button type="button" className="face-clash-btn" onClick={() => openSettings()}>Cambiar la mía</button>
+                <button type="button" className="face-clash-btn" onClick={handleKeepFace}>Me la quedo</button>
+              </div>
+            )}
+          </div>
+        )}
+        {currentPlayerData?.avatar?.tint ? (
+          <p className="ledger-note face-clash-tint">Tu cara, {FACE_INFO[currentPlayerData.avatar.face].name}, va en otro color: alguien más la eligió primero.</p>
+        ) : null}
         {botError && <p className="pad-error" role="alert">{botError}</p>}
       </aside>
     </main>

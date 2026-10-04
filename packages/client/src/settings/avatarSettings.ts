@@ -2,7 +2,7 @@
 // table whenever they create or join a room. The first time it is a random face, drawn once and then kept,
 // so everybody starts with a different one and nobody has to design it from scratch.
 import { useSyncExternalStore } from 'react'
-import { randomAvatar, sameAvatar, sanitizeAvatar, type AvatarSpec } from '@la-base/shared'
+import { freeAvatar, randomAvatar, sameAvatar, sanitizeAvatar, type AvatarSpec } from '@la-base/shared'
 
 const KEY = 'laBase.avatar'
 
@@ -39,9 +39,25 @@ export function setAvatar(patch: Partial<AvatarSpec>) {
   listeners.forEach((l) => l(current))
 }
 
-/** A new random face (the «Al azar» button). */
-export function rerollAvatar() {
-  current = randomAvatar()
+/** True while restoreAvatar is telling the listeners (the one that sends faces to the table must not resend it). */
+let quiet = false
+export const restoring = () => quiet
+
+/** Puts back a face the table refused, without sending it again. */
+export function restoreAvatar(a: AvatarSpec) {
+  current = { face: a.face }
+  save(current)
+  quiet = true
+  try {
+    listeners.forEach((l) => l(current))
+  } finally {
+    quiet = false
+  }
+}
+
+/** A new random face (the «Al azar» button): never the one you have, nor one somebody at your table wears. */
+export function rerollAvatar(taken: readonly AvatarSpec[] = []) {
+  current = freeAvatar([...taken, current])
   save(current)
   listeners.forEach((l) => l(current))
 }
