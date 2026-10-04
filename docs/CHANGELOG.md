@@ -9,7 +9,8 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
 - **Manos que se pierden en la oscuridad, y en movimiento:** la mano ya no termina en un muñón redondo con un aro
   (se veía cortada). Como en Buckshot Roulette (sin manga ni puño), sus colores se oscurecen del dorso al final de
   la muñeca hasta casi negro (`fadeWrist`, `makeHand` en `table3d/faces/index.ts`), y en la penumbra la mano
-  parece salir de la nada. Las manos ya no llevan el color del equipo. En la vista previa de Ajustes las manos
+  parece salir de la nada. Los guantes de las máscaras LED pasan de casi negros a gris goma, para que se vean
+  (la muñeca igual se funde con el fondo). Las manos ya no llevan el color del equipo. En la vista previa de Ajustes las manos
   estaban cambiadas de lado (los pulgares quedaban hacia afuera): ahora cada una está en su lado, pulgar adentro. Y se mueven solas mientras esperan, en stop-motion
   (`handIdle`): respiran, se balancean, y la mano abierta tamborilea dos veces sobre el paño cada tanto; la que
   sostiene el abanico apenas se inclina. En la mesa, una mano que está jugando queda quieta. Igual en la vista

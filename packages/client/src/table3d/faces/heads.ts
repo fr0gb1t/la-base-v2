@@ -417,8 +417,8 @@ export const HEADS: Record<HeadFace, HeadSpec> = {
 export const MORPH_SENAS = ['ancho-copa', 'ancho-oro', 'figuras', 'tres', 'dos', 'porno'] as const
 
 // ------------------------------------------------------------------------------------------------ hands
-/** The hands of the LED masks: black rubber gloves, like the masks' rim. */
-export const LED_HANDS: HandStyle = { skin: 0x1a1a20, thin: 1.0 }
+/** The hands of the LED masks: grey rubber gloves, light enough to read in the gloom (their wrists still sink into it). */
+export const LED_HANDS: HandStyle = { skin: 0x6c6a70, thin: 1.0 }
 
 export type HandPose = 'hold' | 'rest'
 export const HAND_CURL: Record<HandPose, { curl: number[]; thumb: number }> = {
