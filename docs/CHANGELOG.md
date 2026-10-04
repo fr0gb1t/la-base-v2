@@ -6,6 +6,10 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **La mesita de los televisores ya no cruza las sillas en el trayecto:** al cambiar la cantidad de jugadores
+  las sillas aparecen de golpe y la mesita se deslizaba en línea recta hasta su lugar nuevo, atravesando
+  alguna (llegaba a 10 cm de una). Ahora cualquier silla que toque la empuja hacia afuera, con un empujón
+  suave (`placeTvTable` en `MenuScene.ts`): en una simulación de cambios 4↔6↔8 nunca baja de 50 cm de una silla.
 - **Ajustes por defecto nuevos (para quien empieza de cero):** en la PC, sonido ambiente **no** y sonidos
   del juego **sí**; mano a la vista en tu turno **no**; guías en la mesa **no**; volver a tu lugar **no**;
   invertir cámara **no**; punto de mira **sí**; aviso de seña vista **sí**; bordes suaves **sí** (no en

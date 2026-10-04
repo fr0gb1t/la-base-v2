@@ -30,6 +30,9 @@ export const TV_TABLE = { x: 1.3, z: -0.85, yaw: -0.52 }
 // the sets are small: just enough to find and read at a glance
 const SIDE_TV_SCALE = 0.55
 const TV_TABLE_R = CHAIR_R + 0.65 // where it stands in the room: well behind the chairs
+// how far the television table's centre keeps from a chair's: the table (0.3) + half a chair (0.225) + a hand's breadth
+const TV_CHAIR_GAP = 0.62
+const TV_CHAIR_HARD = 0.5 // never closer than this to a chair on the way (a chair is ~0.45 square, the table 0.3 across)
 const TV_GAP = 0.125 // half the distance between the two sets
 
 export type Station = 'entrada' | 'lobby' | 'crear' | 'unirse' | 'reglas' | 'sala' | 'config'
@@ -600,7 +603,7 @@ export class MenuScene {
     const clear = (c: { x: number; z: number }) => Math.min(...chairs.map((k) => Math.hypot(c.x - k.x, c.z - k.z)))
     const a0 = (-62 * Math.PI) / 180
     const pref = room ? { x: Math.cos(a0) * TV_TABLE_R, z: Math.sin(a0) * TV_TABLE_R } : home // where it likes to be
-    const NEED = 0.62 // the table (0.3) + half a chair (0.225) + a hand's breadth
+    const NEED = TV_CHAIR_GAP
     const candidates = [home, pref]
     for (let deg = -85; deg <= -5; deg += 2.5) for (const r of [1.5, 1.6, 1.7, 1.8, 1.95, 2.1]) candidates.push({ x: Math.cos((deg * Math.PI) / 180) * r, z: Math.sin((deg * Math.PI) / 180) * r })
     // it has to be on screen (with room to spare) from this screen's camera: not cut by an edge, nor under the header
@@ -640,6 +643,22 @@ export class MenuScene {
     const t = this.tvTable
     t.position.x += (to.x - t.position.x) * k
     t.position.z += (to.z - t.position.z) * k
+    // on its way it must not cross a chair either (they appear all at once, wherever the new count puts them, and a
+    // straight slide can pass through one): whatever it overlaps pushes it out, so it goes around. The push is eased,
+    // not a jump, when a chair appears right under it
+    const ease = reduced() ? 1 : 1 - Math.exp(-Math.min(dt, 0.1) * 22)
+    for (let pass = 0; pass < 3; pass++) {
+      for (const c of this.chairSpots()) {
+        const dx = t.position.x - c.x
+        const dz = t.position.z - c.z
+        const d = Math.hypot(dx, dz)
+        if (d >= TV_CHAIR_HARD) continue
+        const u = d > 1e-4 ? { x: dx / d, z: dz / d } : { x: 1, z: 0 }
+        const push = (TV_CHAIR_HARD - d) * ease
+        t.position.x += u.x * push
+        t.position.z += u.z * push
+      }
+    }
     t.rotation.y = Math.atan2(-t.position.x, this.camera.position.z - t.position.z) // always facing the camera
   }
 
