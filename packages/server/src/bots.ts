@@ -7,6 +7,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { io as connect, type Socket } from 'socket.io-client';
+import { createDeck } from './game-logic.js';
 import { cardRank, dealAnimationMs, validatePieBid, gazeToward, resolveBase, senaForCard, senasForHand, type AssignedTeam, type Gaze, type Card, type GameState, type PlayedCard, type Sena } from '@la-base/shared';
 
 // ---------------------------------------------------------------- strategy
@@ -19,6 +20,32 @@ function winChance(card: Card, espadasPower: boolean, players: number): number {
   const base = r === 13 ? 0.95 : r === 12 ? 0.6 : r === 11 ? 0.42 : r === 10 ? 0.3 : r === 7 ? 0.16 : r >= 5 ? 0.06 : 0.02;
   const espadas = espadasPower && card.suit === 'espadas' && card.value === 1 ? 0.2 : 0;
   return Math.min(0.97, (base + espadas) * (4 / Math.max(4, players)) ** 0.7);
+}
+
+/**
+ * Exact chance that `card` wins a one-card round from the seat that plays after `before` others
+ * (0 = the Mano). Every rival holds one random unseen card; it beats mine if it ranks higher, or
+ * equal when it was played before mine (the base is read from the Mano, so the first card wins
+ * ties — as Mano nothing ties against me). The As de Espadas kills an ancho played before it, and
+ * the ancho loses to one played after it.
+ */
+export function oneCardWinChance(card: Card, espadasPower: boolean, players: number, before: number): number {
+  const unseen = createDeck(players >= 8 ? 2 : 1);
+  unseen.splice(unseen.findIndex((c) => c.suit === card.suit && c.value === card.value), 1);
+  const mine = cardRank(card);
+  const isAncho = mine === 13;
+  const isAsEspadas = espadasPower && card.suit === 'espadas' && card.value === 1;
+  const beats = (other: Card, playedBefore: boolean) => {
+    const r = cardRank(other);
+    const otherIsAsEspadas = espadasPower && other.suit === 'espadas' && other.value === 1;
+    if (isAncho) return otherIsAsEspadas && !playedBefore; // an As de Espadas played after kills it
+    if (isAsEspadas && r === 13) return false; // played before me, it dies: I'm the one after it
+    return r > mine || (r === mine && playedBefore);
+  };
+  const lose = (playedBefore: boolean) => unseen.filter((o) => beats(o, playedBefore)).length / unseen.length;
+  const rivals = Math.max(0, players - 1);
+  const earlier = Math.min(before, rivals);
+  return (1 - lose(true)) ** earlier * (1 - lose(false)) ** (rivals - earlier);
 }
 
 /** Bases an unknown card wins on average (the deck's mean winChance at a table of 4). */
@@ -54,6 +81,19 @@ export function partnerWorth(senas: Sena[] | undefined, handSize: number): numbe
   return yes ? Math.max(worth, SENA_WORTH.si) : worth; // a 'sí' promises at least one
 }
 
+/**
+ * What my own hand is worth in bases. In a one-base round the seat is fixed and every rival's card
+ * is a random unseen one, so the chance is exact and depends on the position; with more bases the
+ * seat changes (the winner leads the next) and the rough per-card table is used.
+ */
+function ownStrength(hand: Card[], st: GameState, players: number, before?: number): number {
+  const exact = before !== undefined && st.structureSequence[st.roundIndex] === 1;
+  return hand.reduce(
+    (sum, c) => sum + (exact ? oneCardWinChance(c, st.acePowers.espadas, players, before) : winChance(c, st.acePowers.espadas, players)),
+    0,
+  );
+}
+
 /** Bases the team should make this round: my hand, the partners' señas, what we caught on rivals. */
 export function bidEstimate(
   hand: Card[],
@@ -62,9 +102,10 @@ export function bidEstimate(
   players: number,
   partnerSenas: Sena[][] = [],
   rivalSenas: Sena[][] = [], // señas caught on rival faces (one list per rival seen)
+  before?: number, // how many players play before me in the base (0 = Mano); only used in one-card rounds
 ): number {
   const max = st.structureSequence[st.roundIndex];
-  const own = hand.reduce((sum, c) => sum + winChance(c, st.acePowers.espadas, players), 0);
+  const own = ownStrength(hand, st, players, before);
   // teammates hold cards too: what their señas say, or roughly what an average hand adds
   const average = max * 0.18;
   const mates = Array.from({ length: teamSize - 1 }, (_, i) => partnerWorth(partnerSenas[i], hand.length) ?? average);
@@ -81,15 +122,20 @@ export function bidOptions(st: GameState): number[] {
 }
 
 /**
- * Is it worth knocking for the partners' señas (and waiting for them) before bidding? Not when the
- * answer cannot change anything: answering with a single legal bid (forced by the rival's), or when
- * this hand alone can already make every base of the round.
+ * Is it worth knocking for the partners' señas (and waiting for them) before bidding? Only if their
+ * answer could change the bid: not when there is a single legal bid (forced by the rival's), and
+ * not when the bid is the same with partners worth nothing as with partners holding every base
+ * (a Rey in the 1-card round: it asks 1 whatever they say).
  */
-export function wantsSenasBeforeBidding(hand: Card[], st: GameState, players: number): boolean {
-  if (bidOptions(st).length <= 1) return false;
+export function wantsSenasBeforeBidding(hand: Card[], st: GameState, players: number, teamSize = 2, before?: number): boolean {
+  const options = bidOptions(st);
+  if (options.length <= 1) return false;
   const max = st.structureSequence[st.roundIndex];
-  const own = hand.reduce((sum, c) => sum + winChance(c, st.acePowers.espadas, players), 0);
-  return own < max - 0.35;
+  const own = ownStrength(hand, st, players, before);
+  const nearest = (estimate: number) =>
+    options.reduce((best, v) => (Math.abs(v - estimate) < Math.abs(best - estimate) ? v : best), options[0]);
+  const partnersWorth = (teamSize - 1) * max; // the most they could add
+  return nearest(own) !== nearest(own + partnersWorth);
 }
 
 export function chooseBid(
@@ -99,9 +145,9 @@ export function chooseBid(
   players: number,
   partnerSenas: Sena[][] = [],
   rivalSenas: Sena[][] = [],
+  before?: number,
 ): number {
-  const max = st.structureSequence[st.roundIndex];
-  const estimate = bidEstimate(hand, st, teamSize, players, partnerSenas, rivalSenas);
+  const estimate = bidEstimate(hand, st, teamSize, players, partnerSenas, rivalSenas, before);
   const options = bidOptions(st);
   return options.reduce((best, v) => (Math.abs(v - estimate) < Math.abs(best - estimate) ? v : best), options[0]);
 }
@@ -230,6 +276,17 @@ export function sayNo(handSize: number, expected: number, st: GameState | null, 
   return weak || rivalsTookIt;
 }
 
+/**
+ * Should the bot hold its bid for more señas? Yes while a partner signed something this round and
+ * has not been quiet for SETTLE_MS since their last one, but never longer than ASK_PATIENCE_MS
+ * from when it began waiting.
+ */
+export function keepWaitingForSenas(now: number, lastSenaAt: number, waitingSince: number, signedThisRound: boolean): boolean {
+  if (!signedThisRound) return false;
+  if (now - waitingSince >= ASK_PATIENCE_MS) return false;
+  return now - lastSenaAt < SETTLE_MS;
+}
+
 /** Secret proving a connection is one of our bots (only bots may flag themselves as bots). */
 export const BOT_TOKEN = randomBytes(24).toString('hex');
 
@@ -239,6 +296,9 @@ const SIGN_ON_DEAL = 0.75; // chance to sign right after the deal (else they wai
 const ANSWER_ASK = 0.8; // chance to answer a partner's knock
 const WATCH_MS = 4000;
 const ASK_PATIENCE_MS = 20_000;
+export const SETTLE_MS = 4000; // after a partner's last seña, wait this long in silence: they may be making more
+const ACK_GLANCE_MS = 1200; // looking back at a partner who just signed: "I got it"
+const ASK_DELAY_MS = 3000; // facing the partner this long before knocking: a knock out of nowhere gives it away
 const SAY_YES = 0.25; // answering a knock: just 'sí' (when the hand can surely make a base)
 const SAY_NO = 0.8; // answering a knock with 'no' when it is true (r below this)
 const NO_WEAK = 0.2; // a hand worth under this much per card is a 'no'
@@ -300,6 +360,7 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
       partnerSenas.clear();
       rivalSenas.clear();
       askedThisRound = false;
+      signedThisRound = false;
       if (Math.random() < SIGN_ON_DEAL) sign(); // sometimes distracted: forgets until asked
     }
   });
@@ -313,6 +374,12 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
     const seen = teammates().some((p) => p.id === d.playerId) ? partnerSenas : rivalSenas;
     seen.set(d.playerId, (seen.get(d.playerId) ?? new Set()).add(d.sena));
     lastSenaAt.set(d.playerId, Date.now());
+    // let the partner see it arrived: a partner always catches a seña, so look back at them for a moment
+    if (seen === partnerSenas && Date.now() >= lookHeldUntil) {
+      void sleep(250 + Math.random() * 350).then(() => {
+        if (!leaving && Date.now() >= lookHeldUntil) void holdLook(gazeAt(d.playerId), ACK_GLANCE_MS);
+      });
+    }
   });
   s.on('game:cardPlayed', (d: { playerId: string; card: Card }) => {
     const sena = senaForCard(d.card);
@@ -335,34 +402,48 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
     }
   }
 
-  /** Tell the partner(s) what we hold: turn to face them, make the seña, look away. */
+  let faceTurn = 0;
+  /** Face the partners (taking turns when there are several) for `ms`: whoever asks has to look at who answers. */
+  async function faceMates(ms: number) {
+    const mates = teammates();
+    if (!mates.length) return;
+    const end = Date.now() + ms;
+    while (Date.now() < end && !leaving) {
+      await holdLook(gazeAt(mates[faceTurn++ % mates.length].id), Math.min(1000, end - Date.now()));
+    }
+  }
   /**
-   * Tell partners what we hold. `toward`: answer that partner (they knocked for señas), quickly;
-   * otherwise a random partner, unhurried. Holding nothing that wins → 'nada' (eyes closed).
+   * Tell partners what we hold: turn to face them, make the seña, look away. `toward`: answer that
+   * partner (they knocked for señas), quickly; otherwise unhurried. `explain`: say what we hold to
+   * a partner who told us to decide alone, so they know why we bid what we bid (never a short answer).
+   * Holding nothing that wins → 'nada' (eyes closed).
    */
-  async function signHand(toward?: string) {
+  async function signHand(toward?: string, explain = false) {
     const mates = teammates();
     if (!mates.length) return;
     // answering a knock, sometimes just a nod or a shake instead of the cards
-    const short = toward ? shortAnswer(hand, state, Math.max(4, roster.length), Math.random, roster.find((p) => p.id === s.id)?.team as AssignedTeam | undefined) : null;
+    const quick = toward !== undefined && !explain;
+    const short = quick ? shortAnswer(hand, state, Math.max(4, roster.length), Math.random, roster.find((p) => p.id === s.id)?.team as AssignedTeam | undefined) : null;
     const list = short ? [short] : senasForHand(hand, state?.acePowers).slice(0, 2);
     await untilDealt(); // no señas about cards nobody has seen yet
     for (const sena of list) {
-      await sleep(toward ? 500 + Math.random() * 700 : 1500 + Math.random() * 3500);
+      await sleep(quick ? 500 + Math.random() * 700 : 1500 + Math.random() * 3500);
       if (!state || (state.phase !== 'bidding' && state.phase !== 'playing') || leaving) return;
       const mate = mates.find((p) => p.id === toward) ?? mates[Math.floor(Math.random() * mates.length)];
       const g = gazeAt(mate.id);
       const facing = holdLook(g, 2000); // turn to them, make it, keep facing them a moment
       await sleep(450);
       s.emit('sena:make', { roomCode, sena, yaw: g.yaw, pitch: g.pitch });
+      signedThisRound = true;
       await facing;
     }
   }
   let signing$ = Promise.resolve(); // one seña at a time
-  const sign = (toward?: string) => {
-    signing$ = signing$.then(() => signHand(toward)).catch(() => undefined);
+  const sign = (toward?: string, explain = false) => {
+    signing$ = signing$.then(() => signHand(toward, explain)).catch(() => undefined);
   };
   let askedThisRound = false;
+  let signedThisRound = false; // we already told our partners what we hold
   s.on('sena:asked', (d: { playerId: string }) => {
     const asker = roster.find((p) => p.id === d.playerId);
     if (!asker) return;
@@ -421,27 +502,41 @@ export function spawnBot(roomCode: string, name: string): Promise<{ success: boo
       } else if (st.phase === 'bidding' && st.currentBidPlayerId === me) {
         await untilDealt(); // see the hand land before knocking or declaring
         await sleep(1200);
-        // no señas from the partners yet: knock on the table and give them a moment to answer
-        if (!askedThisRound && teammates().length && signedBy().every((l) => l.length === 0) && wantsSenasBeforeBidding(hand, st, Math.max(4, roster.length))) {
-          askedThisRound = true;
-          // knock, then wait for an answer (any seña: a 'no' counts too) from every partner, up
-          // to ASK_PATIENCE_MS so a silent table doesn't stall the game
-          const askedAt = Date.now();
-          s.emit('sena:ask', { roomCode });
-          const answered = () => teammates().every((p) => (lastSenaAt.get(p.id) ?? 0) >= askedAt);
-          while (!answered() && Date.now() - askedAt < ASK_PATIENCE_MS && !leaving) await sleep(200);
-          await sleep(600); // a moment to take it in
-        }
         const myTeam = roster.find((p) => p.id === me)?.team;
         const teamSize = Math.max(1, roster.filter((p) => p.team === myTeam).length);
         const players = Math.max(4, roster.length);
-        const estimate = bidEstimate(hand, st, teamSize, players, signedBy(), caughtFromRivals());
+        // seats that play before me in the first base: the round starts antihorario (index - 1) from the Mano
+        const seatOf = (id: string) => roster.findIndex((p) => p.id === id);
+        const before = seatOf(st.currentManoPlayerId) === -1 ? undefined : (seatOf(st.currentManoPlayerId) - seatOf(me) + roster.length) % roster.length;
+        // no señas from the partners yet: knock on the table and give them a moment to answer
+        if (!askedThisRound && teammates().length && signedBy().every((l) => l.length === 0) && wantsSenasBeforeBidding(hand, st, players, teamSize, before)) {
+          askedThisRound = true;
+          await faceMates(ASK_DELAY_MS); // look at the partner first, and only then knock
+          // knock (still facing them), then wait for an answer (any seña: a 'no' counts too) from
+          // every partner, up to ASK_PATIENCE_MS so a silent table doesn't stall the game
+          const askedAt = Date.now();
+          s.emit('sena:ask', { roomCode });
+          const answered = () => teammates().every((p) => (lastSenaAt.get(p.id) ?? 0) >= askedAt);
+          while (!answered() && Date.now() - askedAt < ASK_PATIENCE_MS && !leaving) await faceMates(400);
+          await faceMates(600); // a moment to take it in
+        }
+        // the partner may still be signing: face them and let them finish before deciding
+        const waitingSince = Date.now();
+        const partnerIds = teammates().map((p) => p.id);
+        const lastFromPartner = () => Math.max(0, ...partnerIds.map((id) => lastSenaAt.get(id) ?? 0));
+        while (!leaving && keepWaitingForSenas(Date.now(), lastFromPartner(), waitingSince, signedBy().some((l) => l.length > 0))) await faceMates(300);
+        const estimate = bidEstimate(hand, st, teamSize, players, signedBy(), caughtFromRivals(), before);
         const kamikaze = chooseKamikaze(estimate, st, (myTeam ?? 'nosotros') as AssignedTeam);
-        const value = kamikaze ?? chooseBid(hand, st, teamSize, players, signedBy(), caughtFromRivals());
+        const value = kamikaze ?? chooseBid(hand, st, teamSize, players, signedBy(), caughtFromRivals(), before);
         s.emit('bid:bidValueChanged', { roomCode, bidValue: value, playerId: me });
         await sleep(800);
         const res = await emit<{ success: boolean; error?: string }>('bid:declare', { roomCode, bidValue: value, isKamikaze: kamikaze !== null });
         if (!res?.success) retry = `bid: ${res?.error}`;
+        else if (!signedThisRound) {
+          // a partner told us 'no' (decide alone, they'll make it work): once we've bid, say why with our cards
+          const toldNo = teammates().find((p) => partnerWorth([...(partnerSenas.get(p.id) ?? [])], hand.length) === 0);
+          if (toldNo) sign(toldNo.id, true);
+        }
       } else if (st.phase === 'playing' && st.currentTurnPlayerId === me && hand.length) {
         await sleep(900);
         const myTeam = (roster.find((p) => p.id === me)?.team ?? 'nosotros') as AssignedTeam;
