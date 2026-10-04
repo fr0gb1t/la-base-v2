@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Laboratorio: máscaras y manos flotantes</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #050403; color: #e9dcc2; font: 13px/1.35 ui-monospace, Menlo, Consolas, monospace; overflow: hidden; }
+      canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+      #info { position: fixed; z-index: 2; left: 10px; top: 10px; background: rgba(5, 4, 3, 0.72); border: 1px solid rgba(233, 220, 194, 0.25); border-radius: 4px; padding: 5px 9px; pointer-events: none; }
+      #help { position: fixed; z-index: 2; left: 50%; bottom: 8px; transform: translateX(-50%); background: rgba(5, 4, 3, 0.72); padding: 4px 10px; border-radius: 4px; opacity: 0.8; }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div id="info">iniciando…</div>
+    <div id="help">mové el mouse: mirar · R: filtro PSX sí/no · D: tramado sí/no · espacio: pausa</div>
+    <script type="module" src="/src/lab/buckshotLab.ts"></script>
+  </body>
+</html>
