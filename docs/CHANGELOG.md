@@ -6,6 +6,12 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Novedades y televisores en el inicio:** la pantalla de inicio del menú tiene dos televisores sobre
+  mesitas, uno a cada lado (Novedades a la izquierda, Ajustes a la derecha), con el mismo `HudBoard` de
+  la mesa en un modo «apoyado» (sin cables ni panel LED). El de Novedades se pone ámbar, pulsa y dice
+  «NUEVO» mientras haya entradas sin ver; al abrir la hoja de novedades (lista corta para jugadores, en
+  `client/src/changelog/`) se calma. Reemplaza al botón «Ajustes» de la esquina en esa pantalla. Se
+  agregó `vitest` al cliente (`pnpm test`).
 - **Quién gana la base, corregido:** al invertirse el sentido con el As de Copas, el servidor leía las
   cartas al revés y **se saltaba la última carta jugada** (un 3 le ganaba a un 5 jugado después). Ahora
   las cartas se leen siempre desde el Mano, silla por silla, en el sentido vigente al cerrarse la base;

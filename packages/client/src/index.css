@@ -1775,6 +1775,10 @@ button {
   font-size: 17px;
 }
 
+.menu-tvs .menu-settings-btn {
+  display: none; /* the home screen has its own television for it */
+}
+
 .menu-settings-btn {
   position: fixed;
   right: 16px;
@@ -3660,4 +3664,37 @@ button {
   clip: rect(0, 0, 0, 0);
   opacity: 0;
   pointer-events: none;
+}
+
+/* ---- novedades: the player-facing list of what changed ---- */
+.ledger.novedades {
+  width: min(480px, 94vw);
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
+.novedades-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.novedad h3 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+
+.novedad h3 small {
+  margin-left: 6px;
+  font-size: 12px;
+  opacity: 0.65;
+  font-weight: normal;
+}
+
+.novedad ul {
+  list-style: disc;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.4;
 }

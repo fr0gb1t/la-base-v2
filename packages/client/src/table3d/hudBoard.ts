@@ -15,14 +15,17 @@ export interface HudItem {
   hint?: string // longer description, spelled on the LED panel while the pointer is on it
   svg: string // the icon, as an SVG string (only its path data is used)
   danger?: boolean // phosphor in amber-red instead of green
+  attention?: boolean // something new to see: amber phosphor, a slow pulse and «NUEVO» on the glass
 }
 
 const GREEN = '#58ff7a'
 const RED = '#ff6a3c'
+const AMBER = '#ffc23c' // not the green of normal, nor the red of danger
 const WALL_Z = -(CHAIR_R + 0.4) // behind the far chairs
 const HANG_Y = 1.7 // the middle of the row (above the heads, inside the default view)
 const TV_X0 = -1.2 // centre of the row of televisions
 const TV_STEP = 0.5
+export const HUD_SET_H = 0.325 // height of one television (TV_H below)
 const LED_X = 0.95
 const LED_W = 1.56
 const LED_H = 0.4
@@ -145,12 +148,13 @@ function screenTexture(item: HudItem, hot: boolean) {
   cv.width = SCREEN_W
   cv.height = SCREEN_H
   const g = cv.getContext('2d')!
-  const color = item.danger ? '#ffb08a' : '#b8ffc8' // the bright core of the phosphor
-  const glow = item.danger ? RED : GREEN
+  const color = item.danger ? '#ffb08a' : item.attention ? '#ffeab0' : '#b8ffc8' // the bright core of the phosphor
+  const glow = item.danger ? RED : item.attention ? AMBER : GREEN
   const { paths, box } = iconPaths(item.svg)
-  const size = hot ? 168 : 300
+  const tagged = item.attention && !hot // the idle picture of a set with news: a smaller icon, «NUEVO» under it
+  const size = hot ? 168 : tagged ? 230 : 300
   const s = size / box
-  const top = hot ? 22 : (SCREEN_H - size) / 2
+  const top = hot ? 22 : tagged ? 26 : (SCREEN_H - size) / 2
   g.save()
   g.translate((SCREEN_W - size) / 2, top)
   g.scale(s, s)
@@ -169,10 +173,26 @@ function screenTexture(item: HudItem, hot: boolean) {
     g.fillStyle = color
     g.shadowColor = glow
     g.shadowBlur = 10
+    const name = item.label.toUpperCase()
     g.font = 'bold 118px VT323, "Courier New", monospace'
+    const fit = Math.min(1, (SCREEN_W - 90) / g.measureText(name).width) // a long name (NOVEDADES) shrinks to fit the strip
+    g.font = `bold ${Math.floor(118 * fit)}px VT323, "Courier New", monospace`
     g.textAlign = 'center'
     g.textBaseline = 'middle'
-    g.fillText(item.label.toUpperCase(), SCREEN_W / 2, SCREEN_H - 108)
+    g.fillText(name, SCREEN_W / 2, SCREEN_H - 108)
+  } else if (tagged) {
+    g.fillStyle = 'rgba(16,10,0,0.9)'
+    g.fillRect(60, SCREEN_H - 118, SCREEN_W - 120, 84)
+    g.strokeStyle = glow
+    g.lineWidth = 3
+    g.strokeRect(60, SCREEN_H - 118, SCREEN_W - 120, 84)
+    g.fillStyle = color
+    g.shadowColor = glow
+    g.shadowBlur = 10
+    g.font = 'bold 76px VT323, "Courier New", monospace'
+    g.textAlign = 'center'
+    g.textBaseline = 'middle'
+    g.fillText('NUEVO', SCREEN_W / 2, SCREEN_H - 76)
   }
   const tex = new THREE.CanvasTexture(cv)
   tex.colorSpace = THREE.SRGBColorSpace
@@ -352,6 +372,7 @@ interface Live {
   x: number
   phase: number
   glow: number // 0–1 eased hover
+  attention: boolean // amber, pulsing: there is news
 }
 
 export class HudBoard {
@@ -370,7 +391,8 @@ export class HudBoard {
   private flashT = 0 // seconds of flare left
   private ledDrawn = ''
 
-  constructor() {
+  /** `standing`: the sets rest on a surface instead of hanging from cables (no LED panel, no sway, no lamps); the owner places the group. */
+  constructor(private standing = false) {
     const plastic = new THREE.MeshStandardMaterial({ color: 0x2c2823, roughness: 0.55 })
     const wood = new THREE.MeshStandardMaterial({ color: hex(PALETTE.walnut), roughness: 0.6 })
     const cable = new THREE.MeshStandardMaterial({ color: 0x14110f, roughness: 0.7 })
@@ -388,17 +410,17 @@ export class HudBoard {
     this.ledGlass = glass
     this.ledPivot.add(body, glass)
     this.ledPivot.position.set(LED_X, 0, 0)
-    this.group.add(this.ledPivot)
+    if (!standing) this.group.add(this.ledPivot)
     for (const x of [-LED_W * 0.4, LED_W * 0.4]) this.addCable(cable, this.ledPivot, x, LED_H / 2 + 0.04)
     this.disposables.push(this.ledTex, body.geometry, glass.geometry, glass.material as THREE.Material)
 
     // a lamp for the case and the sets (the slate had its own: the warm light on the wood and plastic)
-    for (const x of [-1.5, -0.6, 0.8]) {
+    for (const x of standing ? [] : [-1.5, -0.6, 0.8]) {
       const lamp = new THREE.PointLight(0xe8e4dc, 1.5, 3, 1.6) // near-neutral: the sets must read grey and black, not brown
       lamp.position.set(x, 0.55, 0.9)
       this.group.add(lamp)
     }
-    this.group.position.set(0, HANG_Y, WALL_Z)
+    if (!standing) this.group.position.set(0, HANG_Y, WALL_Z)
     this.drawLed()
   }
 
@@ -460,11 +482,12 @@ export class HudBoard {
     items.forEach((item, i) => {
       seen.add(item.id)
       const key = `${item.label}|${item.danger}|${item.svg.length}`
-      const x = TV_X0 + (i - (n - 1) / 2) * TV_STEP
+      const x = (this.standing ? 0 : TV_X0) + (i - (n - 1) / 2) * TV_STEP
       const cur = this.live.get(item.id)
       if (cur && cur.key === key) {
         cur.item = item
         cur.x = x
+        if (cur.attention !== Boolean(item.attention)) this.retint(cur, item)
         return
       }
       if (cur) this.remove(cur)
@@ -541,7 +564,7 @@ export class HudBoard {
     const idle = screenTexture(item, false)
     const hot = screenTexture(item, true)
     const wear = new THREE.Vector4(0.7 + rnd() * 0.6, 0.4 + rnd() * 1.4 * amount, 0.06 + rnd() * 0.12, rnd() * 0.5)
-    const glass = new THREE.Mesh(glassGeo, glassMaterial(idle, new THREE.Color(item.danger ? '#ff7a3c' : '#4dff7a'), rnd() * 50, wear))
+    const glass = new THREE.Mesh(glassGeo, glassMaterial(idle, new THREE.Color(item.danger ? '#ff7a3c' : item.attention ? '#ffb82e' : '#4dff7a'), rnd() * 50, wear))
     glass.position.set(SCR_X, 0, 0.012)
     // the control strip on the right: a dark panel with a big knob, a small one, buttons and a speaker grille
     const stripX = SCR_X + SCR_W / 2 + (TV_W / 2 - (SCR_X + SCR_W / 2)) / 2
@@ -583,7 +606,7 @@ export class HudBoard {
     own.push(...vents.map((v) => v.geometry))
     set.add(...vents)
     const cableMat = mat(0x14110f, 0.7)
-    for (const dx of [-TV_W * 0.32, TV_W * 0.32]) {
+    for (const dx of this.standing ? [] : [-TV_W * 0.32, TV_W * 0.32]) {
       const c = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 2.2, 6), cableMat)
       c.position.set(dx, TV_H / 2 + 1.1, -0.03)
       set.add(c)
@@ -592,17 +615,30 @@ export class HudBoard {
     own.push(...geos, glassGeo)
     set.add(frame, decal, body1, body2, well, ring, glass, strip, ...knobs, ...buttons, ...slots, ...grille)
     set.traverse((o) => {
-      if (o instanceof THREE.Mesh && o !== glass) o.receiveShadow = true
+      if (o instanceof THREE.Mesh && o !== glass) {
+        o.receiveShadow = true
+        o.castShadow = this.standing // on a table they shade it
+      }
     })
     const hit = new THREE.Mesh(new THREE.BoxGeometry((TV_W + 0.04) * HUD_HIT_SCALE, (TV_H + 0.04) * HUD_HIT_SCALE, 0.14), new THREE.MeshBasicMaterial({ visible: false }))
     hit.position.z = -0.02
     hit.userData.hudId = item.id
     set.add(hit)
     own.push(hit.geometry)
-    set.rotation.z = (rnd() - 0.5) * 0.03 // none hangs perfectly straight
+    set.rotation.z = this.standing ? 0 : (rnd() - 0.5) * 0.03 // none hangs perfectly straight
     this.group.add(pivot)
     this.disposables.push(...own)
-    return { item, key, pivot, glass, idle, hot, hit, x, phase: i * 1.7, glow: 0 }
+    return { item, key, pivot, glass, idle, hot, hit, x, phase: i * 1.7, glow: 0, attention: Boolean(item.attention) }
+  }
+
+  /** News arrived (or was read): new pictures and phosphor on the same set, no rebuild. */
+  private retint(l: Live, item: HudItem) {
+    l.idle.dispose()
+    l.hot.dispose()
+    l.idle = screenTexture(item, false)
+    l.hot = screenTexture(item, true)
+    l.attention = Boolean(item.attention)
+    ;(l.glass.material as THREE.ShaderMaterial).uniforms.tint.value.set(item.danger ? '#ff7a3c' : l.attention ? '#ffb82e' : '#4dff7a')
   }
 
   private remove(l: Live) {
@@ -624,6 +660,7 @@ export class HudBoard {
     this.ledPivot.rotation.x = Math.sin(t * 0.37) * 0.004
     for (const l of this.live.values()) {
       l.pivot.position.x = l.x
+      if (this.standing) continue
       l.pivot.rotation.z = Math.sin(t * 0.62 + l.phase) * 0.02
       l.pivot.rotation.x = Math.sin(t * 0.43 + l.phase * 1.3) * 0.012
     }
@@ -636,7 +673,8 @@ export class HudBoard {
       const mat = l.glass.material as THREE.ShaderMaterial
       mat.uniforms.map.value = l.glow > 0.5 ? l.hot : l.idle
       mat.uniforms.time.value = t
-      mat.uniforms.glow.value = l.glow
+      // news: the glass breathes slowly (the picture still switches only on hover)
+      mat.uniforms.glow.value = l.glow + (l.attention ? 0.3 * (0.5 + 0.5 * Math.sin(t * 2.4 + l.phase)) : 0)
     }
     // the flare: the glass brightens in quick pulses and settles
     const lit = this.ledGlass.material as THREE.MeshBasicMaterial

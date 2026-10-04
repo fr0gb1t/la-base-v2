@@ -13,6 +13,8 @@ import { makePost } from '../table3d/post'
 import { PALETTE } from '../table3d/look'
 import { FloatingItems, type FloatItem } from './floating'
 import { InputCard, type InputCardState } from './inputCard'
+import { HudBoard, HUD_SET_H, type HudItem } from '../table3d/hudBoard'
+import { buildSideTable, SIDE_TABLE_H } from './sideTable'
 
 // ---------------------------------------------------------------------------------------------
 // The menu is the same basement as the game, before anyone sits down. The camera moves between
@@ -20,6 +22,13 @@ import { InputCard, type InputCardState } from './inputCard'
 // cards in the lobby, the three powered aces in the config, the players' masks in the room.
 // DOM stays the source of truth (forms, buttons, a11y); this only paints and reports hovers.
 // ---------------------------------------------------------------------------------------------
+
+// the two side tables, one television each: off the felt on both sides, up in the free corners of the
+// seated shot, turned to face the camera. The first set goes left, the second right.
+export const TV_DECKS = [
+  { x: -1.2, z: -0.7, yaw: 0.5 },
+  { x: 1.2, z: -0.7, yaw: -0.5 },
+]
 
 export type Station = 'entrada' | 'lobby' | 'crear' | 'unirse' | 'reglas' | 'sala' | 'config'
 export interface MenuPlayer { name: string; team: 'nosotros' | 'ellos' | 'random'; isBot?: boolean }
@@ -107,6 +116,11 @@ export class MenuScene {
   private floating = new FloatingItems()
   private kamikaze = new KamikazeDial()
   private inputCard = new InputCard()
+  // ajustes / novedades, one set on each side table
+  private decks = TV_DECKS.map(() => ({ board: new HudBoard(true), group: new THREE.Group() }))
+  private tvHovered: string | null = null
+  private tvHint: string | null = null
+  private lastTvTime = 0
   private inputAt: [number, number] = [0, 0.18]
   private inputHovered = false
   private inputTap = false // a finger went down on the writing card: its click opens the keyboard
@@ -115,6 +129,7 @@ export class MenuScene {
   private aceHits: THREE.Mesh[] = []
   private floatHovered: string | null = null
   onInputClick: () => void = () => undefined
+  onHud: (id: string) => void = () => undefined
   onAcePick: (suit: keyof AcePowers) => void = () => undefined
   onCaption: (text: string | null) => void = () => undefined
   private disposed = false
@@ -136,6 +151,7 @@ export class MenuScene {
     this.scene.add(this.floating.group, this.inputCard.mesh, this.inputCard.hit, this.kamikaze.group)
     this.buildOptions()
     this.buildAces()
+    this.buildTvDeck()
     this.bindInput()
     this.resizeObs = new ResizeObserver(() => this.resize())
     this.resizeObs.observe(container)
@@ -150,6 +166,12 @@ export class MenuScene {
 
   setStation(s: Station) {
     this.station = s
+    this.decks.forEach((d) => (d.group.visible = s === 'lobby')) // the home screen only (the sign-in sheet would cover them)
+  }
+
+  /** The sets on the side table (ajustes, novedades); `attention` makes one call for a look. */
+  setHud(items: HudItem[]) {
+    this.decks.forEach((d, i) => d.board.set(items[i] ? [items[i]] : []))
   }
 
   /** Your name while you type it: it lives on the writable card now (nothing is chalked on the felt). */
@@ -234,6 +256,10 @@ export class MenuScene {
   }
 
   dispose() {
+    this.decks.forEach((d) => {
+      d.board.dispose()
+      d.group.traverse((o) => (o.userData.dispose as (() => void) | undefined)?.())
+    })
     this.kamikaze.dispose()
     this.offView()
     this.disposed = true
@@ -245,6 +271,21 @@ export class MenuScene {
   }
 
   // ------------------------------------------------------------------ objects
+
+  private buildTvDeck() {
+    this.decks.forEach((d, i) => {
+      const spot = TV_DECKS[i]
+      const lamp = new THREE.PointLight(0xe8e4dc, 1.6, 2.4, 1.6) // the basement is dark: a little light on each set
+      lamp.position.set(0, SIDE_TABLE_H + 0.7, 0.35)
+      d.board.group.position.set(0, SIDE_TABLE_H + HUD_SET_H / 2 + 0.02, 0)
+      d.group.add(buildSideTable(), d.board.group, lamp)
+      d.group.position.set(spot.x, 0, spot.z)
+      d.group.rotation.y = spot.yaw
+      d.group.visible = false // only on the home screen (setStation)
+      this.scene.add(d.group)
+    })
+    if (new URLSearchParams(location.search).has('debug')) Object.assign(window, { __tvDecks: this.decks })
+  }
 
   private buildOptions() {
     MENU_OPTIONS.forEach((o, i) => {
@@ -323,6 +364,10 @@ export class MenuScene {
         this.mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
         this.updateHover(performance.now() / 1000)
       }
+      if (this.tvHovered) {
+        uiSound('chain')
+        return this.onHud(this.tvHovered)
+      }
       if (this.floatHovered) {
         const kind = this.floating.kindOf(this.floatHovered)
         uiSound(kind === 'stamp' ? 'stamp' : kind === 'chip' ? 'chip' : 'chain')
@@ -353,18 +398,30 @@ export class MenuScene {
   private updateHover(time: number) {
     this.raycaster.setFromCamera(this.mouse, this.camera)
     this.floatHovered = this.floating.update(time, this.camera, this.raycaster, reduced())
+    const dtTv = Math.min(0.1, Math.max(0, time - this.lastTvTime))
+    this.lastTvTime = time
+    this.tvHovered = null
+    this.tvHint = null
+    for (const d of this.decks) {
+      if (!d.group.visible) continue
+      const id = d.board.update(dtTv, this.raycaster, true)
+      if (id) {
+        this.tvHovered = id
+        this.tvHint = d.board.hint(id)
+      }
+    }
     this.inputHovered = !!this.inputCard.mesh.visible && this.raycaster.intersectObject(this.inputCard.hit, false).length > 0
     this.aceHovered = -1
     if (this.station === 'config') {
       const h = this.raycaster.intersectObjects(this.aceHits, false)[0]
       this.aceHovered = h ? this.aceHits.indexOf(h.object as THREE.Mesh) : -1
     }
-    const caption = this.floating.hint(this.floatHovered) ?? (this.aceHovered >= 0 ? ACE_HINTS[ACE_SUITS[this.aceHovered]] : null)
+    const caption = this.floating.hint(this.floatHovered) ?? this.tvHint ?? (this.aceHovered >= 0 ? ACE_HINTS[ACE_SUITS[this.aceHovered]] : null)
     if (caption !== this.lastCaption) {
       this.lastCaption = caption
       this.onCaption(caption)
     }
-    const pointer = !!this.floatHovered || this.inputHovered || this.aceHovered >= 0
+    const pointer = !!this.floatHovered || !!this.tvHovered || this.inputHovered || this.aceHovered >= 0
     if (this.station !== 'lobby') {
       if (this.hovered !== -1) this.onHover((this.hovered = -1))
       this.renderer.domElement.style.cursor = pointer ? 'pointer' : 'default'
@@ -390,7 +447,7 @@ export class MenuScene {
 
   /** A soft tick whenever the pointer arrives on something you can pick. */
   private tickOver(pointer: boolean) {
-    const over = `${this.floatHovered}|${this.inputHovered}|${this.aceHovered}|${this.hovered}`
+    const over = `${this.floatHovered}|${this.tvHovered}|${this.inputHovered}|${this.aceHovered}|${this.hovered}`
     if (over === this.lastOver) return
     if (pointer && this.lastOver !== null) uiSound('hover')
     this.lastOver = over
