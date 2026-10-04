@@ -8,7 +8,10 @@ import { SenaFace } from '../components/senas/SenaFace';
 import { BackStage } from './BackStage';
 import { AvatarStage } from './AvatarStage';
 import { AvatarPicker } from './AvatarPicker';
-import { useAvatar } from './avatarSettings';
+import { setAvatar, useAvatar } from './avatarSettings';
+import { FullPicker, type PickOption } from './FullPicker';
+import { FACES, type FaceId } from '@la-base/shared';
+import { FACE_INFO } from '../table3d/faces/catalog';
 import { BACK_DESIGNS, backPicture, drawBackDesign, type BackDesign } from '../table3d/cardBacks';
 import type { DrawnBack } from '../table3d/backDesigns';
 
@@ -68,6 +71,9 @@ export function SettingsButton({ className = 'hud-tab' }: { className?: string }
   );
 }
 
+const FACE_OPTIONS: PickOption[] = FACES.map((id) => ({ id, name: FACE_INFO[id].name, group: FACE_INFO[id].kind === 'led' ? 'Máscaras de LEDs' : 'Cabezas' }));
+const BACK_OPTIONS: PickOption[] = BACK_DESIGNS.map((d) => ({ id: d.id, name: d.label }));
+
 export function SettingsHost() {
   const [open, setOpen] = useState(false);
   const s = useAudioSettings();
@@ -81,6 +87,8 @@ export function SettingsHost() {
   const avatar = useAvatar();
   // the stage beside the ledger shows whatever you are working on: your mask, or the back of your cards
   const [stage, setStage] = useState<'avatar' | 'back'>('avatar');
+  // on a phone the stage does not fit beside the ledger: it opens over the whole screen instead
+  const [full, setFull] = useState<'avatar' | 'back' | null>(null);
 
   useEffect(() => {
     openers.add(setOpen);
@@ -109,6 +117,28 @@ export function SettingsHost() {
   return (
     <div className="settings-veil" onPointerDown={(e) => e.target === e.currentTarget && setOpen(false)}>
       {stage === 'avatar' ? <AvatarStage avatar={avatar} /> : <BackStage />}
+      {full === 'avatar' && (
+        <FullPicker
+          title="Tu cara"
+          stage={<AvatarStage avatar={avatar} />}
+          options={FACE_OPTIONS}
+          value={avatar.face}
+          note={FACE_INFO[avatar.face].idea}
+          onPick={(id) => setAvatar({ face: id as FaceId })}
+          onClose={() => setFull(null)}
+        />
+      )}
+      {full === 'back' && (
+        <FullPicker
+          title="Dorso de las cartas"
+          stage={<BackStage />}
+          options={BACK_OPTIONS}
+          value={view.cardBack}
+          note="lo ves solo vos"
+          onPick={(id) => setViewSettings({ cardBack: id as BackDesign })}
+          onClose={() => setFull(null)}
+        />
+      )}
       <section className="ledger settings" role="dialog" aria-modal="true" aria-label="Ajustes">
         <h2><GiCog aria-hidden /> Ajustes</h2>
 
@@ -173,6 +203,7 @@ export function SettingsHost() {
         <fieldset className="ledger-group" onPointerEnter={() => setStage('avatar')} onFocus={() => setStage('avatar')}>
           <legend>Avatar</legend>
           <AvatarPicker avatar={avatar} />
+          <button type="button" className="fullpick-open" onClick={() => { uiSound('chip'); setFull('avatar'); }}>Ver en pantalla entera</button>
         </fieldset>
 
         <fieldset className="ledger-group" onPointerEnter={() => setStage('back')} onFocus={() => setStage('back')}>
@@ -195,6 +226,7 @@ export function SettingsHost() {
               ))}
             </div>
           </div>
+          <button type="button" className="fullpick-open" onClick={() => { uiSound('chip'); setFull('back'); }}>Ver en pantalla entera</button>
         </fieldset>
         </div>
 

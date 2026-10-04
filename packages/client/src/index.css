@@ -3811,3 +3811,122 @@ button {
   font-size: 14px;
   line-height: 1.4;
 }
+
+/* ---- settings on a phone: the stage over the whole screen (FullPicker) ---- */
+.fullpick-open {
+  margin-top: 8px;
+  font: inherit;
+  font-size: 14px;
+  color: inherit;
+  cursor: pointer;
+  padding: 4px 12px;
+  border: 1px solid rgba(20, 14, 12, 0.4);
+  border-radius: 3px;
+  background: transparent;
+}
+
+/* on a wide screen the stage stands beside the ledger already */
+@media (min-width: 1181px) {
+  .fullpick-open { display: none; }
+}
+
+.fullpick {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: #0b0908;
+  color: var(--bone);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* the same overhead light as beside the ledger */
+.fullpick-stage {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 45% at 50% 44%, rgba(255, 214, 160, 0.13), rgba(255, 214, 160, 0.03) 65%, transparent 100%);
+}
+
+.fullpick-stage .back-stage {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  flex: none;
+}
+
+.fullpick-stage .back-stage::before { display: none; }
+
+.fullpick-top,
+.fullpick-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding-inline: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.fullpick-top {
+  top: 0;
+  padding-block: calc(12px + env(safe-area-inset-top, 0px)) 8px;
+  gap: 12px;
+  background: linear-gradient(to bottom, rgba(11, 9, 8, 0.85), transparent);
+}
+
+.fullpick-title { font-size: 18px; font-variant: small-caps; letter-spacing: 0.04em; }
+
+.fullpick-count { flex: 1; font-size: 13px; opacity: 0.6; font-variant-numeric: tabular-nums; }
+
+.fullpick-done,
+.fullpick-step {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: rgba(11, 9, 8, 0.55);
+  border: 1px solid rgba(216, 199, 160, 0.45);
+  border-radius: 3px;
+}
+
+.fullpick-done { padding: 5px 14px; font-size: 15px; }
+
+.fullpick-bottom {
+  bottom: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding-block: 18px calc(14px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to top, rgba(11, 9, 8, 0.9), transparent);
+}
+
+.fullpick-row { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 420px; }
+
+.fullpick-step { flex: none; width: 44px; height: 40px; font-size: 22px; line-height: 1; }
+
+.fullpick-select {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  font: inherit;
+  font-size: 17px;
+  font-variant: small-caps;
+  color: inherit;
+  text-align: center;
+  text-align-last: center;
+  background: rgba(11, 9, 8, 0.55);
+  border: 1px solid rgba(216, 199, 160, 0.45);
+  border-radius: 3px;
+}
+
+.fullpick-select option,
+.fullpick-select optgroup { color: #140e0c; background: #e9dcc2; }
+
+.fullpick-note { margin: 0; max-width: 420px; text-align: center; font-size: 13px; font-style: italic; opacity: 0.8; }
+
+.fullpick-hint { margin: 0; font-size: 12px; opacity: 0.45; }
+
+.fullpick-done:focus-visible,
+.fullpick-step:focus-visible,
+.fullpick-select:focus-visible { outline: 2px solid var(--bone); outline-offset: 2px; }

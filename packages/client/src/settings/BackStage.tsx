@@ -47,6 +47,8 @@ export function BackStage() {
       const h = el.clientHeight || 440;
       renderer.setSize(w, h);
       camera.aspect = w / h;
+      // a tall, narrow stage (a phone's whole screen) steps back so the turning card keeps clear of the edges
+      camera.position.z = 6.2 * Math.max(1, 0.78 / camera.aspect);
       camera.updateProjectionMatrix();
     };
     resize();
