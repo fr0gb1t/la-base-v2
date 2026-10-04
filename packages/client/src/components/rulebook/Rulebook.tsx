@@ -5,6 +5,7 @@ import { CHAPTERS, type Chapter, type Note } from './pages';
 import { uiSound } from '../../table3d/audio';
 import { BookScene } from './BookScene';
 import { PageTextures } from './pageTextures';
+import { useOverlay } from '../../lib/overlay';
 
 // The rulebook as a little booklet (after Tunic's manual) lying on the game table, under the lamp.
 // The booklet is 3D (BookScene): its cover opens, its pages are turned by hand, its index tabs
@@ -113,6 +114,7 @@ export function RulebookHost() {
   const sheets = useRef<HTMLDivElement>(null);
   const book = useRef<BookScene | null>(null);
   const open = opener !== null;
+  useOverlay(open);
 
   useEffect(() => {
     hostListeners.add(setOpener);

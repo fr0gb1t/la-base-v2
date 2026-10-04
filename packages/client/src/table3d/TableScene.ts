@@ -22,6 +22,7 @@ import { TableChoices, type CopasChoice, type Direction } from './tableChoices'
 import { ChessClock, type ClockView } from './chessClock'
 import { HudBoard, type HudItem } from './hudBoard'
 import { Notepad, NOTEPAD_AT, type RoundReport, type LiveSheet } from './notepad'
+import { overlayOpen } from '../lib/overlay'
 
 // ---------------------------------------------------------------------------------------------
 // The 3D table, driven by real game events. Seats follow the server's turn order with the local
@@ -1303,6 +1304,7 @@ export class TableScene {
   private bindInput() {
     const el = this.renderer.domElement
     this.on(window, 'pointermove', (e: PointerEvent) => {
+      if (overlayOpen()) return // a menu over the screen: the table behind it is only a picture
       const r = el.getBoundingClientRect()
       const touch = e.pointerType === 'touch'
       this.pointerEdge = touch ? 0 : e.clientX <= r.left + EDGE_PX ? -1 : e.clientX >= r.right - EDGE_PX ? 1 : 0
@@ -1579,6 +1581,7 @@ export class TableScene {
   }
 
   private updateHover(time: number, dt: number) {
+    if (overlayOpen()) this.mouse.set(9, 9) // a menu over the screen: the pointer is on it, nowhere on the table
     this.raycaster.setFromCamera(this.mouse, this.camera)
     // the felt under the pointer (bean heaps reveal their chalked number there). While zoomed, the
     // point you zoomed onto counts instead: the zoom brings it to the middle of the screen and

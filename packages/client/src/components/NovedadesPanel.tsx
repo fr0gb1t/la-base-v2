@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { GiNewspaper } from 'react-icons/gi';
 import { NOVEDADES, groupByDate } from '../changelog/novedades';
 import { uiSound } from '../table3d/audio';
+import { useOverlay } from '../lib/overlay';
 
 // What's new, on a sheet of paper like the settings ledger. Esc or a click outside closes it.
 
@@ -13,6 +14,7 @@ const dateLabel = (iso: string) => {
 const DAYS = groupByDate(NOVEDADES);
 
 export function NovedadesPanel({ onClose }: { onClose: () => void }) {
+  useOverlay();
   // 0 is the newest day; going back walks to older ones
   const [day, setDay] = useState(0);
   const go = (to: number) => {

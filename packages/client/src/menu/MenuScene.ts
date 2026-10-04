@@ -17,6 +17,7 @@ import { FloatingItems, type FloatItem } from './floating'
 import { InputCard, type InputCardState } from './inputCard'
 import { HudBoard, HUD_SET_H, type HudItem } from '../table3d/hudBoard'
 import { buildSideTable, SIDE_TABLE_H } from './sideTable'
+import { overlayOpen } from '../lib/overlay'
 
 // ---------------------------------------------------------------------------------------------
 // The menu is the same basement as the game, before anyone sits down. The camera moves between
@@ -350,6 +351,7 @@ export class MenuScene {
 
   private bindInput() {
     this.on(window, 'pointermove', (e: PointerEvent) => {
+      if (overlayOpen()) return
       const r = this.renderer.domElement.getBoundingClientRect()
       this.mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
     })
@@ -400,6 +402,7 @@ export class MenuScene {
   private lastCaption: string | null = null
   private lastOver: string | null = null
   private updateHover(time: number) {
+    if (overlayOpen()) this.mouse.set(9, 9) // a menu over the screen: the pointer is on it, nowhere in the room
     this.raycaster.setFromCamera(this.mouse, this.camera)
     this.floatHovered = this.floating.update(time, this.camera, this.raycaster, reduced())
     const dtTv = Math.min(0.1, Math.max(0, time - this.lastTvTime))

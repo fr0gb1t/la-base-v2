@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import rough from 'roughjs';
 import type { RoughSVG } from 'roughjs/bin/svg';
+import { useOverlay } from '../lib/overlay';
 
 // The scoresheet that opens when you pick up the notepad on the table: a sheet of ruled paper
 // floating in the middle of the screen, written by hand. Words and figures are written left to right
@@ -112,6 +113,7 @@ function star(kind: 'owed' | 'on' | 'over', seed: number) {
 }
 
 export function Anotador({ data, full, onToggleFull, onClose }: { data: AnotadorData; full: boolean; onToggleFull: () => void; onClose: () => void }) {
+  useOverlay();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();

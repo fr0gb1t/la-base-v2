@@ -1908,7 +1908,10 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 50% 45%, rgba(11, 9, 8, 0.35), rgba(11, 9, 8, 0.8));
+  /* a menu over the screen: the room behind it goes dark and out of focus (and the cursor no longer touches it) */
+  background: radial-gradient(circle at 50% 45%, rgba(11, 9, 8, 0.62), rgba(11, 9, 8, 0.9));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 .ledger.settings {
@@ -3450,7 +3453,9 @@ button {
   z-index: 70;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at 50% 45%, rgba(11, 9, 8, 0.2), rgba(11, 9, 8, 0.72));
+  background: radial-gradient(circle at 50% 45%, rgba(11, 9, 8, 0.62), rgba(11, 9, 8, 0.9));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   animation: anotador-veil-in 0.12s ease-out;
 }
 
