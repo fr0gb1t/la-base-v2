@@ -6,6 +6,13 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Caras y dorsos en pantalla entera, para el celular:** en Ajustes → Avatar y → Cartas hay un botón «Ver en
+  pantalla entera» (solo en pantallas de hasta 1180 px, donde el escenario no entra al costado del panel) que
+  abre `settings/FullPicker.tsx`: el mismo escenario de la computadora (`AvatarStage` o `BackStage`) ocupando la
+  pantalla, con la luz cenital; se pasa de uno a otro deslizando a los costados (o ‹ ›, o las flechas del
+  teclado), se elige de la lista desplegable (las caras agrupadas en máscaras y cabezas) y «Listo» cierra.
+  Cada paso queda elegido al instante. En pantallas angostas los dos escenarios alejan la cámara para que la
+  cara, las manos y la carta entren enteras.
 - **Caras flotantes, sin cuerpo (como en Buckshot Roulette):** en la mesa ya no hay capucha, abrigo ni brazos:
   una cara flota donde iría la cabeza y dos manos esculpidas flotan donde irían las muñecas (los brazos se
   siguen resolviendo con IK, sin dibujarse, solo para orientar cada mano; el puño lleva el color del equipo).

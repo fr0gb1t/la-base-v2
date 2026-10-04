@@ -71,6 +71,8 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
       const h = el.clientHeight || 440;
       renderer.setSize(w, h);
       camera.aspect = w / h;
+      // a tall, narrow stage (a phone's whole screen) steps back so the hands stay in
+      camera.position.z = -1.9 * Math.max(1, 0.85 / camera.aspect);
       camera.updateProjectionMatrix();
     };
     resize();

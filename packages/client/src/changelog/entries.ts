@@ -5,6 +5,15 @@ import type { Novedad } from './novedades';
 export const NOVEDADES: Novedad[] = [
   // ------------------------------------------------------------------ 4 de octubre
   {
+    id: '2026-10-04-pantalla-entera',
+    date: '2026-10-04',
+    title: 'Caras y dorsos en pantalla entera (celular)',
+    items: [
+      'En el celular, Ajustes → Avatar y Cartas tienen «Ver en pantalla entera»: tu cara (o el dorso) ocupa toda la pantalla, como se ve al costado en la computadora.',
+      'Deslizá a los costados para pasar de una a otra, o elegila de la lista. Lo que dejás a la vista queda elegido; «Listo» vuelve a los ajustes.',
+    ],
+  },
+  {
     id: '2026-10-04-avatares',
     date: '2026-10-04',
     title: 'Caras flotantes',
