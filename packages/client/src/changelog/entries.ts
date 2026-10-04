@@ -9,7 +9,7 @@ export const NOVEDADES: Novedad[] = [
     date: '2026-10-04',
     title: 'Tu avatar',
     items: [
-      'Cada máscara tiene su propia cara, armada con ojos, boca, cejas y pelo (5 tipos de cada uno), y color de ojos y de pelo.',
+      'Cada máscara tiene su propia cara, armada con ojos, boca y cejas (5 tipos de cada uno) y un color de ojos. Todas llevan la misma capucha negra: lo único que las distingue es la cara.',
       'Empezás con una cara al azar. En Ajustes → Avatar la cambiás como quieras y la ves moverse y hacer señas, igual que en la mesa.',
       'Los demás jugadores ven tu cara en la mesa y en la sala. Los bots también se sientan con una cara distinta.',
     ],

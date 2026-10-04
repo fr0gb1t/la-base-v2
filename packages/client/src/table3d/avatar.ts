@@ -4,7 +4,7 @@ import { CHAIR_R, LEAN_REACH, SHOULDER_R, SHOULDER_Y, TABLE_R, TABLE_Y, seatAngl
 import { makeCard, type CardView } from './cards'
 import { toProps } from './propsLayer'
 import { randomAvatar, type AvatarSpec, type Sena } from '@la-base/shared'
-import { EYE_COLOR_LOOK, HAIR_COLOR_LOOK } from './avatarLook'
+import { EYE_COLOR_LOOK } from './avatarLook'
 
 // Placeholder anatomy for the demo (boxes/cylinders read fine at 360p under heavy post).
 // Production avatars: use the `modeling-3d-human-characters` skill for real arms and hands.
@@ -75,8 +75,6 @@ export function fallbackAvatar(seed: number): AvatarSpec {
   return randomAvatar(rng)
 }
 
-const shade = (c: string, k: number) => '#' + new THREE.Color(hex(c)).multiplyScalar(k).getHexString()
-
 // Eyes: the dark hole, a coloured iris and a pupil on top of it, a lid that closes from above. `lid*`
 // is the size of the lid (it must cover the whole eye); `tilt` turns the outer corner (± per side).
 const EYES = [
@@ -118,57 +116,30 @@ function arc(curve: number) {
   return new THREE.ShapeGeometry(shape)
 }
 
-/** Hair on the head, in the avatar's colour: where it grows and how much of the skull it covers. */
-function hairOf(kind: number, color: string) {
-  const m = new THREE.MeshStandardMaterial({ color: hex(color), roughness: 0.95 })
+/**
+ * What makes the black sphere read as a hood: a rolled edge of cloth framing the mask, a little peak at the
+ * back where the hood gathers, and a cowl over the neck down into the coat.
+ */
+function hoodTrim() {
   const g = new THREE.Group()
-  const cap = (r: number, open: number, tilt: number, y = 0.015) => {
-    const c = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 12, 0, Math.PI * 2, 0, open), m)
-    c.position.set(0, y, 0.03)
-    c.scale.y = 1.12 // like the hood under it
-    c.rotation.x = tilt // tipped back: the forehead stays clear
-    return c
-  }
-  const ball = (r: number, x: number, y: number, z: number, sx = 1, sy = 1, sz = 1) => {
-    const b = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), m)
-    b.position.set(x, y, z)
-    b.scale.set(sx, sy, sz)
-    return b
-  }
-  const lock = (x: number, y: number, z: number, len: number, r = 0.03) => {
-    const c = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 10), m)
-    c.position.set(x, y, z)
-    return c
-  }
-  if (kind === 0) g.add(cap(0.166, 1.08, 0.18)) // corto: a close cap over the forehead
-  if (kind === 1) {
-    // largo: the cap, a soft mass behind the head and a lock hanging down each side
-    g.add(cap(0.168, 1.12, 0.2), ball(0.15, 0, -0.08, 0.15, 1.05, 1.7, 0.55), lock(-0.142, -0.04, 0.05, 0.2), lock(0.142, -0.04, 0.05, 0.2))
-  }
-  if (kind === 2) {
-    // cresta: a fan of spikes from ear to ear over the top
-    for (const x of [-0.1, -0.05, 0, 0.05, 0.1]) {
-      const sp = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1 - Math.abs(x) * 0.25, 6), m)
-      sp.position.set(x * 1.05, 0.165 + (0.022 - Math.abs(x) * 0.18), 0.03)
-      sp.rotation.z = -x * 3
-      g.add(sp)
-    }
-    g.add(cap(0.16, 0.7, 0.1)) // a little stubble under them
-  }
-  if (kind === 3) {
-    // rulos: a cloud of curls over the top and sides
-    for (const [x, y, z, r] of [[0, 0.17, 0.02, 0.06], [-0.085, 0.14, 0.0, 0.055], [0.085, 0.14, 0.0, 0.055], [-0.125, 0.07, 0.05, 0.05], [0.125, 0.07, 0.05, 0.05], [-0.06, 0.15, 0.1, 0.055], [0.06, 0.15, 0.1, 0.055], [0, 0.09, 0.16, 0.06]]) g.add(ball(r, x, y, z))
-  }
-  if (kind === 4) {
-    // rodete: a smooth cap and a bun on top
-    g.add(cap(0.166, 1.04, 0.2), ball(0.058, 0, 0.215, 0.07))
-  }
-  g.traverse((o) => (o.castShadow = true))
+  const cloth = new THREE.MeshStandardMaterial({ color: 0x231d1a, roughness: 1 }) // the same black, a touch lifted so the fold catches light
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.128, 0.017, 10, 36), cloth)
+  rim.scale.set(0.96, 1.2, 1) // an oval, like the mask it frames
+  rim.position.set(0, 0.006, -0.068)
+  rim.rotation.y = Math.PI
+  const peak = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.15, 12), cloth)
+  peak.position.set(0, 0.145, 0.15)
+  peak.rotation.x = -1.0 // a point trailing back and up
+  const cowl = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.185, 0.17, 18, 1, true), cloth)
+  cowl.position.set(0, -0.15, 0.03)
+  cowl.scale.z = 0.9
+  g.add(rim, peak, cowl)
   return g
 }
 
-// Puppet mask: a Buckshot-style mask that is ARTICULATED so the truco señas still read. Its face is the
-// avatar's: eyes, mouth, brows and hair, with the colours of the eyes and the hair.
+// Puppet mask: a Buckshot-style mask that is ARTICULATED so the truco señas still read, under a black hood
+// that covers everything else: no hair, the face is all that tells the players apart. Its face is the
+// avatar's: eyes, mouth and brows, and the colour of the eyes.
 export function makeMask(avatar: AvatarSpec) {
   const head = new THREE.Group()
   const hood = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 12), mat(PALETTE.soot, 1))
@@ -182,7 +153,7 @@ export function makeMask(avatar: AvatarSpec) {
   const eyeLook = EYES[avatar.eyes]
   const irisMat = new THREE.MeshBasicMaterial({ color: hex(EYE_COLOR_LOOK[avatar.eyeColor].hex) })
   const browLook = BROWS[avatar.brows]
-  const browMat = new THREE.MeshBasicMaterial({ color: hex(shade(HAIR_COLOR_LOOK[avatar.hairColor].hex, 0.85)) })
+  const browMat = new THREE.MeshBasicMaterial({ color: hex(PALETTE.ink) }) // painted on the mask, like the eye holes
   const eyes = [-1, 1].map((sx) => {
     const flat = (r: number, z: number, m: THREE.Material, w = 1, h = 1) => {
       const d = new THREE.Mesh(new THREE.CircleGeometry(r, 16), m)
@@ -226,7 +197,7 @@ export function makeMask(avatar: AvatarSpec) {
   const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.035, 0.05), mat(PALETTE.bone, 0.55))
   jaw.position.set(0, -0.085, -0.1)
   jaw.visible = false // it poked out under the mouth at rest like a little tooth: only the 'porno' seña drops it
-  head.add(hood, face, mouth, lips, teeth, jaw, hairOf(avatar.hair, HAIR_COLOR_LOOK[avatar.hairColor].hex))
+  head.add(hood, face, mouth, lips, teeth, jaw, hoodTrim())
   head.traverse((o) => (o.castShadow = true))
 
   // Each seña is a pose of lids / brows / mouth / jaw, seen from the signer: "right" is the

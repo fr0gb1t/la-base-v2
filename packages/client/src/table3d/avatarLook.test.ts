@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { AVATAR_KINDS, EYE_COLORS, HAIR_COLORS } from '@la-base/shared'
-import { EYE_COLOR_LOOK, HAIR_COLOR_LOOK, PART_LABELS } from './avatarLook'
+import { AVATAR_KINDS, EYE_COLORS } from '@la-base/shared'
+import { EYE_COLOR_LOOK, PART_LABELS } from './avatarLook'
 
 const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
 function hsl(h: string) {
@@ -13,11 +13,11 @@ function hsl(h: string) {
 }
 
 describe('avatar colours stay inside the game\'s muted range', () => {
-  const all = [...EYE_COLOR_LOOK, ...HAIR_COLOR_LOOK]
+  const all = [...EYE_COLOR_LOOK]
 
-  it('has the colours the shared contract promises', () => {
+  it('has the colours and the parts the shared contract promises (and no hair)', () => {
+    expect(Object.keys(PART_LABELS).sort()).toEqual(['brows', 'eyes', 'mouth'])
     expect(EYE_COLOR_LOOK).toHaveLength(EYE_COLORS)
-    expect(HAIR_COLOR_LOOK).toHaveLength(HAIR_COLORS)
     for (const p of Object.values(PART_LABELS)) expect(p.kinds).toHaveLength(AVATAR_KINDS)
   })
 
@@ -32,7 +32,7 @@ describe('avatar colours stay inside the game\'s muted range', () => {
   })
 
   it('every colour is a real hex and none repeats', () => {
-    for (const list of [EYE_COLOR_LOOK, HAIR_COLOR_LOOK]) {
+    for (const list of [EYE_COLOR_LOOK]) {
       expect(new Set(list.map((c) => c.hex)).size).toBe(list.length)
       for (const c of list) expect(c.hex).toMatch(/^#[0-9a-f]{6}$/i)
     }

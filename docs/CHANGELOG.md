@@ -6,9 +6,10 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
-- **Avatares (las caras de las máscaras):** cada máscara se arma con 4 partes al azar —ojos, boca, cejas y
-  pelo, 5 tipos de cada una— y color de ojos (6) y de pelo (7), todos dentro de la gama apagada del juego (un test
-  rechaza cualquier color saturado, sin neón). El contrato vive en `shared/avatar.ts` (`AvatarSpec`,
+- **Avatares (las caras de las máscaras):** cada máscara se arma con 3 partes al azar —ojos, boca y cejas, 5
+  tipos de cada una— y un color de ojos (6), dentro de la gama apagada del juego (un test rechaza cualquier
+  color saturado, sin neón). **Sin pelo**: todas llevan la misma capucha negra (borde de tela que enmarca la
+  máscara, punta atrás y cogulla en el cuello; `hoodTrim` en `table3d/avatar.ts`) y solo la cara las distingue. El contrato vive en `shared/avatar.ts` (`AvatarSpec`,
   `randomAvatar`, `sanitizeAvatar`); el servidor lo valida al crear o entrar a una sala (una cara inventada se
   reemplaza, nunca se reenvía), les da una al azar a los bots y lo manda en la lista de jugadores. En el cliente
   `makeMask(avatar)` arma la cara en `table3d/avatar.ts` (las señas siguen funcionando con cualquier

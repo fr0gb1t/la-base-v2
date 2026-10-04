@@ -1,6 +1,6 @@
 import { AVATAR_KINDS, AVATAR_PARTS, type AvatarPart, type AvatarSpec } from '@la-base/shared';
 import { GiPerspectiveDiceSixFacesRandom } from 'react-icons/gi';
-import { EYE_COLOR_LOOK, HAIR_COLOR_LOOK, PART_LABELS } from '../table3d/avatarLook';
+import { EYE_COLOR_LOOK, PART_LABELS } from '../table3d/avatarLook';
 import { rerollAvatar, setAvatar } from './avatarSettings';
 import { uiSound } from '../table3d/audio';
 
@@ -40,7 +40,7 @@ export function AvatarPicker({ avatar }: { avatar: AvatarSpec }) {
   };
   return (
     <div className="avatar-picker">
-      <p className="ledger-note avatar-note">Tu máscara en la mesa (la ven los demás). Se llega con una cara al azar: cambiala como quieras.</p>
+      <p className="ledger-note avatar-note">Tu máscara en la mesa (la ven los demás). Empezás con una cara al azar: cambiala como quieras.</p>
       {AVATAR_PARTS.map((part) => (
         <div className="avatar-part" key={part}>
           <span className="avatar-part-title">{PART_LABELS[part].title}</span>
@@ -50,7 +50,6 @@ export function AvatarPicker({ avatar }: { avatar: AvatarSpec }) {
         </div>
       ))}
       <Colors label="Color de ojos" value={avatar.eyeColor} colors={EYE_COLOR_LOOK} onPick={(i) => setAvatar({ eyeColor: i })} />
-      <Colors label="Color de pelo" value={avatar.hairColor} colors={HAIR_COLOR_LOOK} onPick={(i) => setAvatar({ hairColor: i })} />
       <button
         type="button"
         className="avatar-dice"
