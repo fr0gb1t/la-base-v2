@@ -24,7 +24,7 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   previa de Ajustes.
 - **Caras flotantes, sin cuerpo (como en Buckshot Roulette):** en la mesa ya no hay capucha, abrigo ni brazos:
   una cara flota donde iría la cabeza y dos manos esculpidas flotan donde irían las muñecas (los brazos se
-  siguen resolviendo con IK, sin dibujarse, solo para orientar cada mano; el puño lleva el color del equipo).
+  siguen resolviendo con IK, sin dibujarse, solo para orientar cada mano).
   El avatar es ahora **una cara elegida entre 36** (`shared/avatar.ts`: `AvatarSpec = { face }`, `FACES`,
   `faceKind`; una cara vieja de ojos/boca/cejas se rechaza y se sortea una nueva):
   - **30 máscaras de LEDs** (`table3d/faces/ledMask.ts`): la forma copiada de las máscaras LED reales

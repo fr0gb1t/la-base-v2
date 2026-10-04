@@ -35,6 +35,12 @@ export const NOVEDADES: Novedad[] = [
     ],
   },
   {
+    id: '2026-10-04-ases-bordes',
+    date: '2026-10-04',
+    title: 'Arreglo: los ases de la configuración',
+    items: ['Con «Bordes suaves» activado, una franja negra cruzaba los ases al configurar la partida. Ya no aparece.'],
+  },
+  {
     id: '2026-10-04-ajustes-defecto',
     date: '2026-10-04',
     title: 'Ajustes de fábrica renovados',
