@@ -50,3 +50,27 @@ test('a face turned practically away shows nothing', () => {
   d.make(room, 'a', 'nada', { yaw: away, pitch: 0 });
   assert.equal(to('b').length, 0);
 });
+
+test('the signer is told once when a rival catches it, never for a partner, and not who', () => {
+  let t = 1000;
+  const seen: Array<[string, string]> = [];
+  const d = new SenaDelivery(() => undefined, () => t, (socketId, info) => seen.push([socketId, info.sena]));
+  // partner c always receives it: nothing to tell the signer
+  d.make(room, 'a', 'tres', gazeToward(0, 2, 4));
+  assert.deepEqual(seen, []);
+  // two rivals catch the next one: the signer hears about it once
+  d.look(room, 'b', gazeToward(1, 0, 4));
+  d.look(room, 'd', gazeToward(3, 0, 4));
+  t += DWELL_MS + 10;
+  d.make(room, 'a', 'dos', gazeToward(0, 2, 4));
+  assert.deepEqual(seen, [['s-a', 'dos']]);
+});
+
+test('a rival looking at the table leaves the signer without a notice', () => {
+  let t = 1000;
+  const seen: unknown[] = [];
+  const d = new SenaDelivery(() => undefined, () => t, (_s, info) => seen.push(info));
+  d.look(room, 'b', { yaw: 0, pitch: -0.34 });
+  d.make(room, 'a', 'tres', gazeToward(0, 2, 4));
+  assert.equal(seen.length, 0);
+});

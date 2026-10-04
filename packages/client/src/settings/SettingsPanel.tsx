@@ -297,6 +297,13 @@ export function SettingsHost() {
             hint="un puntito en el medio de la pantalla para apuntar (a las caras, para las señas)"
             onToggle={() => setViewSettings({ reticle: !view.reticle })}
           />
+          <Switch
+            on={view.senaSeenFlash}
+            icon={<GiEyeTarget aria-hidden className="setting-icon" />}
+            title="Aviso de seña vista"
+            hint={view.senaSeenFlash ? 'tu seña destella en rojo en tu pantalla si un rival la capta (sin destello: no la vio nadie)' : 'no te enterás si un rival vio tu seña'}
+            onToggle={() => setViewSettings({ senaSeenFlash: !view.senaSeenFlash })}
+          />
         </fieldset>
         </div>
 

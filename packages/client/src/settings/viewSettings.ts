@@ -15,6 +15,7 @@ export interface ViewSettings {
   smoothProps: boolean // the televisions, the notepad and the clock are drawn smooth (anti-aliased, full resolution)
   gyro: boolean // phones: the phone's orientation turns the view (the finger can still drag it)
   handHeight: number // where the wheel left your fan (metres, camera space); 0 = resting
+  senaSeenFlash: boolean // your seña flashes red on your screen when a rival catches it (off: you never know)
   senaOrder: string // your señas ring, comma-separated ids in your order ('' = the default order)
 }
 
@@ -27,7 +28,7 @@ export const FOV_MIN = 50
 export const FOV_MAX = 80
 const KEY = 'laBase.view'
 // phones start with: hand not reset on your turn, no table guides, view returns to your seat (gyroscope and reticle on, camera not inverted)
-const DEFAULTS: ViewSettings = { cameraReturn: isTouch, reticle: true, invertLook: false, handResetOnTurn: !isTouch, guides: !isTouch, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja', handHeight: 0, senaOrder: '', gyro: true, smoothProps: false }
+const DEFAULTS: ViewSettings = { cameraReturn: isTouch, reticle: true, invertLook: false, handResetOnTurn: !isTouch, guides: !isTouch, lookSensitivity: 1, fov: 63, cardBack: 'rueda-roja', handHeight: 0, senaOrder: '', senaSeenFlash: false, gyro: true, smoothProps: false }
 
 function load(): ViewSettings {
   try {

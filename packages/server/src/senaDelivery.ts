@@ -28,6 +28,7 @@ interface Active {
   gaze: Gaze;
   t0: number;
   sent: Set<string>;
+  caught: boolean; // a rival got it (the signer has been told)
   pending: Map<string, ReturnType<typeof setTimeout>>;
 }
 export interface SenaPayload {
@@ -38,6 +39,11 @@ export interface SenaPayload {
   elapsed: number; // ms already gone when it reached you
 }
 type Send = (socketId: string, payload: SenaPayload) => void;
+/** Told to the signer when a rival catches their seña (not which rival). */
+export interface SenaSeen {
+  sena: Sena;
+}
+type Seen = (signerSocketId: string, info: SenaSeen) => void;
 
 const DEFAULT_GAZE: Gaze = { yaw: 0, pitch: -0.34 };
 
@@ -45,7 +51,7 @@ export class SenaDelivery {
   private looks = new Map<string, Gaze & { t: number }>(); // playerId → last look
   private active = new Map<string, Active[]>(); // roomCode → señas still on a face
 
-  constructor(private send: Send, private now = () => Date.now()) {}
+  constructor(private send: Send, private now = () => Date.now(), private seen: Seen = () => undefined) {}
 
   /** A player's look moved: they may be catching a seña that is on someone's face. */
   look(room: SenaRoom, playerId: string, gaze: Gaze) {
@@ -56,7 +62,7 @@ export class SenaDelivery {
   /** A player makes a seña (facing `gaze`, or wherever they last looked). */
   make(room: SenaRoom, signerId: string, sena: Sena, gaze?: Gaze) {
     const g = gaze ?? this.looks.get(signerId) ?? DEFAULT_GAZE;
-    const a: Active = { signerId, sena, gaze: { yaw: g.yaw, pitch: g.pitch }, t0: this.now(), sent: new Set([signerId]), pending: new Map() };
+    const a: Active = { signerId, sena, gaze: { yaw: g.yaw, pitch: g.pitch }, t0: this.now(), sent: new Set([signerId]), caught: false, pending: new Map() };
     this.active.set(room.roomCode, [...this.live(room.roomCode), a]);
     for (const p of room.players) this.consider(room, a, p.id);
     setTimeout(() => this.expire(room.roomCode), SENA_WINDOW_MS + 50);
@@ -113,5 +119,10 @@ export class SenaDelivery {
     a.sent.add(viewer.id);
     const elapsed = Math.max(0, this.now() - a.t0);
     this.send(viewer.socketId, { playerId: a.signerId, sena: a.sena, yaw: a.gaze.yaw, pitch: a.gaze.pitch, elapsed });
+    const signer = room.players.find((p) => p.id === a.signerId);
+    if (signer && viewer.team !== signer.team && !a.caught) {
+      a.caught = true;
+      this.seen(signer.socketId, { sena: a.sena });
+    }
   }
 }

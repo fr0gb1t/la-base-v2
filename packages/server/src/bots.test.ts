@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Card, GameState } from '@la-base/shared';
-import { AVERAGE_CARD, wantsSenasBeforeBidding, bidEstimate, chooseBid, chooseCard, chooseKamikaze, partnerWorth, shortAnswer } from './bots.js';
+import { AVERAGE_CARD, wantsSenasBeforeBidding, bidEstimate, chooseBid, chooseCard, chooseKamikaze, partnerWorth, shortAnswer, keepWaitingForSenas, SETTLE_MS } from './bots.js';
 
 const state = (over: Partial<GameState> = {}): GameState =>
   ({
@@ -219,4 +219,68 @@ test('a bot does not knock or wait for señas when they cannot change its bid', 
   assert.equal(wantsSenasBeforeBidding(weak, forced, 4), false);
   // a hand that makes every base on its own (the ancho de bastos in a 1-base round)
   assert.equal(wantsSenasBeforeBidding(strong, state({ structureSequence: [1], roundIndex: 0 }), 4), false);
+});
+
+test('no señas when no answer from the partner could change the bid', () => {
+  const oneBase = state({ structureSequence: [1], roundIndex: 0 });
+  // a Rey in the 1-card round: bids 1 whatever the partner holds, so knocking is pointless
+  assert.equal(wantsSenasBeforeBidding([{ suit: 'oros', value: 12 }], oneBase, 4, 2), false);
+  // a Sota (0 alone, 1 if the partner has the ancho): worth asking
+  assert.equal(wantsSenasBeforeBidding([{ suit: 'oros', value: 10 }], oneBase, 4, 2), true);
+  // a weak card: the partner may well have the base
+  assert.equal(wantsSenasBeforeBidding([{ suit: 'oros', value: 4 }], oneBase, 4, 2), true);
+});
+
+test('in a one-card round the Mano with a Rey only fears the ancho de bastos; the last seat also loses ties', () => {
+  const oneBase = state({ structureSequence: [1], roundIndex: 0 });
+  const rey: Card[] = [{ suit: 'oros', value: 12 }];
+  const asMano = bidEstimate(rey, oneBase, 1, 4, [], [], 0);
+  const asLast = bidEstimate(rey, oneBase, 1, 4, [], [], 3);
+  assert.ok(asMano > 0.9, `Mano ${asMano}`); // 3 rivals, 1 card in 39 beats it: (38/39)^3 ≈ 0.92
+  assert.ok(asLast < asMano, `last ${asLast} Mano ${asMano}`); // the 3 other Reyes beat it too, they played first
+  assert.ok(asLast > 0.65 && asLast < 0.8, `last ${asLast}`); // (35/39)^3 ≈ 0.72
+});
+
+test('as Mano in the one-card round a Caballo does not ask for señas, a Sota does', () => {
+  const oneBase = state({ structureSequence: [1], roundIndex: 0 });
+  const caballo: Card[] = [{ suit: 'oros', value: 11 }];
+  assert.equal(wantsSenasBeforeBidding(caballo, oneBase, 4, 2, 0), false); // Mano: (34/39)^3 ≈ 0.66 → 1 either way
+  const sota: Card[] = [{ suit: 'oros', value: 10 }];
+  assert.equal(wantsSenasBeforeBidding(sota, oneBase, 4, 2, 0), true); // Mano: (30/39)^3 ≈ 0.46 → 0, unless the partner has the ancho
+});
+
+test('3-card round: the Mano with one winner and two weak cards asks the partner; once told, or forced, it does not', () => {
+  const three = state({ structureSequence: [3], roundIndex: 0 });
+  const hand: Card[] = [{ suit: 'oros', value: 12 }, { suit: 'copas', value: 4 }, { suit: 'oros', value: 3 }];
+  assert.ok(chooseBid(hand, three, 2, 4, [], [], 0) >= 1); // the Rey is worth a base on its own
+  assert.equal(wantsSenasBeforeBidding(hand, three, 4, 2, 0), true); // the other two bases depend on the partner
+  // the Pie with a single legal bid (the rivals asked 3 of 3: only 1): the hand has nothing to ask about
+  const forced = state({ structureSequence: [3], roundIndex: 0, bids: [{ team: 'ellos', value: 3 }] as GameState['bids'] });
+  assert.equal(wantsSenasBeforeBidding(hand, forced, 4, 2, 1), false);
+  // even the ancho and two Reyes are worth ≈ 2 bases, not 3: the last one depends on the partner
+  const strong: Card[] = [{ suit: 'bastos', value: 1 }, { suit: 'bastos', value: 12 }, { suit: 'espadas', value: 12 }];
+  assert.equal(wantsSenasBeforeBidding(strong, three, 4, 2, 0), true);
+});
+
+test("a partner's 'no' (no high cards) lowers the bid: a weak hand asks 0 instead of counting on an average partner", () => {
+  const weak: Card[] = [{ suit: 'oros', value: 4 }, { suit: 'copas', value: 3 }, { suit: 'oros', value: 2 }];
+  const five = state({ structureSequence: [5], roundIndex: 0 });
+  assert.equal(chooseBid(weak, five, 2, 4), 1); // no seña: it guesses an average hand for the partner (≈ 0.9 bases)
+  assert.equal(chooseBid(weak, five, 2, 4, [['no']]), 0); // told 'no': only its own hand counts
+  assert.ok(chooseBid(weak, five, 2, 4, [['ancho-basto', 'ancho-espada']]) >= 2); // told about two anchos: asks more
+});
+
+test('the bot keeps waiting for more señas until the partner has been quiet for a while, up to a limit', () => {
+  const t0 = 100_000;
+  // nothing signed this round: no reason to wait
+  assert.equal(keepWaitingForSenas(t0, 0, t0 - 10, false), false);
+  // a seña just arrived: the partner may still be making others
+  assert.equal(keepWaitingForSenas(t0 + 1000, t0, t0, true), true);
+  assert.equal(keepWaitingForSenas(t0 + SETTLE_MS - 1, t0, t0, true), true);
+  // quiet for long enough: decide
+  assert.equal(keepWaitingForSenas(t0 + SETTLE_MS, t0, t0, true), false);
+  // a new seña restarts the quiet period
+  assert.equal(keepWaitingForSenas(t0 + SETTLE_MS + 500, t0 + 3000, t0, true), true);
+  // but not forever
+  assert.equal(keepWaitingForSenas(t0 + 20_000, t0 + 19_000, t0, true), false);
 });

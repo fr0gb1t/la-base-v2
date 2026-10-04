@@ -5,7 +5,31 @@
 Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), agrupado por área. Lo
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
-### Lo último (desde `1265ce2`)
+### Lo último (desde `02045de`)
+- **Quién gana la base, corregido:** al invertirse el sentido con el As de Copas, el servidor leía las
+  cartas al revés y **se saltaba la última carta jugada** (un 3 le ganaba a un 5 jugado después). Ahora
+  las cartas se leen siempre desde el Mano, silla por silla, en el sentido vigente al cerrarse la base;
+  esa lectura decide los empates (gana el primero leído) y el «después» del As de Espadas. Ej.: Jorgito
+  (Mano) 5, Álvaro Rey, Pepe Rey, Franco As de Copas e invierte → se lee Jorgito, Franco, Pepe, Álvaro:
+  gana Pepe. Rige en el servidor, los bots y la carta que flota en el cliente; el manual (`RULEBOOK.md`)
+  lo explica con ese ejemplo. `9a0027f`
+- **Los bots piden señas solo si les sirve:** antes de pedir, el bot compara su pedido con un compañero
+  que no vale nada contra uno que tiene todas las bases; si da lo mismo (un Rey siendo Mano en la ronda
+  de una carta), no golpea la mesa. Tampoco cuando tiene un único pedido legal. `5fc91c7`
+- **Los bots calculan por asiento en la ronda de una carta:** la chance de ganar es exacta según la
+  posición (el Mano solo teme al Ancho de Bastos: ≈ 92 % con un Rey; el último asiento también pierde
+  los empates: ≈ 72 %). Con más bases sigue la tabla por rango, porque el asiento cambia en cada base. `5fc91c7`
+- **Las señas de los bots, más humanas:** el bot mira a su compañero, espera 3 segundos y recién ahí
+  golpea la mesa (sigue mirándolo mientras espera). Después de una seña espera a que el compañero esté
+  4 segundos en silencio (20 como máximo) antes de pedir, así da tiempo a hacer más. Cuando le llega una
+  seña mira al compañero un instante, como acuse de recibo. Si el compañero le dijo «no» y todavía no
+  había mostrado su mano, después de pedir le explica con señas por qué. `5fc91c7`
+- **Aviso de seña vista (opcional):** tu seña destella en rojo en tu pantalla cuando un rival, bot o
+  persona, la capta; sin destello, nadie la vio. No dice cuál rival, y con un compañero nunca avisa
+  (los compañeros siempre la reciben). Ajustes → Mesa → «Aviso de seña vista», apagado por defecto y
+  por jugador. `bafe5ca`
+
+### Lo anterior (desde `1265ce2`)
 - **Bordes suaves en los televisores, el anotador y el reloj:** esos objetos se dibujan aparte, a
   pantalla completa y con anti-aliasing (MSAA 4x), sobre el mundo pixelado: el texto del reloj, de
   los LED y del anotador queda nítido y sin escalones, y el resto de la mesa conserva su estética

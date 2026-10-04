@@ -2776,6 +2776,22 @@ button {
   animation: sena-echo-in 2.1s forwards, sena-echo-shake 0.45s ease-in-out 0.3s 3;
 }
 
+/* a rival caught the seña (the "aviso de seña vista" setting): the face flashes red once */
+.sena-echo.caught .sena-echo-face {
+  animation: sena-echo-caught 0.9s ease-out;
+}
+
+@keyframes sena-echo-caught {
+  0% {
+    background-color: rgba(235, 50, 45, 0.6);
+    box-shadow: 0 0 0 0 rgba(235, 50, 45, 0.95);
+  }
+  100% {
+    background-color: rgba(235, 50, 45, 0);
+    box-shadow: 0 0 44px 22px rgba(235, 50, 45, 0);
+  }
+}
+
 @keyframes sena-echo-life {
   0% {
     opacity: 0;
