@@ -12,6 +12,9 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   «NUEVO» mientras haya entradas sin ver; al abrir la hoja de novedades (lista corta para jugadores, en
   `client/src/changelog/`) se calma. Reemplaza al botón «Ajustes» de la esquina en esa pantalla. Se
   agregó `vitest` al cliente (`pnpm test`).
+- **Novedades por fecha:** la hoja de novedades muestra un día a la vez (el más nuevo primero) con
+  «‹ Antes» / «Después ›» (o las flechas ← →) para revisar los cambios de fechas anteriores. Las
+  entradas se agrupan con `groupByDate` en `client/src/changelog/novedades.ts`.
 - **Quién gana la base, corregido:** al invertirse el sentido con el As de Copas, el servidor leía las
   cartas al revés y **se saltaba la última carta jugada** (un 3 le ganaba a un 5 jugado después). Ahora
   las cartas se leen siempre desde el Mano, silla por silla, en el sentido vigente al cerrarse la base;

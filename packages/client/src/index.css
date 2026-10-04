@@ -3673,6 +3673,35 @@ button {
   overflow-y: auto;
 }
 
+.novedades-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.novedades-nav strong small {
+  font-weight: normal;
+  opacity: 0.65;
+}
+
+.novedades-nav button {
+  font: inherit;
+  padding: 3px 9px;
+  cursor: pointer;
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  color: inherit;
+}
+
+.novedades-nav button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .novedades-list {
   display: flex;
   flex-direction: column;

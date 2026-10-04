@@ -19,6 +19,22 @@ export function unseenCount(entries: Novedad[], lastSeenId: string | null): numb
   return i === -1 ? entries.length : i;
 }
 
+export interface NovedadesDay {
+  date: string;
+  entries: Novedad[];
+}
+
+/** The entries grouped by date, newest day first (entries are newest first, so the order is kept). */
+export function groupByDate(entries: Novedad[]): NovedadesDay[] {
+  const days: NovedadesDay[] = [];
+  for (const e of entries) {
+    const last = days[days.length - 1];
+    if (last && last.date === e.date) last.entries.push(e);
+    else days.push({ date: e.date, entries: [e] });
+  }
+  return days;
+}
+
 function readLastSeen(): string | null {
   try {
     return localStorage.getItem(KEY);
