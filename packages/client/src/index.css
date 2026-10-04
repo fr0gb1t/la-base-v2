@@ -2317,11 +2317,12 @@ button {
 }
 
 .reticle.on-face {
-  width: 16px;
-  height: 16px;
-  margin: -8px 0 0 -8px;
-  background: transparent;
-  border: 1.5px solid rgba(233, 220, 194, 0.7);
+  width: 38px;
+  height: 38px;
+  margin: -19px 0 0 -19px;
+  background: rgba(233, 220, 194, 0.12);
+  border: 2px solid rgba(240, 228, 200, 0.85);
+  box-shadow: 0 0 14px rgba(233, 214, 160, 0.45), inset 0 0 8px rgba(233, 214, 160, 0.25);
 }
 
 /* ---- game over: the same paper sheet as the gate panel, centred and blocking ---- */

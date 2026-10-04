@@ -16,7 +16,7 @@ const p2 = await sock()
 const room = (await host.emit('room:create', { playerName: 'Host', playerCount: 4 })).roomCode
 await p2.emit('room:join', { roomCode: room, playerName: 'Dos' })
 for (const c of [host, p2]) c.s.on('game:state', async (st) => { if (st.phase === 'initial_draw' && st.initialDraw?.currentDrawerPlayerId === c.s.id) await c.emit('draw:initialCard', { roomCode: room }) })
-const b = await puppeteer.launch({ executablePath: '/usr/bin/chromium', headless: 'new', args: ['--use-angle=vulkan', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'], defaultViewport: { width: 1280, height: 720 } })
+const b = await puppeteer.launch({ executablePath: process.env.CHROME ?? '/usr/bin/chromium', headless: 'new', args: ['--no-sandbox', '--use-angle=vulkan', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'], defaultViewport: { width: 1280, height: 720 } })
 const p = await b.newPage()
 p.on('pageerror', (e) => console.log('PAGEERR', e.message))
 await p.goto('http://localhost:5174/?debug=1', { waitUntil: 'domcontentloaded' }); await sleep(2000)
@@ -60,6 +60,11 @@ await rival.emit('sena:make', { roomCode: room, sena: 'tres', yaw: 0, pitch: 0 }
 r.rivalLookedAtProfileShows = (await shown(rival)) === 'tres'
 r.reticleOnFace = await p.evaluate(() => !!document.querySelector('.reticle.on-face'))
 await p.screenshot({ path: `${out}-caught.png` })
+// pointing near the player's place, not at the exact face, is enough: the view drifts ~25 cm off their head (down and aside)
+await p.evaluate((s) => { const t = window.__table; t.debugAimHead(s); t.pitchT -= 0.12 }, seat); await sleep(900)
+r.nearTheirPlaceStillReads = await p.evaluate(() => !!document.querySelector('.reticle.on-face'))
+await p.screenshot({ path: `${out}-nearplace.png` })
+await p.evaluate((s) => window.__table.debugAimHead(s), seat); await sleep(600)
 await sleep(1600)
 await rival.emit('sena:make', { roomCode: room, sena: 'dos', ...away }); await sleep(400)
 r.rivalTurnedAwayHidden = (await shown(rival)) === null
@@ -71,6 +76,6 @@ r.caughtMidSena = (await shown(rival)) === 'porno'
 await p.evaluate(() => document.querySelector('nav[aria-label="Controles de la partida"] button[title="Tecla J"]')?.click()); await sleep(300)
 r.log = await p.evaluate(() => [...document.querySelectorAll('.log-list .log-sena')].map((l) => l.textContent))
 console.log(JSON.stringify(r, null, 1))
-const ok = (partner ? r.partnerAlways : true) && r.rivalNotLooking && r.rivalLookedAtProfileShows && r.reticleOnFace && r.rivalTurnedAwayHidden && r.caughtMidSena
+const ok = (partner ? r.partnerAlways : true) && r.rivalNotLooking && r.rivalLookedAtProfileShows && r.reticleOnFace && r.nearTheirPlaceStillReads && r.rivalTurnedAwayHidden && r.caughtMidSena
 console.log(ok ? 'PASS' : 'FAIL')
 await b.close(); host.s.disconnect(); p2.s.disconnect(); process.exit(ok ? 0 : 1)

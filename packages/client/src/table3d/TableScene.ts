@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { FACE_AIM_RADIUS, FACE_BACK_DOT, isHeadSena, type Card, type Sena } from '@la-base/shared'
+import { FACE_BACK_DOT, seatUnderAim, isHeadSena, type Card, type Sena } from '@la-base/shared'
 import { buildLamp, buildRoom } from './table'
 import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, PLAY_R, seatAngle, polar, playSlot } from './seats'
 import { makeAvatar, MAX_HAND, FAN_Y, type Avatar, type AvatarPose } from './avatar'
@@ -479,29 +479,21 @@ export class TableScene {
     return polar(TABLE_R - 0.04, seatAngle(seat, this.n), TABLE_Y + 0.03).addScaledVector(this.rightOf(seat), 0.2)
   }
 
-  /** The seat whose face you can read at the centre of your view (same rule as the server). */
+  /**
+   * The seat whose face you can read at the centre of your view (same rule as the server): the centre of
+   * your view passes over where they sit (head down to their place on the table), and their mask is not
+   * practically turned away from you.
+   */
   private faceUnderCentre() {
     const origin = this.camera.getWorldPosition(new THREE.Vector3())
     const dir = this.camera.getWorldDirection(new THREE.Vector3())
-    const head = new THREE.Vector3()
-    const facing = new THREE.Vector3()
-    let best = -1
-    let bestD = Infinity
-    for (const av of this.avatars) {
-      if (av.seat === 0) continue
-      av.head.getWorldPosition(head)
-      // a mask turned practically away shows nothing: its face (-z) must not point away from you
-      av.head.getWorldDirection(facing).negate()
-      if (facing.dot(origin.clone().sub(head).normalize()) < FACE_BACK_DOT) continue
-      const along = head.sub(origin).dot(dir)
-      if (along <= 0) continue
-      const off = head.addScaledVector(dir, -along).length() // distance from the ray
-      if (off < FACE_AIM_RADIUS && along < bestD) {
-        best = av.seat
-        bestD = along
-      }
-    }
-    return best
+    const seat = seatUnderAim({ x: origin.x, y: origin.y, z: origin.z }, { x: dir.x, y: dir.y, z: dir.z }, this.n, 0)
+    const av = this.avatars[seat]
+    if (!av) return -1
+    // a mask turned practically away shows nothing: its face (-z) must not point away from you
+    const head = av.head.getWorldPosition(new THREE.Vector3())
+    const facing = av.head.getWorldDirection(new THREE.Vector3()).negate()
+    return facing.dot(origin.clone().sub(head).normalize()) < FACE_BACK_DOT ? -1 : seat
   }
 
   presence(kind: 'look' | 'arm' | 'hover', playerId: string, data: Record<string, unknown>) {
