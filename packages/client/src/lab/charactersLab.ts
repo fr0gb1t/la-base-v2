@@ -502,6 +502,7 @@ addEventListener('pointerup', () => (drag = false))
 addEventListener('pointermove', (e) => { if (drag) { orbit += (e.clientX - lastX) * 0.006; lastX = e.clientX } })
 
 function aim(a: number, dist = 1.35, y = 0.1, look = -0.08) {
+  dist *= Math.max(1, 1.1 / camera.aspect) ** 0.8 // a tall, narrow screen (a phone) steps back to keep the hands in
   camera.position.set(Math.sin(a) * dist, y, -Math.cos(a) * dist)
   camera.lookAt(0, look, 0)
 }
