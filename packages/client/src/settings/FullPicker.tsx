@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { uiSound } from '../table3d/audio';
+import { useOverlay } from '../lib/overlay';
 
 // A picker the size of the screen, for phones: the same lit stage the desktop shows beside the ledger (your face
 // making señas, or the back of your cards turning under the lamp), filling the screen. Swipe left or right — or
@@ -22,6 +23,7 @@ interface Props {
 const SWIPE = 45; // px across before a drag counts as a swipe
 
 export function FullPicker({ title, stage, options, value, note, onPick, onClose }: Props) {
+  useOverlay();
   const i = Math.max(0, options.findIndex((o) => o.id === value));
   const step = (by: 1 | -1) => {
     uiSound('chip');

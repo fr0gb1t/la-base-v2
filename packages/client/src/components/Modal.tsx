@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { useOverlay } from '../lib/overlay';
 
 interface ModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, title, children, footer, size = 'md', onClose }: ModalProps) {
+  useOverlay(isOpen);
   if (!isOpen) return null;
 
   const sizeClasses = {
@@ -22,7 +24,7 @@ export function Modal({ isOpen, title, children, footer, size = 'md', onClose }:
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-40 transition-opacity"
+        className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-md z-40 transition-opacity"
         onClick={onClose}
       />
 

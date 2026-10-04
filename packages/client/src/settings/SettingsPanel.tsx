@@ -14,6 +14,7 @@ import { FACES, type FaceId } from '@la-base/shared';
 import { FACE_INFO } from '../table3d/faces/catalog';
 import { BACK_DESIGNS, backPicture, drawBackDesign, type BackDesign } from '../table3d/cardBacks';
 import type { DrawnBack } from '../table3d/backDesigns';
+import { useOverlay } from '../lib/overlay';
 
 const previews = new Map<BackDesign, string>();
 /** A small picture of a card back for the chooser (drawn once). */
@@ -76,6 +77,7 @@ const BACK_OPTIONS: PickOption[] = BACK_DESIGNS.map((d) => ({ id: d.id, name: d.
 
 export function SettingsHost() {
   const [open, setOpen] = useState(false);
+  useOverlay(open);
   const s = useAudioSettings();
   // the ledger is paper: it rustles open and shut
   const wasOpen = useRef(false);
