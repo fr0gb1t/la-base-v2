@@ -6,17 +6,23 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
-- **Avatares (las caras de las máscaras):** cada máscara se arma con 3 partes al azar —ojos, boca y cejas, 5
-  tipos de cada una— y un color de ojos (6), dentro de la gama apagada del juego (un test rechaza cualquier
-  color saturado, sin neón). **Sin pelo**: todas llevan la misma capucha negra (borde de tela que enmarca la
-  máscara, punta atrás y cogulla en el cuello; `hoodTrim` en `table3d/avatar.ts`) y solo la cara las distingue. El contrato vive en `shared/avatar.ts` (`AvatarSpec`,
-  `randomAvatar`, `sanitizeAvatar`); el servidor lo valida al crear o entrar a una sala (una cara inventada se
-  reemplaza, nunca se reenvía), les da una al azar a los bots y lo manda en la lista de jugadores. En el cliente
-  `makeMask(avatar)` arma la cara en `table3d/avatar.ts` (las señas siguen funcionando con cualquier
-  combinación). Ajustes → Avatar (`settings/AvatarPicker` y `AvatarStage`): ‹ › por parte, colores, «Al azar», y
-  la máscara en movimiento a un costado —parpadea, mira alrededor y hace señas al azar, en stop-motion como en
-  la mesa (`table3d/senaPlay.ts` es la curva compartida)—; el escenario cambia al del dorso al tocar «Cartas».
-  Se guarda por navegador (`laBase.avatar`) y se genera una vez al azar la primera vez.
+- **Avatares (las máscaras, al estilo de los guardias de «El juego del calamar» pero en negro):** capucha y
+  máscara negras, y solo se ve la luz sobre ellas: cada máscara se arma con 4 partes al azar —ojos, boca, cejas y
+  un **símbolo luminoso en la frente** (círculo, triángulo, cuadrado, rombo o pentágono), 5 tipos de cada una— y un
+  color de ojos (6), siempre dentro de la gama apagada del juego (un test rechaza cualquier color saturado, sin
+  neón). **Sin pelo.** Los rasgos son líneas de luz sin iluminar (siguen viéndose en la oscuridad) y los
+  párpados son del negro de la máscara, así que todas las señas funcionan con cualquier combinación. El
+  símbolo se apoya sobre la superficie de la cúpula de la máscara (cada punto del trazo se proyecta sobre ella:
+  uno plano se hundiría en los bordes) y los rasgos van un poco más abajo, como un bloque, para dejarle la
+  frente. La capucha tiene un borde de tela que enmarca la máscara, una punta atrás y una cogulla en el cuello
+  (`hoodTrim`). El contrato vive en `shared/avatar.ts` (`AvatarSpec`, `randomAvatar`, `sanitizeAvatar`; un
+  avatar guardado sin símbolo o con los campos viejos de pelo sigue siendo válido): el servidor lo valida al crear
+  o entrar a una sala (una cara inventada se reemplaza, nunca se reenvía), les da una al azar a los bots y lo
+  manda en la lista de jugadores. En el cliente `makeMask(avatar)` arma la máscara en `table3d/avatar.ts`.
+  Ajustes → Avatar (`settings/AvatarPicker` y `AvatarStage`): ‹ › por parte, color de ojos, «Al azar», y la
+  máscara en movimiento a un costado —parpadea, mira alrededor y hace señas al azar, en stop-motion como en la
+  mesa (`table3d/senaPlay.ts` es la curva compartida)—; el escenario cambia al del dorso al tocar «Cartas». Se
+  guarda por navegador (`laBase.avatar`) y se genera una vez al azar la primera vez.
 - **Novedades al día:** entrada nueva «Ajustes de fábrica renovados» (valores por defecto y carta Brújula), el
   aviso de seña vista aclara que viene encendido en PC, y la de televisores menciona la mesita que esquiva las
   sillas.

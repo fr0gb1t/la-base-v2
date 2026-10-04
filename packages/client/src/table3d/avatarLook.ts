@@ -8,15 +8,17 @@ export const PART_LABELS: Record<AvatarPart, { title: string; kinds: string[] }>
   eyes: { title: 'Ojos', kinds: ['Redondos', 'Rasgados', 'Grandes', 'Caídos', 'Puntitos'] },
   mouth: { title: 'Boca', kinds: ['Línea', 'Sonrisa', 'Seria', 'Ancha', 'Chiquita'] },
   brows: { title: 'Cejas', kinds: ['Finas', 'Gruesas', 'Bravas', 'Arqueadas', 'Cortitas'] },
+  symbol: { title: 'Símbolo', kinds: ['Círculo', 'Triángulo', 'Cuadrado', 'Rombo', 'Pentágono'] },
 }
 
+// The eyes are light on a black mask, so these are the lit versions of the dusty tones (still nothing neon).
 export const EYE_COLOR_LOOK: ReadonlyArray<{ name: string; hex: string }> = [
-  { name: 'Ámbar', hex: '#a8793a' },
-  { name: 'Verde musgo', hex: '#6c7a45' },
-  { name: 'Celeste acero', hex: '#5f8a9c' },
-  { name: 'Avellana', hex: '#7b5b3a' },
-  { name: 'Gris ceniza', hex: '#8a8680' },
-  { name: 'Violeta polvo', hex: '#6e5578' },
+  { name: 'Ámbar', hex: '#d4a24e' },
+  { name: 'Verde musgo', hex: '#8fa55a' },
+  { name: 'Celeste acero', hex: '#7fb0c4' },
+  { name: 'Cobre', hex: '#c0804a' },
+  { name: 'Gris ceniza', hex: '#bdb9ae' },
+  { name: 'Violeta polvo', hex: '#9a7fb0' },
 ]
 
 if (EYE_COLOR_LOOK.length !== EYE_COLORS) throw new Error('avatar colour tables out of step with @la-base/shared')

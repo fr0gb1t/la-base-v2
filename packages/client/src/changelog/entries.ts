@@ -9,8 +9,9 @@ export const NOVEDADES: Novedad[] = [
     date: '2026-10-04',
     title: 'Tu avatar',
     items: [
-      'Cada máscara tiene su propia cara, armada con ojos, boca y cejas (5 tipos de cada uno) y un color de ojos. Todas llevan la misma capucha negra: lo único que las distingue es la cara.',
-      'Empezás con una cara al azar. En Ajustes → Avatar la cambiás como quieras y la ves moverse y hacer señas, igual que en la mesa.',
+      'Todos llevan capucha y máscara negras, como guardias de un juego siniestro. Lo único que se ve es la luz sobre la máscara: un símbolo en la frente (círculo, triángulo, cuadrado, rombo o pentágono), los ojos, las cejas y la boca.',
+      'Cada parte tiene 5 tipos, y los ojos un color a elegir. Al principio te toca una combinación al azar.',
+      'En Ajustes → Avatar la cambiás como quieras y ves tu máscara moverse y hacer señas, igual que en la mesa.',
       'Los demás jugadores ven tu cara en la mesa y en la sala. Los bots también se sientan con una cara distinta.',
     ],
   },
