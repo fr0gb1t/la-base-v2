@@ -27,7 +27,7 @@ export const handStyleOf = (avatar: AvatarSpec): HandStyleKey => {
   return f.kind === 'led' ? 'led' : f.name
 }
 
-// The cuff the hand comes out of: a short glove cuff, flared toward the back and open, dark inside (the arm is lost
+// The cuff the hand comes out of: a short black glove cuff, flared toward the back and open, dark inside (the arm is lost
 // in the dark), so the hand reads as coming out of a sleeve rather than cut off at the wrist. Built along +y and
 // turned so the cuff runs back from the wrist, down −z.
 const CUFF_PROFILE: [number, number][] = [
@@ -61,7 +61,7 @@ export function handIdle(t: number, pose: HandPose, seed: number) {
 }
 
 /**
- * A floating hand coming out of a glove cuff in the team's colour. `side` is the arm it would be on (+1 right,
+ * A floating hand coming out of a black glove cuff whose hem is in the team's colour. `side` is the arm it would be on (+1 right,
  * −1 left); its fingers point down +z (the way the table's arms aim a hand) and the thumb points inward, toward the
  * body's midline. The hand shows once the sculptor has made it; `prepare` is run on the group then and at once.
  * `idle(t)` moves the hand inside its group (the group itself is placed and aimed by the caller).
@@ -72,13 +72,14 @@ export function makeHand(style: HandStyleKey, pose: HandPose, side: 1 | -1, cuff
   g.add(inner)
   const mats: THREE.Material[] = []
   let gone = false
-  const cuffMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(cuffColor).multiplyScalar(0.62), roughness: 0.8 }) // the team's colour, dyed darker: cloth, not a toy
+  const cuffMat = new THREE.MeshStandardMaterial({ color: 0x141214, roughness: 0.85 }) // black cloth, like the room
+  const hemMat = new THREE.MeshStandardMaterial({ color: cuffColor, roughness: 0.7 }) // only the hem tells the team
   const darkMat = new THREE.MeshBasicMaterial({ color: 0x050403, side: THREE.BackSide }) // inside the cuff: only the dark
-  mats.push(cuffMat, darkMat)
+  mats.push(cuffMat, hemMat, darkMat)
   const geo = cuffGeometry()
   const cuff = new THREE.Mesh(geo.cuff, cuffMat)
   const inside = new THREE.Mesh(geo.cuff, darkMat)
-  const hem = new THREE.Mesh(geo.hem, cuffMat)
+  const hem = new THREE.Mesh(geo.hem, hemMat)
   cuff.castShadow = hem.castShadow = true
   inner.add(cuff, inside, hem)
   prepare(g)

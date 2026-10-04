@@ -12,7 +12,7 @@ export const NOVEDADES: Novedad[] = [
       'En la mesa ya nadie tiene cuerpo: una cara flota sobre la mesa y dos manos juegan las cartas.',
       'Hay 36 caras para elegir: 30 máscaras de LEDs (payaso, calavera, muñeca, kitsune, oni, ópera china, calabaza, la Llorona, rey de espadas y muchas más) y 6 cabezas esculpidas (caballo, gallo, carnero, diablo, ventrílocuo y santo), cada una con sus manos.',
       'Todas hacen las once señas: las máscaras las dibujan con luz; las cabezas mueven cejas, párpados, labios o pico.',
-      'Las manos salen de un puño de guante del color de tu equipo y nunca se quedan quietas: respiran, se balancean y la mano libre tamborilea sobre el paño mientras esperás.',
+      'Las manos salen de un puño de guante negro, con el borde del color de tu equipo, y nunca se quedan quietas: respiran, se balancean y la mano libre tamborilea sobre el paño mientras esperás.',
       'Empezás con una cara al azar. En Ajustes → Avatar elegís otra y la ves moverse y hacer señas, igual que en la mesa. Los demás jugadores y los bots también se sientan con la suya.',
     ],
   },
