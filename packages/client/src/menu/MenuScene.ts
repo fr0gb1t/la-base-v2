@@ -25,7 +25,7 @@ import { buildSideTable, SIDE_TABLE_H } from './sideTable'
 
 // the menu's two televisions (novedades, ajustes) stand side by side on one small table off to the
 // right of the felt, turned to face the camera (the camera of every menu screen sees that corner)
-export const TV_TABLE = { x: 1.15, z: -0.65, yaw: -0.45 }
+export const TV_TABLE = { x: 1.3, z: -0.85, yaw: -0.52 }
 // the sets are small: just enough to find and read at a glance
 const SIDE_TV_SCALE = 0.55
 const TV_GAP = 0.125 // half the distance between the two sets
