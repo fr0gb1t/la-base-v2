@@ -65,7 +65,7 @@ const ACE_Z = -0.1 // how far toward the far side of the table the powered aces 
 const ACE_TILT = 0.42 // radians the powered aces lean back toward the lamp
 const ACE_SUITS: Array<keyof AcePowers> = ['espadas', 'copas', 'oros']
 const ACE_HINTS: Record<keyof AcePowers, string> = {
-  espadas: 'As de Espadas: mata al ancho de bastos si sale después · click para activar/apagar',
+  espadas: 'Ancho de Espadas: mata al ancho de bastos si sale después · click para activar/apagar',
   copas: 'As de Copas: puede invertir el sentido de la ronda · click para activar/apagar',
   oros: 'As de Oros: si su equipo gana la base, elige quién abre · click para activar/apagar',
 }

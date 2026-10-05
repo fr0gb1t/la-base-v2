@@ -102,7 +102,7 @@ export const CHAPTERS: Chapter[] = [
     body: (
       <>
         <ol className="rb-steps">
-          <li><b>Ancho de bastos</b>: la carta más fuerte. Casi nada la vence (ver el As de Espadas).</li>
+          <li><b>Ancho de bastos</b>: la carta más fuerte. Casi nada la vence (ver el ancho de espadas).</li>
           <li><b>Rey</b> (12), <b>caballo</b> (11) y <b>sota</b> (10), de cualquier palo.</li>
           <li>Después <b>7, 6, 5, 4, 3, 2</b>.</li>
           <li>Al fondo, los <b>ases</b> de oros, copas y espadas: valen 1… salvo que tengan su poder activado.</li>
@@ -310,7 +310,7 @@ export const CHAPTERS: Chapter[] = [
             <span className="rb-then">→</span>
             <MiniCard value={1} suit="espadas" w={58} glow="win" label="después" />
           </div>
-          <figcaption>El Matador: el as de espadas <b>después</b> del ancho lo mata</figcaption>
+          <figcaption>El Matador: el ancho de espadas <b>después</b> del de bastos lo mata</figcaption>
         </figure>
         <figure>
           <TableTop n={4} size={170} direction="horario" fit={false} />
@@ -326,8 +326,8 @@ export const CHAPTERS: Chapter[] = [
     ),
     body: (
       <>
-        <h4>As de Espadas · El Matador</h4>
-        <p>Si se juega <b>después</b> del ancho de bastos en la misma base, lo mata y gana. Si se juega antes, es un as cualquiera.</p>
+        <h4>Ancho de Espadas · El Matador</h4>
+        <p>Si se juega <b>después</b> del ancho de bastos en la misma base, lo mata y gana la base: ninguna carta tirada después le gana. Si se juega antes, es un as cualquiera.</p>
         <h4>As de Copas · El Girador</h4>
         <p>
           Quien lo tira elige <b>mantener</b> o <b>invertir</b> el sentido, hasta el final de la ronda (después vuelve a antihorario). La Mano sigue abriendo igual. En la mesa: dos carteles y una flecha de tiza que te muestra para dónde va.

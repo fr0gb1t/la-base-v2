@@ -12,7 +12,7 @@ export const ROWS = 40
 export interface FaceState {
   openL: number // 1 open, 0 shut
   openR: number
-  brow: number // both brows raised (as de espadas)
+  brow: number // both brows raised (ancho de espadas)
   wink: number // the right brow comes down with the wink (ancho de bastos)
   shift: number // the mouth to the right (+1) or to the left (−1)
   wide: number // stretched to both sides (figuras)
@@ -496,7 +496,7 @@ const DESIGNS: Design[] = [
       const cx = 15.5
       const cy = EYE_Y + 1
       const open = st.openL
-      // one brow over the one eye, lifting for the as de espadas, tipping for the wink
+      // one brow over the one eye, lifting for the ancho de espadas, tipping for the wink
       for (const dy of [0, 1]) p.line(cx - 8, cy - 9 - 3 * st.brow + dy, cx + 8, cy - 9 - 3 * st.brow + dy + 3 * st.wink, red)
       if (open < 0.15) p.line(cx - 8, cy, cx + 8, cy, white)
       else {
@@ -640,7 +640,7 @@ const DESIGNS: Design[] = [
       for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) p.set(x, y, red)
       EYES_X.forEach((cx) => p.ellipse(cx, EYE_Y, 6.5, 5, white, true))
       for (let y = 8; y < 25; y++) for (let x = 14; x < 18; x++) p.set(x, y, white)
-      // the swooping black brows, the lift of the as de espadas, the drop of the wink
+      // the swooping black brows, the lift of the ancho de espadas, the drop of the wink
       EYES_X.forEach((cx, i) => {
         const side = i === 0 ? -1 : 1
         const up = 3 * st.brow - (side > 0 ? 2 * st.wink : 0)

@@ -4,7 +4,7 @@
 //
 // The señas need moving parts, so every head is more than one sculpt:
 //  · the base (everything that does not move);
-//  · two brows, which lift (as de espadas) and the right one drops and tilts with the wink (ancho de bastos);
+//  · two brows, which lift (ancho de espadas) and the right one drops and tilts with the wink (ancho de bastos);
 //  · the mouth: the devil's is sculpted gestures mixed into the base (blend shapes) with its teeth as a separate
 //    piece; the rooster's is a beak in two hinged halves; the others have an upper and a lower lip, and teeth
 //    that show when they bite;
@@ -52,7 +52,7 @@ export interface HeadSpec {
   mouth: MouthKind
   mouthAt: V3 // the middle of the mouth (lips and teeth are placed there)
   mouthW: number // half width of the mouth
-  brow: number // how far the brows lift for the as de espadas
+  brow: number // how far the brows lift for the ancho de espadas
   hands: HandStyle
 }
 

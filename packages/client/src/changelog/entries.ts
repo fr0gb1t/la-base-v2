@@ -7,9 +7,10 @@ export const NOVEDADES: Novedad[] = [
   {
     id: '2026-10-05-as-espadas',
     date: '2026-10-05',
-    title: 'Arreglo: el As de espadas que mata al Ancho gana la base',
+    title: 'Arreglo: el ancho de espadas que mata al de bastos gana la base',
     items: [
-      'Cuando el As de espadas mata al Ancho de bastos, gana la base: ninguna carta jugada después le gana. Antes, una carta cualquiera tirada después (un 5, por ejemplo) se la llevaba.',
+      'Cuando el ancho de espadas mata al ancho de bastos, gana la base: ninguna carta jugada después le gana. Antes, una carta cualquiera tirada después (un 5, por ejemplo) se la llevaba.',
+      'El as de espadas ahora se llama ancho de espadas en las señas, la configuración y el reglamento, como en el truco.',
     ],
   },
   {

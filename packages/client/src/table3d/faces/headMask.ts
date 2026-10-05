@@ -103,7 +103,7 @@ export function makeHeadMask(name: HeadFace, seed: number, tint = 0): FaceRig {
     // eyes: the wink shuts the right one, nothing shuts both, and now and then they blink
     const blink = Math.sin(t * 1.7 + seed * 1.3) > 0.985 ? 1 : 0
     eyes.forEach((e) => e.shut(s === 'nada' ? k : s === 'ancho-basto' && e.s > 0 ? k : blink))
-    // brows: up for the as de espadas; the right one down and tilted for the wink
+    // brows: up for the ancho de espadas; the right one down and tilted for the wink
     for (const [key, side] of [['browR', 1], ['browL', -1]] as const) {
       const b = parts[key]
       if (!b) continue

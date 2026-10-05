@@ -26,7 +26,7 @@ function winChance(card: Card, espadasPower: boolean, players: number): number {
  * Exact chance that `card` wins a one-card round from the seat that plays after `before` others
  * (0 = the Mano). Every rival holds one random unseen card; it beats mine if it ranks higher, or
  * equal when it was played before mine (the base is read from the Mano, so the first card wins
- * ties — as Mano nothing ties against me). The As de Espadas kills an ancho played before it, and
+ * ties — as Mano nothing ties against me). The Ancho de Espadas kills an ancho played before it, and
  * the ancho loses to one played after it.
  */
 export function oneCardWinChance(card: Card, espadasPower: boolean, players: number, before: number): number {
@@ -38,7 +38,7 @@ export function oneCardWinChance(card: Card, espadasPower: boolean, players: num
   const beats = (other: Card, playedBefore: boolean) => {
     const r = cardRank(other);
     const otherIsAsEspadas = espadasPower && other.suit === 'espadas' && other.value === 1;
-    if (isAncho) return otherIsAsEspadas && !playedBefore; // an As de Espadas played after kills it
+    if (isAncho) return otherIsAsEspadas && !playedBefore; // an Ancho de Espadas played after kills it
     if (isAsEspadas && r === 13) return false; // played before me, it dies: I'm the one after it
     return r > mine || (r === mine && playedBefore);
   };

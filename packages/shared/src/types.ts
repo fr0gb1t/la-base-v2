@@ -13,7 +13,7 @@ export type Card = {
 export type GameStructure = 'clasica' | 'alternativa' | 'postpandemia' | 'custom';
 
 export type AcePowers = {
-  espadas: boolean;  // As de Espadas kills Ancho de Bastos
+  espadas: boolean;  // Ancho de Espadas kills Ancho de Bastos
   copas: boolean;    // As de Copas changes direction
   oros: boolean;     // As de Oros chooses next Mano
 };

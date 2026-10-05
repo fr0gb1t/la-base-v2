@@ -68,7 +68,7 @@ Cada número representa la cantidad de **manos** (bases) a jugar en esa ronda.
 
 ### 3. Selección de Poderes Especiales (Opcional)
 Antes de comenzar, el grupo decide si activan los poderes especiales de los ases:
-- **As de Espadas**: ☐ Activado ☐ Desactivado
+- **Ancho de Espadas**: ☐ Activado ☐ Desactivado
 - **As de Copas**: ☐ Activado ☐ Desactivado
 - **As de Oros**: ☐ Activado ☐ Desactivado
 
@@ -117,7 +117,7 @@ Las cartas se ordenan de mayor a menor valor de la siguiente manera:
 | 10 | Dos (2) de cualquier palo | 2 |
 | 11 | As (1) de cualquier palo excepto Bastos | 1 |
 
-**El Ancho de Bastos es la carta más poderosa del juego** y nunca puede ser vencido, excepto por el As de Espadas bajo condiciones específicas (ver Poderes Especiales).
+**El Ancho de Bastos es la carta más poderosa del juego** y nunca puede ser vencido, excepto por el Ancho de Espadas bajo condiciones específicas (ver Poderes Especiales).
 
 ### Resolución de Bases
 
@@ -239,35 +239,35 @@ Se cuenta cuántas bases ganó cada equipo y se aplica el sistema de puntuación
 
 Los poderes especiales de los ases se activan **solo si fueron habilitados** en la preparación. Los ases que no tienen poderes activados actúan como cartas normales (valor 1).
 
-### As de Espadas (1♠) - "El Matador"
+### Ancho de Espadas (1♠) - "El Matador"
 
 **Activación**: Power de Espadas = ON
 
-**Poder Especial**: El As de Espadas es la única carta que puede vencer al Ancho de Bastos, PERO solo bajo una condición específica.
+**Poder Especial**: El Ancho de Espadas es la única carta que puede vencer al Ancho de Bastos, PERO solo bajo una condición específica.
 
 **Regla Exacta:**
-- Si el As de Espadas se juega **DESPUÉS** del Ancho de Bastos en la misma base → **mata el Ancho y gana la base**
-- Si el As de Espadas se juega **ANTES** del Ancho de Bastos → **actúa como un As normal** (valor 1) y el Ancho gana
+- Si el Ancho de Espadas se juega **DESPUÉS** del Ancho de Bastos en la misma base → **mata el Ancho y gana la base**
+- Si el Ancho de Espadas se juega **ANTES** del Ancho de Bastos → **actúa como un As normal** (valor 1) y el Ancho gana
 
-**Ejemplo 1 (As mata Ancho):**
+**Ejemplo 1 (el de espadas mata al de bastos):**
 ```
 Base X:
 1. Player 1: Ancho de Bastos (1♣) - orden 0
-2. Player 2: As de Espadas (1♠) - orden 1  ← Se juega DESPUÉS
+2. Player 2: Ancho de Espadas (1♠) - orden 1  ← Se juega DESPUÉS
 
-Resultado: As de Espadas GANA
+Resultado: Ancho de Espadas GANA
 ```
 
 **Ejemplo 2 (Ancho es invencible):**
 ```
 Base X:
-1. Player 1: As de Espadas (1♠) - orden 0  ← Se juega PRIMERO
+1. Player 1: Ancho de Espadas (1♠) - orden 0  ← Se juega PRIMERO
 2. Player 2: Ancho de Bastos (1♣) - orden 1
 
 Resultado: Ancho de Bastos GANA
 ```
 
-**Nota**: El As de Espadas actúa como valor 1 en todas las demás comparaciones.
+**Nota**: Cuando mata al Ancho de Bastos, el Ancho de Espadas queda como la carta más fuerte de la base: ninguna carta jugada después le gana (ni un Rey ni un 5). Si no hay un Ancho de Bastos antes que él, vale 1 como cualquier as.
 
 ---
 
@@ -333,7 +333,7 @@ Ronda 4 comienza:
 
 **Nota sobre la Resolución:**
 
-Las cartas se leen siempre empezando por el Mano y siguiendo las sillas en el sentido vigente cuando se cierra la base. Si el As de Copas invirtió el sentido en esa misma base, se lee al revés de como se jugó (el Mano primero, después las demás sillas en el sentido nuevo). Esa lectura decide los empates (gana el primero leído) y el "después" del As de Espadas.
+Las cartas se leen siempre empezando por el Mano y siguiendo las sillas en el sentido vigente cuando se cierra la base. Si el As de Copas invirtió el sentido en esa misma base, se lee al revés de como se jugó (el Mano primero, después las demás sillas en el sentido nuevo). Esa lectura decide los empates (gana el primero leído) y el "después" del Ancho de Espadas.
 
 > **Ejemplo:** Jorgito (Mano) 5, Álvaro Rey, Pepe Rey, Franco As de Copas e invierte. Lectura: Jorgito, Franco, Pepe, Álvaro → gana **Pepe**.
 

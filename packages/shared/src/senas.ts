@@ -19,7 +19,7 @@ export type Sena =
   | 'no'; // shake the head: "don't ask anything for me" (weak cards, or a high one I can shed because the rivals already asked a lot)
 
 export const SENAS: ReadonlyArray<{ id: Sena; label: string; gesture: string }> = [
-  { id: 'ancho-espada', label: 'As de espadas', gesture: 'levantar las cejas' },
+  { id: 'ancho-espada', label: 'Ancho de espadas', gesture: 'levantar las cejas' },
   { id: 'ancho-basto', label: 'Ancho de bastos', gesture: 'guiñar el ojo derecho' },
   { id: 'ancho-copa', label: 'As de copas', gesture: 'labios a la derecha' },
   { id: 'ancho-oro', label: 'As de oros', gesture: 'labios a la izquierda' },
