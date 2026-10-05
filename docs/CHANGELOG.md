@@ -6,19 +6,6 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
-- **Manos que agarran las cartas de verdad:** la mano ya no sigue a la carta a unos centímetros: la sostiene, y su
-  pose sale de la de la carta (`AvatarPose.rightGrip`, `faces/index.ts` `grip()`), así la carta queda siempre
-  entre los dedos. Pose nueva `pinch` (pulgar e índice apretando el borde; su forma, buscada para que entre las
-  yemas queden 2 cm) y agarres `pinch` / `hold` / `press` calculados de la geometría de la mano
-  (`faces/heads.ts` `handGrip`); la mano cambia de forma al instante, como un títere (`setPose`). El abanico de
-  cada jugador lo sostiene su mano izquierda por la base (las cartas giran alrededor del punto pellizcado), el tuyo
-  también. La jugada (`play.ts`) es física: el pulgar del abanico empuja la carta hacia arriba, la mano la
-  pellizca, la saca, la lleva boca abajo rasante, la apoya por el borde lejano, levanta el cercano, la suelta, y la
-  carta cae sobre el borde lejano boca arriba en su lugar, rebota y se asienta. La carta se comba con su peso y con
-  el aire mientras la llevan, y vibra al soltarla y al golpear el paño (`cards.ts` `bend`, resorte amortiguado).
-  Ninguna mano baja del paño ni de las cartas apoyadas (`keepAbove`). Repartir y recoger usan la mano abierta
-  sobre la carta (`press`). Laboratorio nuevo `/manos-lab.html` (solo desarrollo): cámaras junto a cada mano, cámara
-  lenta, gestos a pedido y un control que cuenta los vértices de manos dentro de cartas o del paño.
 - **Nunca dos caras iguales en una mesa:** el avatar lleva ahora una variante de color opcional
   (`AvatarSpec.tint`, `TINT_COUNT = 6`, `avatarKey`, `freeTint`, `freeAvatar`, `untangleAvatars` en
   `shared/avatar.ts`). En el servidor (`server/src/avatarClash.ts`): un bot toma una cara que nadie usa y, si una

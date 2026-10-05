@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import { makeFace, makeHand, handStyleOf, handIdle } from './faces'
-import { CARD_H, CHAIR_R, LEAN_REACH, SHOULDER_R, SHOULDER_Y, TABLE_R, TABLE_Y, seatAngle, polar, type PlayerCount } from './seats'
+import { makeFace, makeHand, handStyleOf } from './faces'
+import { CHAIR_R, LEAN_REACH, SHOULDER_R, SHOULDER_Y, TABLE_R, TABLE_Y, seatAngle, polar, type PlayerCount } from './seats'
 import { makeCard, type CardView } from './cards'
 import { toProps } from './propsLayer'
 import { randomAvatar, type AvatarSpec, type Sena } from '@la-base/shared'
@@ -56,35 +56,17 @@ function asHand(o: THREE.Object3D) {
 export interface Avatar {
   root: THREE.Group
   seat: number
-  hand: CardView[] // face-down cards held in the left hand (identity unknown to others)
+  hand: CardView[] // face-down cards held at the chest (identity unknown to others)
   setHandCount(count: number): void
-  /** A card of the fan lifted a little out of it (a remote player fingering it), 0..1. */
-  setLift(slot: number, amount: number): void
   head: THREE.Group
   sena(s: Sena | null, amount: number): void
   // Pose in WORLD space; the avatar converts to local and solves IK.
   pose(p: AvatarPose): void
 }
 
-/** A card's frame in the world (where a hand holds a card). */
-export interface CardFrame {
-  pos: THREE.Vector3
-  quat: THREE.Quaternion
-}
-
 export interface AvatarPose {
   rightWrist?: THREE.Vector3
   leftWrist?: THREE.Vector3
-  /**
-   * The right hand holds a card: pinched by its edge (`pinch`) or pressed flat under the palm (`press`). Its pose
-   * then comes from the card's (`at`), so the card sits between its fingers; `amount` blends from where the arm
-   * would put the hand (0) to the grip (1), for reaching for a card and letting go of it.
-   */
-  rightGrip?: { at: CardFrame; amount: number; kind?: 'pinch' | 'press' }
-  /** First person: the frame of the middle card of your fan (the left hand holds it from below). */
-  leftFan?: CardFrame
-  /** How high the table is at (x, z) — the felt, or the cards lying on it; −∞ off the table. No hand goes under it. */
-  floor?: (x: number, z: number) => number
   lean: number
   headYaw: number
   headPitch: number
@@ -118,31 +100,24 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false, av
   // faces toward its owner) held in the LEFT hand, off to the side; the RIGHT hand resting on the
   // table edge until it plays. FAN_X is the avatar's left (-x; it faces -z).
   const FAN_X = -0.21
-  // The fan's frame: the middle card's, unspread. The left hand holds the cards' bottoms in its fist; each card
-  // turns about that point to spread the fan.
-  const fanBase = new THREE.Matrix4().compose(new THREE.Vector3(FAN_X, FAN_Y, -0.33), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.35, 0.25, 0, 'YXZ')), new THREE.Vector3(1, 1, 1))
-  const PIVOT = -(CARD_H / 2 - 0.012) // card space: the point pinched (the cards' bottom edge, 12 mm in)
+  // Held fan (up to 6 cards): backs toward the table.
   const hand = Array.from({ length: MAX_HAND }, () => {
     const c = makeCard()
     root.add(c.root)
     return c
   })
-  let shown = 0
-  const lift = Array(MAX_HAND).fill(0)
-  const liftTo = Array(MAX_HAND).fill(0)
   function setHandCount(count: number) {
-    shown = Math.min(count, MAX_HAND)
-    hand.forEach((c, k) => (c.root.visible = !firstPerson && k < shown))
-  }
-  /** Card k of the fan, in the fan's frame. */
-  function fanCard(k: number) {
-    const off = k - (shown - 1) / 2
-    return new THREE.Matrix4()
-      .makeTranslation(0, PIVOT, 0)
-      .multiply(new THREE.Matrix4().makeRotationZ(-off * 0.17))
-      .multiply(new THREE.Matrix4().makeTranslation(0, -PIVOT + lift[k] * 0.025, -off * 0.0004)) // (a hair apart, the stack centred between the thumb and the index)
+    const n = Math.min(count, MAX_HAND)
+    hand.forEach((c, k) => {
+      c.root.visible = !firstPerson && k < n
+      const off = k - (n - 1) / 2
+      c.root.position.set(FAN_X + off * 0.016, FAN_Y - Math.abs(off) * 0.004, -0.33 + k * 0.0015)
+      c.root.rotation.set(0.35, 0.25, off * -0.1, 'YXZ') // face toward the owner (turned a bit inward), back toward the table
+    })
   }
   setHandCount(0)
+
+  const fanHold = new THREE.Vector3(FAN_X + 0.01, FAN_Y - 0.08, -0.32) // left wrist, under the fan
   const tableRest = new THREE.Vector3(0.2, TABLE_Y + 0.03, -(CHAIR_R - (TABLE_R - 0.04))) // right wrist on the table
   const shoulderLocal = (sx: number, lean: number) => new THREE.Vector3(sx * 0.19, SHOULDER_Y - lean * 0.06, -(CHAIR_R - SHOULDER_R) - lean * LEAN_REACH)
 
@@ -161,88 +136,23 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false, av
     face.tick(t)
   }
 
-  const m4 = new THREE.Matrix4()
-  const inv = new THREE.Matrix4()
-  const tmpP = new THREE.Vector3()
-  const tmpQ = new THREE.Quaternion()
-  const tmpS = new THREE.Vector3()
-  /** Puts a hand's group where it holds the card frame `card` (root space). */
-  function holdAt(r: (typeof arms)[number], card: THREE.Matrix4, kind: 'pinch' | 'hold' | 'press') {
-    m4.copy(card).multiply(inv.copy(r.hand.grip(kind)).invert())
-    m4.decompose(tmpP, tmpQ, tmpS)
-  }
-
-  const sample = new THREE.Vector3()
-  /** Lifts a hand clear of the table (the felt and the cards on it), if any of it went under. */
-  function keepAbove(r: (typeof arms)[number], floor?: (x: number, z: number) => number) {
-    if (!floor) return
-    const smp = r.hand.samples()
-    if (!smp) return
-    r.glove.updateMatrixWorld(true)
-    let deficit = 0
-    for (const q of smp.points) {
-      sample.copy(q).applyMatrix4(smp.mesh.matrixWorld)
-      const under = floor(sample.x, sample.z) + 0.0015 - sample.y
-      if (under > deficit) deficit = under
-    }
-    if (deficit > 0) r.glove.position.y += deficit // (the root only turns about y: up is up)
-  }
-
   function pose(p: AvatarPose) {
     torso.position.z = -p.lean * LEAN_REACH
     torso.rotation.x = -p.lean * 0.32
     head.rotation.set(p.headPitch, p.headYaw, 0, 'YXZ')
-    const t = performance.now() / 1000
-    float(t)
-    root.updateWorldMatrix(true, false)
-    const toRoot = new THREE.Matrix4().copy(root.matrixWorld).invert()
-    // the fan sways with the hand that holds it (breathing, in stop-motion), the cards and the fist together
-    const sway = handIdle(firstPerson ? 0 : t, 'hold', phase)
-    const fan = fanBase.clone().multiply(new THREE.Matrix4().makeTranslation(0, PIVOT + sway.y, 0)).multiply(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(sway.rx, sway.ry, sway.rz))).multiply(new THREE.Matrix4().makeTranslation(0, -PIVOT, 0))
-    hand.forEach((c, k) => {
-      lift[k] += (liftTo[k] - lift[k]) * 0.3
-      if (k >= shown) return
-      fan.clone().multiply(fanCard(k)).decompose(c.root.position, c.root.quaternion, tmpS)
-    })
+    float(performance.now() / 1000)
     for (const r of arms) {
       const s = shoulderLocal(r.sx, p.lean)
       const wristWorld = r.sx > 0 ? p.rightWrist : p.leftWrist
-      if (r.sx < 0) {
-        // the left hand holds the fan from below: its pose is the fan's (yours: the fan in front of your camera)
-        r.hand.setPose('pinch')
-        r.hand.idle(0)
-        if (p.leftFan) holdAt(r, toRoot.clone().multiply(new THREE.Matrix4().compose(p.leftFan.pos, p.leftFan.quat, new THREE.Vector3(1, 1, 1))), 'hold')
-        else holdAt(r, fan, 'hold')
-        r.glove.position.copy(tmpP)
-        r.glove.quaternion.copy(tmpQ)
-        continue
-      }
-      const target = wristWorld ? root.worldToLocal(wristWorld.clone()) : tableRest.clone()
+      const target = wristWorld ? root.worldToLocal(wristWorld.clone()) : (r.sx > 0 ? tableRest : fanHold).clone()
       const pole = s.clone().add(new THREE.Vector3(r.sx * 0.4, -0.5, 0.1))
       const { elbow, wrist } = solveElbow(s, target, pole) // the arm is not drawn: it only aims the hand
       r.glove.position.copy(wrist)
       r.glove.lookAt(root.localToWorld(wrist.clone().add(wrist.clone().sub(elbow))))
-      const g = p.rightGrip
-      if (g && g.amount > 0) {
-        // holding a card: the hand is where the card says, blended from where the arm put it
-        const kind = g.kind ?? 'pinch'
-        holdAt(r, toRoot.clone().multiply(new THREE.Matrix4().compose(g.at.pos, g.at.quat, new THREE.Vector3(1, 1, 1))), kind)
-        r.glove.position.lerp(tmpP, g.amount)
-        r.glove.quaternion.slerp(tmpQ, g.amount)
-        r.hand.setPose(kind === 'press' ? 'rest' : g.amount > 0.6 ? 'pinch' : 'rest')
-        r.hand.idle(0)
-        keepAbove(r, p.floor)
-        continue
-      }
-      r.hand.setPose('rest')
       // waiting, a hand breathes and drums; while it plays (the table moves its wrist) it keeps still
       if (wristWorld) r.hand.idle(0)
-      else r.hand.idle(t)
-      keepAbove(r, p.floor)
+      else r.hand.idle(performance.now() / 1000)
     }
   }
-  function setLift(slot: number, amount: number) {
-    if (slot >= 0 && slot < MAX_HAND) liftTo[slot] = amount
-  }
-  return { root, seat, hand, setHandCount, setLift, head, sena, pose }
+  return { root, seat, hand, setHandCount, head, sena, pose }
 }
