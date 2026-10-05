@@ -6,6 +6,13 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Música: una milonga en la radio del sótano** (`table3d/music.ts`), hecha en el momento con Web Audio, sin
+  grabaciones: bandoneón (dos lengüetas por nota, en octava y un poco desafinadas, con el fuelle que respira),
+  contrabajo en pizzicato sobre el 3-3-2 de la milonga, frases de melodía en re menor armónico y silencios; frases de
+  ocho compases elegidas al azar (re menor, a 72 bpm), con marcato, legato o el bajo solo. Todo pasa por «la radio»:
+  banda angosta, saturación de válvula, crujido de disco y una leve desafinación de cinta. Ajuste nuevo `music`
+  (prendido por defecto), en su propio bus; el zumbido de la lámpara se fue y «Sonido ambiente» queda para su
+  chisporroteo. `renderMusic(segundos)` la graba offline para escucharla fuera del juego.
 - **El As de espadas que mata al Ancho gana la base:** `resolveBase` (`shared/card.ts`) comparaba de a pares la carta
   que iba ganando con la siguiente; el As de espadas le ganaba al Ancho, pero después volvía a pesar como un as
   común y cualquier carta leída después (un 5) le ganaba. Ahora, leído después de un Ancho, el As lo mata y queda

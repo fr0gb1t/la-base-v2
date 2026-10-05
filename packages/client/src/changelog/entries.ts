@@ -5,6 +5,15 @@ import type { Novedad } from './novedades';
 export const NOVEDADES: Novedad[] = [
   // ------------------------------------------------------------------ 5 de octubre
   {
+    id: '2026-10-05-musica',
+    date: '2026-10-05',
+    title: 'Música en el sótano',
+    items: [
+      'Suena una milonga vieja en una radio del sótano: bandoneón, contrabajo y el crujido del disco. Nunca suena igual dos veces.',
+      'Se apaga en Ajustes → Sonido → Música. El zumbido de la lámpara ya no está; «Sonido ambiente» ahora es solo su chisporroteo cuando titila.',
+    ],
+  },
+  {
     id: '2026-10-05-as-espadas',
     date: '2026-10-05',
     title: 'Arreglo: el ancho de espadas que mata al de bastos gana la base',

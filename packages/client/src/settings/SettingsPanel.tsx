@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare, GiMouse, GiEyeTarget, GiCompass, GiLightBulb } from 'react-icons/gi';
+import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare, GiMouse, GiEyeTarget, GiCompass, GiLightBulb, GiAccordion } from 'react-icons/gi';
 import { getViewSettings, onViewSettings, setViewSettings, orderedSenas, SENS_MIN, SENS_MAX, FOV_MIN, FOV_MAX, BLOOM_MAX, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
 import { previewSound, audioReady, uiSound } from '../table3d/audio';
@@ -153,6 +153,21 @@ export function SettingsHost() {
           <button
             type="button"
             role="switch"
+            aria-checked={s.music}
+            className={`setting-row ${s.music ? 'on' : ''}`}
+            onClick={() => setAudioSettings({ music: !s.music })}
+          >
+            <GiAccordion aria-hidden className="setting-icon" />
+            <span className="setting-text">
+              <b>Música</b>
+              <small>una milonga vieja en la radio del sótano</small>
+            </span>
+            <span className="setting-state">{s.music ? 'sí' : 'no'}</span>
+          </button>
+
+          <button
+            type="button"
+            role="switch"
             aria-checked={s.ambient}
             className={`setting-row ${s.ambient ? 'on' : ''}`}
             onClick={() => setAudioSettings({ ambient: !s.ambient })}
@@ -160,7 +175,7 @@ export function SettingsHost() {
             <GiCandleLight aria-hidden className="setting-icon" />
             <span className="setting-text">
               <b>Sonido ambiente</b>
-              <small>el zumbido de la lámpara, el cuarto</small>
+              <small>la lámpara que chisporrotea cuando titila</small>
             </span>
             <span className="setting-state">{s.ambient ? 'sí' : 'no'}</span>
           </button>

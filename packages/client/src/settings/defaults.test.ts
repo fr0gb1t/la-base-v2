@@ -4,8 +4,9 @@ import { getAudioSettings } from './audioSettings'
 
 // What a new player starts with on a computer (the test runs without a touch screen or saved settings).
 describe('default settings (desktop)', () => {
-  it('sound: the game\'s sounds on, the room tone off', () => {
+  it('sound: the game\'s sounds and the music on, the room\'s noises off', () => {
     expect(getAudioSettings().effects).toBe(true)
+    expect(getAudioSettings().music).toBe(true)
     expect(getAudioSettings().ambient).toBe(false)
   })
 

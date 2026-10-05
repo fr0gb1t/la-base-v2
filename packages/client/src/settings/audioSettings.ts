@@ -3,13 +3,14 @@ import { isTouch } from '../lib/device'
 
 export interface AudioSettings {
   volume: number // 0..1 master
-  ambient: boolean // room tone: lamp hum and crackle
+  ambient: boolean // the room: the lamp's crackle when it flickers
+  music: boolean // the old milonga on the radio (table3d/music.ts)
   effects: boolean // cards, table, knocks
 }
 
 const KEY = 'laBase.audio'
-// desktop starts with the game's sounds but without the room tone; phones keep both
-const DEFAULTS: AudioSettings = { volume: 0.8, ambient: isTouch, effects: true }
+// desktop starts with the game's sounds and the music but without the room's noises; phones get them all
+const DEFAULTS: AudioSettings = { volume: 0.8, ambient: isTouch, effects: true, music: true }
 
 function load(): AudioSettings {
   try {
@@ -19,6 +20,7 @@ function load(): AudioSettings {
       volume,
       ambient: typeof raw.ambient === 'boolean' ? raw.ambient : DEFAULTS.ambient,
       effects: typeof raw.effects === 'boolean' ? raw.effects : DEFAULTS.effects,
+      music: typeof raw.music === 'boolean' ? raw.music : DEFAULTS.music,
     }
   } catch {
     return { ...DEFAULTS }

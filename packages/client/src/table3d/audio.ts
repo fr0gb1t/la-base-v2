@@ -1,9 +1,10 @@
 import * as THREE from 'three'
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from '../settings/audioSettings'
+import { makeMusic } from './music'
 
 // Sound design: real card recordings (Kenney "Casino Audio", CC0) placed in 3D (HRTF) inside a small
-// wooden room (short convolution reverb). No noise beds: the room is almost silent, only the lamp
-// hums very low and crackles when it flickers. Silence is part of the tension.
+// wooden room (short convolution reverb). No noise beds: an old milonga plays low on a radio in the corner
+// (music.ts) and the lamp crackles when it flickers. Silence is part of the tension.
 export type Sfx = 'pick' | 'slide' | 'place' | 'flip' | 'toss' | 'toHand' | 'shuffle' | 'knock'
 
 const FILES: Record<Exclude<Sfx, 'knock'>, string[]> = {
@@ -32,10 +33,12 @@ let graphReady = false
 let ctx: AudioContext
 let master: GainNode
 let wet: GainNode
-let hum: GainNode
+let musicBus: GainNode // the radio
+let music: ReturnType<typeof makeMusic> | null = null
 let sfxBus: GainNode // cards, table, knocks (dry + reverb send)
-let ambBus: GainNode // lamp hum and crackle
+let ambBus: GainNode // the lamp's crackle
 const MASTER = 0.9
+const MUSIC = 0.55 // the radio sits under the cards and the table, never over them
 const buffers = new Map<string, AudioBuffer>()
 
 // Small room with wood: 0.45 s decaying, darkened impulse (stereo, decorrelated).
@@ -169,27 +172,11 @@ async function buildGraph() {
   wet.gain.value = 0.22
   wet.connect(verb).connect(sfxBus)
 
-  // Lamp hum: two low partials through a low-pass, barely audible, breathing slowly.
-  hum = ctx.createGain()
-  hum.gain.value = 0.012
-  const lp = ctx.createBiquadFilter()
-  lp.type = 'lowpass'
-  lp.frequency.value = 220
-  for (const [f, g] of [[100, 1], [200, 0.35]] as const) {
-    const o = ctx.createOscillator()
-    o.frequency.value = f
-    const og = ctx.createGain()
-    og.gain.value = g
-    o.connect(og).connect(lp)
-    o.start()
-  }
-  const lfo = ctx.createOscillator()
-  lfo.frequency.value = 0.07
-  const lfoGain = ctx.createGain()
-  lfoGain.gain.value = 0.004
-  lfo.connect(lfoGain).connect(hum.gain)
-  lfo.start()
-  lp.connect(hum).connect(ambBus)
+  // the music: an old milonga on the radio (no more lamp hum under it)
+  musicBus = ctx.createGain()
+  musicBus.gain.value = 0
+  musicBus.connect(master)
+  music = makeMusic(ctx, musicBus)
   applySettings(getAudioSettings())
   onAudioSettings(applySettings)
   graphReady = true // buffers keep loading; a sound whose buffer isn't there yet is skipped
@@ -301,13 +288,17 @@ function applySettings(st: AudioSettings) {
   master.gain.setTargetAtTime(MASTER * st.volume * st.volume, t, 0.05) // perceptual (squared) curve
   sfxBus.gain.setTargetAtTime(st.effects ? 1 : 0, t, 0.05)
   ambBus.gain.setTargetAtTime(st.ambient ? 1 : 0, t, 0.05)
+  // the radio fades in and out; it only plays (schedules notes) while it is wanted
+  musicBus.gain.setTargetAtTime(st.music ? MUSIC : 0, t, st.music ? 0.8 : 0.25)
+  if (st.music) music?.start()
+  else window.setTimeout(() => !getAudioSettings().music && music?.stop(), 1500)
 }
 
 /** Mutes/unmutes everything (keyboard M); the settings menu controls each bus. */
 export function toggleMute() {
   const st = getAudioSettings()
-  const on = st.effects || st.ambient
-  setAudioSettings({ effects: !on, ambient: !on })
+  const on = st.effects || st.ambient || st.music
+  setAudioSettings({ effects: !on, ambient: !on, music: !on })
   return on
 }
 
