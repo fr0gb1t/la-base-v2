@@ -54,7 +54,12 @@ const FLAT_UP = -Math.PI / 2 // rx of a card lying face-up (fallen over its far 
 /** The card's frame: rx about its width, in its player's frame (yaw), plus a little roll. */
 const frameQuat = (rx: number, yaw: number, roll = 0) => new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, yaw, roll, 'YXZ'))
 
-export function playPose(seat: number, n: PlayerCount, baza: number, t: number, hold?: Frame): PlayPose {
+/**
+ * `firstPerson`: your own play, seen from your eyes. Your fan is right in front of your camera, so the card does not
+ * rise out of it (it would cover the view) but drops straight out toward the table, and your hand takes it only
+ * once it is clear of your face.
+ */
+export function playPose(seat: number, n: PlayerCount, baza: number, t: number, hold?: Frame, firstPerson = false): PlayPose {
   const a = seatAngle(seat, n)
   const yaw = Math.PI / 2 - a
   const out = new THREE.Vector3(Math.cos(a), 0, Math.sin(a))
@@ -68,17 +73,19 @@ export function playPose(seat: number, n: PlayerCount, baza: number, t: number, 
   const hover = down.clone().setY(y0 + 0.028)
   // out of the fan: along the card's own length, half a card
   const up = new THREE.Vector3(0, 1, 0).applyQuaternion(holdF.quat)
-  const pulled = holdF.pos.clone().addScaledVector(up, CARD_H * 0.55)
+  // the fan's thumb pushes the card up out of the others first, so the fingers pinch it clear of its neighbours
+  const presented = firstPerson ? holdF.pos.clone() : holdF.pos.clone().addScaledVector(up, CARD_H * 0.3)
+  const pulled = firstPerson ? holdF.pos.clone().add(new THREE.Vector3(0, -0.05, 0)) : holdF.pos.clone().addScaledVector(up, CARD_H * 0.6)
   const edge = polar(TABLE_R - 0.02, a, TABLE_Y + 0.08)
 
   let pos: THREE.Vector3
   let quat: THREE.Quaternion
   if (t < PHASES.extract[0]) {
-    pos = holdF.pos.clone()
+    pos = holdF.pos.clone().lerp(presented, ease(span(t, [0, PHASES.reach[1] * 0.7])))
     quat = holdF.quat.clone()
   } else if (t < PHASES.carry[0]) {
     const u = ease(span(t, PHASES.extract))
-    pos = holdF.pos.clone().lerp(pulled, u)
+    pos = presented.clone().lerp(pulled, u)
     quat = holdF.quat.clone()
   } else if (t < PHASES.set[0]) {
     const u = span(t, PHASES.carry)
@@ -118,8 +125,12 @@ export function playPose(seat: number, n: PlayerCount, baza: number, t: number, 
   let gripAt: Frame
   let wrist: THREE.Vector3 | undefined
   const rest = polar(TABLE_R - 0.04, a, TABLE_Y + 0.03)
-  if (t < PHASES.reach[1]) {
-    grip = ease(span(t, PHASES.reach))
+  if (firstPerson && t < PHASES.carry[0] + 0.25) {
+    grip = ease(span(t, [PHASES.carry[0], PHASES.carry[0] + 0.25]))
+    gripAt = { pos: pos.clone(), quat: quat.clone() }
+    wrist = pos.clone().add(new THREE.Vector3(0, 0.06, 0))
+  } else if (t < PHASES.reach[1]) {
+    grip = ease(span(t, [PHASES.reach[1] * 0.35, PHASES.reach[1]])) // (the card is on its way up when the fingers close)
     gripAt = { pos: pos.clone(), quat: quat.clone() }
     wrist = holdF.pos.clone().addScaledVector(up, CARD_H * 0.6)
   } else if (t < PHASES.fall[0]) {
@@ -127,7 +138,7 @@ export function playPose(seat: number, n: PlayerCount, baza: number, t: number, 
     gripAt = { pos: pos.clone(), quat: quat.clone() }
   } else {
     // let go at the top of the lift: the hand stays a beat where it opened, then goes back to rest
-    const at = playPose(seat, n, baza, PHASES.fall[0] - 1e-4, hold)
+    const at = playPose(seat, n, baza, PHASES.fall[0] - 1e-4, hold, firstPerson)
     gripAt = at.gripAt
     const u = span(t, PHASES.retract)
     grip = 1 - ease(Math.min(1, u * 1.8))

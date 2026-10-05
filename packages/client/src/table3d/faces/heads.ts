@@ -500,9 +500,14 @@ export function handGrip(s: 1 | -1, pose: 'pinch' | 'hold' | 'press', st: HandSt
     return { at, normal, along, across }
   }
   if (pose === 'press') {
-    // the open hand flat on a card lying face down (on top of a stack), pulling or pushing it: the card under the
-    // palm and the fingers, its length along them
-    return { at: [0, -0.02, -0.07], normal: [0, -1, 0], along: [0, 0, -1], across: [s, 0, 0] }
+    // the open hand on a card lying face down (on top of a stack), pulling or pushing it: the tips of its curled
+    // fingers on the card (the lowest of the open hand, see `rest`), the palm clear above it, its length along them
+    const c = HAND_CURL.rest.curl
+    const tips = [0, 1, 2, 3].map((i) => fingerChain(i, c[i], s, st.thin ?? 1).pts[3])
+    const thumb = thumbChain(s, st.thin ?? 1, HAND_CURL.rest.thumb)[3]
+    const low = Math.min(...tips.map((p) => p[1] - 0.0082), thumb[1] - 0.0092) // (a tip's radius below its centre line)
+    const zTip = tips.reduce((a, p) => a + p[2], 0) / 4
+    return { at: [0, low - 0.0006, zTip + 0.02], normal: [0, -1, 0], along: [0, 0, -1], across: [s, 0, 0] }
   }
   // a fan is held the same way, by the middle of its cards' bottoms (the thumb on the faces, the fingers behind):
   // every card turns about that point

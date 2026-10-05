@@ -3,6 +3,18 @@ import type { Novedad } from './novedades';
 // Newest first (by date, and within a day the latest goes on top). Write for players, not for us: what
 // changed at the table, in a few short lines. The technical history is docs/CHANGELOG.md.
 export const NOVEDADES: Novedad[] = [
+  // ------------------------------------------------------------------ 5 de octubre
+  {
+    id: '2026-10-05-manos',
+    date: '2026-10-05',
+    title: 'Manos que agarran las cartas',
+    items: [
+      'Las manos sostienen las cartas de verdad, entre el pulgar y el índice: ya no las atraviesan.',
+      'Cada uno tiene su abanico agarrado de la base con la mano izquierda, y vos también.',
+      'Jugar una carta es un gesto entero: la sacás del abanico, la llevás boca abajo, la apoyás, levantás el borde y cae boca arriba en su lugar, con un rebote.',
+      'Las cartas se doblan un poco con su peso mientras las llevan y tiemblan al caer sobre el paño.',
+    ],
+  },
   // ------------------------------------------------------------------ 4 de octubre
   {
     id: '2026-10-04-caras-unicas',

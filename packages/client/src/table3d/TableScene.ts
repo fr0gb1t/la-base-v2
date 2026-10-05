@@ -757,6 +757,50 @@ export class TableScene {
   private holdCard(s: number, view: CardView, amount: number, kind: 'pinch' | 'press' = 'pinch') {
     if (amount <= 0) return
     this.poses[s].rightGrip = { at: { pos: view.root.position.clone(), quat: view.root.quaternion.clone() }, amount: Math.min(1, amount), kind }
+    if (kind === 'pinch' && amount > 0.6) this.flexOf(view).held = true
+  }
+
+  // ---- cards bend: held by an edge, a card sags under its own weight and the air pushes its free end back as it
+  // moves; let go (or slapped down on the felt), it springs back and quivers. Each one is a damped spring.
+  private flex = new Map<CardView, { b: number; v: number; held: boolean; last: THREE.Vector3 | null }>()
+  private flexOf(view: CardView) {
+    let f = this.flex.get(view)
+    if (!f) this.flex.set(view, (f = { b: 0, v: 0, held: false, last: null }))
+    return f
+  }
+  /** A knock to a card's bend (m/s at its free end): it lands, it is let go. */
+  private flexKick(view: CardView, speed: number) {
+    this.flexOf(view).v += speed
+  }
+  private updateFlex(dt: number) {
+    const h = Math.min(dt, 1 / 30)
+    for (const [view, f] of this.flex) {
+      const z = new THREE.Vector3(0, 0, 1).applyQuaternion(view.root.quaternion) // the face's normal
+      const p = view.root.position
+      let target = 0
+      if (f.held) {
+        // weight: the free end droops downward (along the normal, as much as the card lies flat); air: it trails
+        target = -0.009 * z.y
+        if (f.last && h > 0) target -= THREE.MathUtils.clamp(p.clone().sub(f.last).divideScalar(h).dot(z) * 0.012, -0.008, 0.008)
+      }
+      f.last = f.held ? p.clone() : null
+      // a stiff, lightly damped spring (cardboard): ~6 quivers a second, gone in about half a second
+      const k = 1400
+      const c = 2 * Math.sqrt(k) * 0.12
+      f.v += (-k * (f.b - target) - c * f.v) * h
+      f.b += f.v * h
+      // lying on the felt, the free end can lift but not go into it: it bounces off
+      if (p.y < TABLE_Y + 0.012 && f.b * z.y < 0) {
+        f.b = 0
+        f.v = -f.v * 0.3
+      }
+      view.bend(f.b)
+      f.held = false // (held again next frame if the hand still has it)
+      if (!target && Math.abs(f.b) < 2e-4 && Math.abs(f.v) < 2e-3) {
+        view.bend(0)
+        this.flex.delete(view)
+      }
+    }
   }
 
   /** Where slot `slot` of a fan of `c` cards sits (camera space). */
@@ -880,7 +924,7 @@ export class TableScene {
       stepped: s !== 0,
       update: (_u, t) => {
         const pt = o.map(t)
-        const pose = playPose(s, this.n, 0, pt, hold)
+        const pose = playPose(s, this.n, 0, pt, hold, s === 0)
         const b = ease(seg(t, 0, o.blend ?? 0.3))
         view.root.position.copy(start.pos).lerp(pose.cardPos, b)
         view.root.quaternion.copy(start.quat).slerp(pose.cardRot, b)
@@ -901,7 +945,12 @@ export class TableScene {
         if (crossed(PHASES.extract[0])) sfx('pick', at)
         if (crossed(0.7)) sfx('slide', at, 0.8)
         if (o.reveal && crossed(PHASES.set[0] + 0.02)) sfx('place', at)
-        if (o.reveal && crossed(PHASES.settle[0])) sfx('flip', at)
+        if (o.reveal && crossed(PHASES.settle[0])) {
+          sfx('flip', at)
+          this.flexKick(view, 0.2) // slapped flat on the felt (face up): its end jumps and quivers
+        }
+        if (crossed(PHASES.fall[0])) this.flexKick(view, 0.12) // let go: the bend springs back
+        if (pt >= PHASES.settle[0]) this.laidViews.add(view) // on the felt: the hand going back keeps above it
         lastPt = pt
       },
     })
@@ -1318,11 +1367,14 @@ export class TableScene {
           sfx('pick', arm.from.pos, 0.6)
         }
         const pose = this.remoteDragPose(s, slot, arm.fwd, arm.lat)
-        const b = ease(THREE.MathUtils.clamp((t - arm.t0) / 0.2, 0, 1))
-        arm.view.root.position.copy(arm.from!.pos).lerp(pose.pos, b)
+        // first up out of the fan along its own length (not sideways through the fingers that hold it), then away
+        const up = arm.from!.pos.clone().addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(arm.from!.quat), CARD_H * 0.45)
+        const a = ease(THREE.MathUtils.clamp((t - arm.t0) / 0.15, 0, 1))
+        const b = ease(THREE.MathUtils.clamp((t - arm.t0 - 0.1) / 0.25, 0, 1))
+        arm.view.root.position.copy(arm.from!.pos).lerp(up, a).lerp(pose.pos, b)
         arm.view.root.quaternion.copy(arm.from!.quat).slerp(pose.quat, b)
         this.poses[s].rightWrist = arm.view.root.position.clone().addScaledVector(this.outOf(s), 0.1).add(new THREE.Vector3(0, 0.06, 0))
-        this.holdCard(s, arm.view, ease(THREE.MathUtils.clamp((t - arm.t0) / 0.2, 0, 1)))
+        this.holdCard(s, arm.view, ease(THREE.MathUtils.clamp((t - arm.t0) / 0.22, 0, 1)))
         this.poses[s].lean = THREE.MathUtils.clamp(arm.fwd / REACH_FWD, 0, 1) * 0.9
         this.focus = arm.view.root.position
       } else if (arm.view) {
@@ -2027,6 +2079,7 @@ export class TableScene {
     this.updatePending()
     this.updateDrag()
     this.updateRemoteArms()
+    this.updateFlex(dt)
     if (this.lamp.update(time)) lampBuzz(new THREE.Vector3(0, 1.67, 0))
     // the deck glows and breathes when it's your turn to draw from it
     for (const m of this.centerDeck.material as THREE.MeshStandardMaterial[]) {
