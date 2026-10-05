@@ -6,6 +6,11 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **El As de espadas que mata al Ancho gana la base:** `resolveBase` (`shared/card.ts`) comparaba de a pares la carta
+  que iba ganando con la siguiente; el As de espadas le ganaba al Ancho, pero después volvía a pesar como un as
+  común y cualquier carta leída después (un 5) le ganaba. Ahora, leído después de un Ancho, el As lo mata y queda
+  como la carta más fuerte de la base (por encima del Ancho); leído antes, sigue siendo un as. Vale para quién gana
+  en el servidor, la carta que flota como «la que va ganando» y las decisiones de los bots. Tests en `card.test.ts`.
 - **Caras de repuesto que no se repiten, y manos sin tamborileo:** si la cara de un jugador no llega a la pantalla (un
   servidor viejo, por ejemplo), la mesa y la sala le ponían una de repuesto por asiento que se repetía (los asientos
   1 y 2 salían los dos con Purga). Ahora `table3d/tableFaces.ts` (`tableFaces`) le da a cada uno que falte una cara

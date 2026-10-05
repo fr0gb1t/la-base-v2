@@ -230,6 +230,46 @@ describe('Base Resolution', () => {
   });
 });
 
+describe('As de Espadas after the Ancho de Bastos', () => {
+  const powers: AcePowers = { espadas: true, copas: false, oros: false };
+  const P = (playerId: string, suit: PlayedCard['card']['suit'], value: PlayedCard['card']['value'], order: number): PlayedCard => ({ playerId, card: { suit, value }, order });
+
+  test('once it kills the Ancho it wins the base: a card played after it does not beat it (the 5 de copas)', () => {
+    const played = [P('beto', 'bastos', 1, 0), P('ana', 'espadas', 1, 1), P('vos', 'copas', 5, 2)];
+    assert.equal(resolveBase(played, powers, 'antihorario', []).playerId, 'ana');
+  });
+
+  test('not even a Rey played after it, or before it, beats it', () => {
+    assert.equal(resolveBase([P('a', 'bastos', 1, 0), P('b', 'espadas', 1, 1), P('c', 'oros', 12, 2)], powers, 'antihorario', []).playerId, 'b');
+    assert.equal(resolveBase([P('c', 'oros', 12, 0), P('a', 'bastos', 1, 1), P('b', 'espadas', 1, 2)], powers, 'antihorario', []).playerId, 'b');
+  });
+
+  test('it need not come right after the Ancho', () => {
+    const played = [P('a', 'bastos', 1, 0), P('c', 'copas', 7, 1), P('b', 'espadas', 1, 2), P('d', 'oros', 11, 3)];
+    assert.equal(resolveBase(played, powers, 'antihorario', []).playerId, 'b');
+  });
+
+  test('read before the Ancho it is just an ace, and the Ancho wins', () => {
+    const played = [P('b', 'espadas', 1, 0), P('a', 'bastos', 1, 1), P('c', 'copas', 5, 2)];
+    assert.equal(resolveBase(played, powers, 'antihorario', []).playerId, 'a');
+  });
+
+  test('with no Ancho on the table it is just an ace', () => {
+    const played = [P('b', 'espadas', 1, 0), P('c', 'copas', 5, 1)];
+    assert.equal(resolveBase(played, powers, 'antihorario', []).playerId, 'c');
+  });
+
+  test('without the power, the Ancho wins and a 5 played after does not change it', () => {
+    const played = [P('a', 'bastos', 1, 0), P('b', 'espadas', 1, 1), P('c', 'copas', 5, 2)];
+    assert.equal(resolveBase(played, { espadas: false, copas: false, oros: false }, 'antihorario', []).playerId, 'a');
+  });
+
+  test('two decks (8 players): the As after an Ancho kills it; one before stays an ace', () => {
+    const played = [P('x', 'espadas', 1, 0), P('a', 'bastos', 1, 1), P('b', 'espadas', 1, 2), P('c', 'oros', 12, 3)];
+    assert.equal(resolveBase(played, powers, 'antihorario', []).playerId, 'b');
+  });
+});
+
 describe('Utility Functions', () => {
   test('isAnchodeBastos correctly identifies Ancho de Bastos', () => {
     assert.ok(isAnchodeBastos({ suit: 'bastos', value: 1 }));

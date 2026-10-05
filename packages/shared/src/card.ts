@@ -89,7 +89,9 @@ export function readingOrder(
 
 /**
  * Resolve a base (trick) and determine the winning card.
- * Ties, and the As de Espadas "after the Ancho" rule, follow the reading order.
+ * Ties, and the As de Espadas "after the Ancho" rule, follow the reading order. An As de Espadas read after an
+ * Ancho de Bastos kills it and takes its place: it is then the strongest card of the base, and nothing read after
+ * it beats it (not a Rey, not a 5). Read before any Ancho, it is just an ace.
  */
 export function resolveBase(
   playedCards: PlayedCard[],
@@ -103,12 +105,17 @@ export function resolveBase(
 
   const reading = readingOrder(playedCards, playDirection, seatIds).map((c, i) => ({ ...c, order: i }));
 
-  let winner = reading[0];
+  const isAncho = (c: Card) => c.suit === 'bastos' && c.value === 1;
+  const killsAncho = (i: number) =>
+    acePowers.espadas && reading[i].card.suit === 'espadas' && reading[i].card.value === 1 && reading.slice(0, i).some((c) => isAncho(c.card));
+  const strength = (i: number) => (killsAncho(i) ? 14 : cardRank(reading[i].card)); // (14: above the Ancho it killed)
+
+  // the strongest wins; between equals, the one read first
+  let best = 0;
   for (let i = 1; i < reading.length; i++) {
-    if (!compareCards(winner, reading[i], acePowers)) {
-      winner = reading[i];
-    }
+    if (strength(i) > strength(best)) best = i;
   }
+  const winner = reading[best];
 
   return playedCards.find((c) => c.playerId === winner.playerId)!;
 }

@@ -5,6 +5,14 @@ import type { Novedad } from './novedades';
 export const NOVEDADES: Novedad[] = [
   // ------------------------------------------------------------------ 5 de octubre
   {
+    id: '2026-10-05-as-espadas',
+    date: '2026-10-05',
+    title: 'Arreglo: el As de espadas que mata al Ancho gana la base',
+    items: [
+      'Cuando el As de espadas mata al Ancho de bastos, gana la base: ninguna carta jugada después le gana. Antes, una carta cualquiera tirada después (un 5, por ejemplo) se la llevaba.',
+    ],
+  },
+  {
     id: '2026-10-05-arreglos-caras-manos',
     date: '2026-10-05',
     title: 'Arreglos: caras repetidas y manos inquietas',
