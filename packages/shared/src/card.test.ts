@@ -4,7 +4,7 @@
 
 import { describe, it, test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { cardRank, compareCards, resolveBase, isAnchodeBastos } from './card.js';
+import { cardRank, compareCards, readingOrder, resolveBase, isAnchodeBastos } from './card.js';
 import type { Card, PlayedCard, AcePowers } from './types.js';
 
 describe('Card Hierarchy', () => {
@@ -267,6 +267,67 @@ describe('As de Espadas after the Ancho de Bastos', () => {
   test('two decks (8 players): the As after an Ancho kills it; one before stays an ace', () => {
     const played = [P('x', 'espadas', 1, 0), P('a', 'bastos', 1, 1), P('b', 'espadas', 1, 2), P('c', 'oros', 12, 3)];
     assert.equal(resolveBase(played, powers, 'antihorario', []).playerId, 'b');
+  });
+});
+
+describe('Ancho de Espadas when the As de Copas reverses the base (6 players)', () => {
+  // The table, in seat order (index +1 = horario, −1 = antihorario). The base is played antihorario from the Mano:
+  // Jorgito (N), Álvaro (E), Pepe (N), Franco (E), Irma (N), Dulcinea (E).
+  const seats = ['jorgito', 'dulcinea', 'irma', 'franco', 'pepe', 'alvaro'];
+  const team: Record<string, 'nosotros' | 'ellos'> = { jorgito: 'nosotros', alvaro: 'ellos', pepe: 'nosotros', franco: 'ellos', irma: 'nosotros', dulcinea: 'ellos' };
+  const powers: AcePowers = { espadas: true, copas: true, oros: true };
+  const P = (playerId: string, suit: PlayedCard['card']['suit'], value: PlayedCard['card']['value'], order: number): PlayedCard => ({ playerId, card: { suit, value }, order });
+
+  test('example 1: the de bastos kills the Rey, Irma reverses, and the de espadas ends up read after it: Pepe wins', () => {
+    const played = [
+      P('jorgito', 'oros', 12, 0), // Rey
+      P('alvaro', 'copas', 7, 1),
+      P('pepe', 'espadas', 1, 2), // ancho de espadas
+      P('franco', 'bastos', 1, 3), // ancho de bastos
+      P('irma', 'copas', 1, 4), // as de copas: invierte
+      P('dulcinea', 'oros', 10, 5),
+    ];
+    // read from the Mano the new way: Rey, 10, as de copas, ancho de bastos, ancho de espadas, 7
+    assert.deepEqual(
+      readingOrder(played, 'horario', seats).map((c) => c.playerId),
+      ['jorgito', 'dulcinea', 'irma', 'franco', 'pepe', 'alvaro'],
+    );
+    const winner = resolveBase(played, powers, 'horario', seats);
+    assert.equal(winner.playerId, 'pepe');
+    assert.equal(team[winner.playerId], 'nosotros');
+  });
+
+  test('example 1 without the reversal: the de espadas came before the de bastos, so Franco’s de bastos wins', () => {
+    const played = [P('jorgito', 'oros', 12, 0), P('alvaro', 'copas', 7, 1), P('pepe', 'espadas', 1, 2), P('franco', 'bastos', 1, 3), P('irma', 'copas', 1, 4), P('dulcinea', 'oros', 10, 5)];
+    const winner = resolveBase(played, powers, 'antihorario', seats);
+    assert.equal(winner.playerId, 'franco');
+    assert.equal(team[winner.playerId], 'ellos');
+  });
+
+  test('example 2: «nosotros» is stuck with the de bastos in a base nobody wants; reversing makes the rivals’ de espadas kill it', () => {
+    const played = [
+      P('jorgito', 'oros', 2, 0), // nosotros: 2
+      P('alvaro', 'espadas', 1, 1), // ellos: ancho de espadas
+      P('pepe', 'bastos', 1, 2), // nosotros: ancho de bastos
+      P('franco', 'oros', 1, 3), // ellos: as de oros
+      P('irma', 'copas', 1, 4), // nosotros: as de copas, invierte
+      P('dulcinea', 'copas', 2, 5), // ellos: 2
+    ];
+    // read the new way: 2, 2, as de copas, as de oros, ancho de bastos, ancho de espadas
+    assert.deepEqual(
+      readingOrder(played, 'horario', seats).map((c) => c.playerId),
+      ['jorgito', 'dulcinea', 'irma', 'franco', 'pepe', 'alvaro'],
+    );
+    const winner = resolveBase(played, powers, 'horario', seats);
+    assert.equal(winner.playerId, 'alvaro');
+    assert.equal(team[winner.playerId], 'ellos'); // the base (and the overshoot) goes to the rivals
+  });
+
+  test('example 2 without the reversal: the de espadas was played before the de bastos, and «nosotros» takes the base', () => {
+    const played = [P('jorgito', 'oros', 2, 0), P('alvaro', 'espadas', 1, 1), P('pepe', 'bastos', 1, 2), P('franco', 'oros', 1, 3), P('irma', 'copas', 1, 4), P('dulcinea', 'copas', 2, 5)];
+    const winner = resolveBase(played, powers, 'antihorario', seats);
+    assert.equal(winner.playerId, 'pepe');
+    assert.equal(team[winner.playerId], 'nosotros');
   });
 });
 
