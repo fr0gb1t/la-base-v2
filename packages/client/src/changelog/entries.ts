@@ -3,6 +3,16 @@ import type { Novedad } from './novedades';
 // Newest first (by date, and within a day the latest goes on top). Write for players, not for us: what
 // changed at the table, in a few short lines. The technical history is docs/CHANGELOG.md.
 export const NOVEDADES: Novedad[] = [
+  // ------------------------------------------------------------------ 5 de octubre
+  {
+    id: '2026-10-05-arreglos-caras-manos',
+    date: '2026-10-05',
+    title: 'Arreglos: caras repetidas y manos inquietas',
+    items: [
+      'Si la cara de algún jugador no llega a tu pantalla, la mesa le pone una que nadie más tiene: ya no aparecen dos iguales.',
+      'Las manos ya no tamborilean sobre la mesa mientras esperan: solo respiran.',
+    ],
+  },
   // ------------------------------------------------------------------ 4 de octubre
   {
     id: '2026-10-04-caras-unicas',

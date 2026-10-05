@@ -7,7 +7,7 @@ import { buildLamp, buildRoom } from '../table3d/table'
 import { TABLE_Y, TABLE_R, CHAIR_R, CARD_H, CARD_W, seatAngle, polar } from '../table3d/seats'
 import { NameTag, TAG_Y, TAG_R_OFFSET } from '../table3d/nameTags'
 import { getViewSettings, onViewSettings } from '../settings/viewSettings'
-import { makeAvatar, type Avatar } from '../table3d/avatar'
+import { makeAvatar, tableFaces, type Avatar } from '../table3d/avatar'
 import { makeCard, type CardView } from '../table3d/cards'
 import { drawFace, toTexture, type Rank, type Suit } from '../table3d/cardFace'
 import { makePost } from '../table3d/post'
@@ -218,15 +218,16 @@ export class MenuScene {
     // name colours from YOUR side (seat 0 is you): your team teal, the rivals rose
     const mine = players[0]?.team
     const rel = (t?: string) => (!t || t === 'random' || !mine || mine === 'random' ? 'random' : t === mine ? 'nosotros' : 'ellos')
+    const faces = tableFaces(players.map((p) => p.avatar))
     players.forEach((p, i) => {
-      const face = p.avatar ? avatarKey(p.avatar) : ''
+      const face = avatarKey(faces[i])
       if (!this.avatars[i] || this.avatars[i].name !== p.name || this.avatars[i].face !== face) {
         if (this.avatars[i]) {
           this.scene.remove(this.avatars[i].av.root, this.avatars[i].tag.mesh)
           this.avatars[i].tag.dispose()
         }
         if (arrived && i > 0 && this.avatars[i]?.name !== p.name) uiSound('sit') // (not when somebody only changed face)
-        const av = makeAvatar(i, n, i === 0, p.avatar) // seat 0 is you, the camera: only your arms
+        const av = makeAvatar(i, n, i === 0, faces[i]) // seat 0 is you, the camera: only your arms
         av.setHandCount(0)
         this.scene.add(av.root)
         const tag = new NameTag(MENU_NAME_H) // small: the waiting room must not look crowded

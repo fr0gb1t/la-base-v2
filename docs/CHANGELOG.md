@@ -6,6 +6,11 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Caras de repuesto que no se repiten, y manos sin tamborileo:** si la cara de un jugador no llega a la pantalla (un
+  servidor viejo, por ejemplo), la mesa y la sala le ponían una de repuesto por asiento que se repetía (los asientos
+  1 y 2 salían los dos con Purga). Ahora `table3d/tableFaces.ts` (`tableFaces`) le da a cada uno que falte una cara
+  que nadie más en la mesa tiene, la misma en todas las pantallas. La mano abierta ya no tamborilea sobre el paño
+  mientras espera (`handIdle`): distraía.
 - **Nunca dos caras iguales en una mesa:** el avatar lleva ahora una variante de color opcional
   (`AvatarSpec.tint`, `TINT_COUNT = 6`, `avatarKey`, `freeTint`, `freeAvatar`, `untangleAvatars` en
   `shared/avatar.ts`). En el servidor (`server/src/avatarClash.ts`): un bot toma una cara que nadie usa y, si una

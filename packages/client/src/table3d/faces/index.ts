@@ -47,18 +47,15 @@ function fadeWrist(g: THREE.BufferGeometry) {
 }
 
 /**
- * How a hand moves while it waits, in stop-motion like the rest of the puppets: it breathes, sways a little, and the
- * open hand (`rest`) now and then drums twice on the felt; the closed one (`hold`, round the fan) only tilts a
- * little, so the cards it holds do not wander. Rotations are about the wrist; fingers point down +z.
+ * How a hand moves while it waits, in stop-motion like the rest of the puppets: it breathes and sways a little (no
+ * drumming on the felt: it caught the eye all the time); the closed one (`hold`, round the fan) only tilts a little,
+ * so the cards it holds do not wander. Rotations are about the wrist; fingers point down +z.
  */
 export function handIdle(t: number, pose: HandPose, seed: number) {
   const ts = Math.floor(t * 15) / 15
   const breathe = Math.sin(ts * 1.1 + seed * 2.3)
   if (pose === 'hold') return { y: breathe * 0.003, rx: Math.sin(ts * 0.7 + seed) * 0.04, ry: 0, rz: Math.sin(ts * 0.5 + seed * 1.7) * 0.05 }
-  const PERIOD = 4.6
-  const u = (ts + seed * 1.37) % PERIOD // seconds into this drumming cycle
-  const tap = u < 0.7 ? -0.32 * Math.abs(Math.sin((u / 0.7) * Math.PI * 2)) : 0 // two quick taps: the fingers lift and fall
-  return { y: breathe * 0.004, rx: tap + Math.sin(ts * 0.6 + seed) * 0.05, ry: Math.sin(ts * 0.4 + seed * 0.9) * 0.08, rz: Math.sin(ts * 0.8 + seed) * 0.04 }
+  return { y: breathe * 0.004, rx: Math.sin(ts * 0.6 + seed) * 0.05, ry: Math.sin(ts * 0.4 + seed * 0.9) * 0.08, rz: Math.sin(ts * 0.8 + seed) * 0.04 }
 }
 
 /**

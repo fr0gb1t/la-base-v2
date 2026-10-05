@@ -4,7 +4,7 @@ import { avatarKey, type AvatarSpec } from '@la-base/shared'
 import { NOD_HZ, SENA_HOLD, senaAmount } from './senaPlay'
 import { buildLamp, buildRoom } from './table'
 import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, PLAY_R, seatAngle, polar, playSlot } from './seats'
-import { makeAvatar, MAX_HAND, FAN_Y, type Avatar, type AvatarPose } from './avatar'
+import { makeAvatar, tableFaces, MAX_HAND, FAN_Y, type Avatar, type AvatarPose } from './avatar'
 import { makeCard, type CardView } from './cards'
 import { PROPS_LAYER, PropColors, toProps } from './propsLayer'
 import { drawFace, toTexture } from './cardFace'
@@ -599,8 +599,9 @@ export class TableScene {
       this.scene.add(t.mesh)
       return t
     })
+    const faces = tableFaces(Array.from({ length: this.n }, (_, s) => this.seatPlayers()[s]?.avatar))
     this.avatars = Array.from({ length: this.n }, (_, s) => {
-      const av = makeAvatar(s, this.n, s === 0, this.seatPlayers()[s]?.avatar)
+      const av = makeAvatar(s, this.n, s === 0, faces[s])
       this.scene.add(av.root)
       return av
     })

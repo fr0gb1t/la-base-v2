@@ -114,7 +114,7 @@ export function AvatarStage({ avatar }: { avatar: AvatarSpec }) {
       holder.position.y = Math.sin(ts * 1.3) * 0.006; // it floats
       mask.sena(face, amount);
       mask.tick(t); // (it blinks by itself)
-      hands.forEach((h) => h.idle(still ? 0 : t)); // they breathe, sway, and the open one drums now and then
+      hands.forEach((h) => h.idle(still ? 0 : t)); // they breathe and sway
       lamp.position.set(Math.sin(t * 0.3) * 0.06, 1.7, -0.35); // overhead, a little in front: a spotlight from the ceiling
       renderer.render(scene, camera);
       raf = requestAnimationFrame(frame);

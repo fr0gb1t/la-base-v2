@@ -3,7 +3,8 @@ import { makeFace, makeHand, handStyleOf } from './faces'
 import { CHAIR_R, LEAN_REACH, SHOULDER_R, SHOULDER_Y, TABLE_R, TABLE_Y, seatAngle, polar, type PlayerCount } from './seats'
 import { makeCard, type CardView } from './cards'
 import { toProps } from './propsLayer'
-import { randomAvatar, type AvatarSpec, type Sena } from '@la-base/shared'
+import { type AvatarSpec, type Sena } from '@la-base/shared'
+import { fallbackAvatar } from './tableFaces'
 
 // Nobody at the table has a body, as in Buckshot Roulette: a face floats where the head would be (an LED mask or a
 // sculpted head, the one the player chose) and two hands float where the wrists would be. The arms are still
@@ -32,12 +33,7 @@ function solveElbow(s: THREE.Vector3, t: THREE.Vector3, pole: THREE.Vector3) {
 
 // ---- the face (an LED mask or a sculpted head, see faces/) and the floating hands ----------------------------
 
-/** What a face looks like when nobody has chosen one: derived from the seat, so it is always the same one. */
-export function fallbackAvatar(seed: number): AvatarSpec {
-  let x = (seed + 1) * 2654435761
-  const rng = () => ((x = (x * 1664525 + 1013904223) >>> 0) / 4294967296)
-  return randomAvatar(rng)
-}
+export { fallbackAvatar, tableFaces } from './tableFaces'
 
 /** Hands are drawn last, over every card lying on the table, and on the smooth props layer. */
 function asHand(o: THREE.Object3D) {
@@ -149,7 +145,7 @@ export function makeAvatar(seat: number, n: PlayerCount, firstPerson = false, av
       const { elbow, wrist } = solveElbow(s, target, pole) // the arm is not drawn: it only aims the hand
       r.glove.position.copy(wrist)
       r.glove.lookAt(root.localToWorld(wrist.clone().add(wrist.clone().sub(elbow))))
-      // waiting, a hand breathes and drums; while it plays (the table moves its wrist) it keeps still
+      // waiting, a hand breathes and sways; while it plays (the table moves its wrist) it keeps still
       if (wristWorld) r.hand.idle(0)
       else r.hand.idle(performance.now() / 1000)
     }
