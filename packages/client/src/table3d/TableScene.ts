@@ -4,12 +4,12 @@ import { avatarKey, type AvatarSpec } from '@la-base/shared'
 import { NOD_HZ, SENA_HOLD, senaAmount } from './senaPlay'
 import { buildLamp, buildRoom } from './table'
 import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, PLAY_R, seatAngle, polar, playSlot } from './seats'
-import { makeAvatar, MAX_HAND, FAN_Y, type Avatar, type AvatarPose } from './avatar'
+import { makeAvatar, MAX_HAND, type Avatar, type AvatarPose } from './avatar'
 import { makeCard, type CardView } from './cards'
 import { PROPS_LAYER, PropColors, toProps } from './propsLayer'
 import { drawFace, toTexture } from './cardFace'
 import { backTexture } from './cardBacks'
-import { playPose, PLAY_DURATION } from './play'
+import { playPose, PLAY_DURATION, JOIN_AT, PHASES } from './play'
 import { makePost } from './post'
 import { schedule, tickJobs, wait } from './jobs'
 import { attachAudio, sfx, lampBuzz, toggleMute, uiSound } from './audio'
@@ -276,7 +276,9 @@ export class TableScene {
       // a frame that throws must not stop the table: three.js would never ask for the next one
       // and the 3D view would freeze while the rest of the page carries on
       try {
-        this.frame(this.timer.getElapsed(), this.timer.getDelta())
+        const dt = this.timer.getDelta() * this.lab.timeScale // (1 but in the hands lab, which slows time down)
+        this.lab.time += dt
+        this.frame(this.lab.time, dt)
       } catch (err) {
         this.reportError(err)
       }
@@ -475,6 +477,10 @@ export class TableScene {
     return polar(TABLE_R - 0.04, seatAngle(seat, this.n), TABLE_Y + 0.03).addScaledVector(this.rightOf(seat), 0.2)
   }
 
+  /** Lab only (manos-lab): a free camera, and slow motion (the game leaves them alone). */
+  lab = { cam: null as null | { pos: THREE.Vector3; target: THREE.Vector3 }, timeScale: 1, time: 0 }
+  private labCam = new THREE.PerspectiveCamera(40, 1, 0.01, 30)
+
   /** The knobs of the reading rule (the game leaves them alone; the señas lab turns them). */
   aimOptions: AimOptions = {}
   /** The three.js scene and the camera, for the señas lab to draw its aids on. */
@@ -669,6 +675,22 @@ export class TableScene {
   private laid = 0
   private lay(v: CardView) {
     this.priority(v, CARD_ORDER + ++this.laid)
+    this.laidViews.add(v)
+  }
+
+  /** The cards lying on the table (the hands keep above them), and each one's inverse frame, this frame. */
+  private laidViews = new Set<CardView>()
+  private laidFrames: Array<{ inv: THREE.Matrix4; top: number; x: number; z: number }> = []
+  private floorAt = (x: number, z: number) => {
+    if (x * x + z * z > TABLE_R * TABLE_R) return -Infinity
+    let y = TABLE_Y
+    const p = new THREE.Vector3()
+    for (const f of this.laidFrames) {
+      if (Math.abs(x - f.x) > CARD_H * 0.6 || Math.abs(z - f.z) > CARD_H * 0.6 || f.top <= y) continue
+      p.set(x, f.top, z).applyMatrix4(f.inv)
+      if (Math.abs(p.x) < CARD_W / 2 && Math.abs(p.y) < CARD_H / 2) y = f.top
+    }
+    return y
   }
 
   private priority(v: CardView, order: number) {
@@ -690,6 +712,7 @@ export class TableScene {
   }
 
   private unlay(v: CardView) {
+    this.laidViews.delete(v)
     v.root.traverse((o) => {
       if (!(o instanceof THREE.Mesh) || !o.userData.laid) return
       const cur = o.material as THREE.Material
@@ -725,7 +748,15 @@ export class TableScene {
   private heldPose(s: number, k: number): HeldPose {
     const o = s === 0 ? this.vm[Math.min(k, MAX_HAND - 1)].mesh : this.avatars[s].hand[Math.min(k, MAX_HAND - 1)].root
     o.updateWorldMatrix(true, false)
-    return { pos: o.getWorldPosition(new THREE.Vector3()), quat: o.getWorldQuaternion(new THREE.Quaternion()) }
+    // (your own cards are pivoted near their bottom: their centre is up the card)
+    const pos = s === 0 ? o.localToWorld(new THREE.Vector3(0, CARD_H * 0.45, 0)) : o.getWorldPosition(new THREE.Vector3())
+    return { pos, quat: o.getWorldQuaternion(new THREE.Quaternion()) }
+  }
+
+  /** Seat `s`'s right hand holds `view` where it is now (`amount`: 0 where the arm puts the hand … 1 holding it). */
+  private holdCard(s: number, view: CardView, amount: number, kind: 'pinch' | 'press' = 'pinch') {
+    if (amount <= 0) return
+    this.poses[s].rightGrip = { at: { pos: view.root.position.clone(), quat: view.root.quaternion.clone() }, amount: Math.min(1, amount), kind }
   }
 
   /** Where slot `slot` of a fan of `c` cards sits (camera space). */
@@ -735,7 +766,9 @@ export class TableScene {
     // height tuned for HAND_FOV (at other fields of view the viewmodel is rescaled to match): the
     // whole card face stays on screen (at -0.25 its lower half fell below the frame and grabbing it
     // failed near the edge)
-    return { x: -0.15 + off * 0.026, y: HAND_Y - Math.abs(off) * 0.004, z: -0.36 + slot * 0.002, rz: -0.04 - off * 0.14 }
+    // every card turns about the same point, the one your left hand pinches (the stack a hair thick between the
+    // thumb and the index)
+    return { x: -0.15, y: HAND_Y, z: -0.36 + off * 0.0003, rz: -0.04 - off * 0.15 }
   }
 
   private layoutHand(count: number) {
@@ -753,7 +786,9 @@ export class TableScene {
     let bestD = Infinity
     for (let j = 0; j < c; j++) {
       const b = this.fanBase(j, c)
-      const p = this.viewmodel.localToWorld(new THREE.Vector3(b.x, b.y, b.z)).project(this.camera)
+      // (the cards share their bottom: tell them apart by their tops)
+      const top = new THREE.Vector3(0, CARD_H * 0.85, 0).applyEuler(new THREE.Euler(-0.35, 0, b.rz)).add(new THREE.Vector3(b.x, b.y, b.z))
+      const p = this.viewmodel.localToWorld(top).project(this.camera)
       const d = Math.abs(p.x - this.mouse.x)
       if (d < bestD) [best, bestD] = [j, d]
     }
@@ -814,7 +849,8 @@ export class TableScene {
   }
 
   /** Move a card view to a pose with a toss arc. */
-  private flyTo(v: CardView, to: THREE.Vector3, quat: THREE.Quaternion, dur: number, delay: number, stepped: boolean, arc = 0.12) {
+  /** Move a card view to a pose with a toss arc; `hand`: the seat whose right hand carries it (lets go at the end). */
+  private flyTo(v: CardView, to: THREE.Vector3, quat: THREE.Quaternion, dur: number, delay: number, stepped: boolean, arc = 0.12, hand = -1, kind: 'pinch' | 'press' = 'pinch') {
     let from: HeldPose | null = null
     return schedule({
       delay,
@@ -826,6 +862,7 @@ export class TableScene {
         v.root.position.copy(from.pos).lerp(to, e)
         v.root.position.y += Math.sin(u * Math.PI) * arc
         v.root.quaternion.copy(from.quat).slerp(quat, e)
+        if (hand >= 0) this.holdCard(hand, v, Math.min(ease(u * 5), 1 - ease(seg(u, 0.85, 1))), kind)
       },
     })
   }
@@ -843,10 +880,14 @@ export class TableScene {
       stepped: s !== 0,
       update: (_u, t) => {
         const pt = o.map(t)
-        const pose = playPose(s, this.n, 0, pt, hold.pos)
+        const pose = playPose(s, this.n, 0, pt, hold)
         const b = ease(seg(t, 0, o.blend ?? 0.3))
         view.root.position.copy(start.pos).lerp(pose.cardPos, b)
-        view.root.quaternion.copy(start.quat).slerp(new THREE.Quaternion().setFromEuler(pose.cardRot), b)
+        view.root.quaternion.copy(start.quat).slerp(pose.cardRot, b)
+        // the right hand: on the card itself while it holds it (where the card really is), else where the
+        // choreography left it
+        const holding = pt >= PHASES.reach[1] && pt < PHASES.fall[0]
+        this.poses[s].rightGrip = { at: holding ? { pos: view.root.position.clone(), quat: view.root.quaternion.clone() } : pose.gripAt, amount: pose.grip }
         this.poses[s].rightWrist = pose.wrist
         this.poses[s].lean = pose.lean
         this.poses[s].headPitch = pose.headPitch
@@ -857,10 +898,10 @@ export class TableScene {
         }
         const at = view.root.position
         const crossed = (edge: number) => lastPt < edge && pt >= edge
-        if (crossed(0.02)) sfx('pick', at)
-        if (crossed(0.6)) sfx('slide', at, 0.8)
-        if (o.reveal && crossed(1.12)) sfx('place', at)
-        if (o.reveal && crossed(1.32)) sfx('flip', at)
+        if (crossed(PHASES.extract[0])) sfx('pick', at)
+        if (crossed(0.7)) sfx('slide', at, 0.8)
+        if (o.reveal && crossed(PHASES.set[0] + 0.02)) sfx('place', at)
+        if (o.reveal && crossed(PHASES.settle[0])) sfx('flip', at)
         lastPt = pt
       },
     })
@@ -919,7 +960,10 @@ export class TableScene {
               const spin = quatOf(FACE_DOWN, this.yawOf(dealer) + u * Math.PI * 1.5)
               v.root.quaternion.copy(from.quat).slerp(spin, Math.min(1, u * 3)).slerp(rest.quat, ease(seg(u, 0.7, 1)))
               const dir = rest.pos.clone().sub(from.pos).setY(0).normalize()
-              this.poses[dealer].rightWrist = from.pos.clone().addScaledVector(dir, 0.06 + Math.sin(u * Math.PI) * 0.08).add(new THREE.Vector3(0, 0.06, 0))
+              this.poses[dealer].rightWrist = from.pos.clone().addScaledVector(dir, 0.06 + Math.sin(u * Math.PI) * 0.08).add(new THREE.Vector3(0, 0.08, 0))
+              // slid off the top of the stack under the fingers and flicked: they lift a third of the way out (a
+              // card can't be pinched off a stack: the thumb would be in it)
+              this.holdCard(dealer, v, 1 - ease(seg(u, 0.22, 0.38)), 'press')
               this.poses[dealer].lean = 0.4
               this.focus = from.pos
             },
@@ -978,8 +1022,8 @@ export class TableScene {
       view = arm.view
       arm.view = null
       from = { pos: view.root.position.clone(), quat: view.root.quaternion.clone() }
-      map = (t) => 1.1 + t
-      dur = PLAY_DURATION - 1.1
+      map = (t) => JOIN_AT + t
+      dur = PLAY_DURATION - JOIN_AT
     } else view = this.take()
     this.avatars[s].setHandCount(count - 1)
     this.handCounts[s] = count - 1
@@ -1014,7 +1058,11 @@ export class TableScene {
           v.root.position.copy(stackAt).lerp(pileAt, e).add(new THREE.Vector3(0, i * CARD_T + 0.001, 0))
           v.root.quaternion.copy(quatOf(FACE_DOWN, this.yawOf(w) + e * 0.25))
         })
-        this.poses[w].rightWrist = cards[0]?.root.position.clone().addScaledVector(this.outOf(w), 0.07).add(new THREE.Vector3(0, 0.03, 0))
+        const top = cards[cards.length - 1]
+        if (top) {
+          this.poses[w].rightWrist = top.root.position.clone().addScaledVector(this.outOf(w), 0.12).add(new THREE.Vector3(0, 0.05, 0))
+          this.holdCard(w, top, Math.min(ease(u * 4), 1 - ease(seg(u, 0.85, 1))), 'press')
+        }
         this.poses[w].lean = Math.sin(u * Math.PI) * 0.7
         this.focus = cards[0]?.root.position ?? null
       },
@@ -1044,7 +1092,7 @@ export class TableScene {
     this.focus = view.root.position
     const slot = playSlot(s, this.n).pos
     view.setIdentity(card.suit, card.value) // the draw is public: it turns face-up in the air
-    await this.flyTo(view, slot, quatOf(FACE_DOWN + Math.PI, this.yawOf(s)), 0.7, 0, s !== 0, 0.2)
+    await this.flyTo(view, slot, quatOf(FACE_DOWN + Math.PI, this.yawOf(s)), 0.7, 0, s !== 0, 0.2, s, 'press')
     this.lay(view)
     sfx('flip', slot)
   }
@@ -1136,11 +1184,11 @@ export class TableScene {
     const hold = from ?? this.heldPose(0, k)
     this.vm[k].mesh.visible = false
     const accepted = this.cb.requestPlay(card)
-    if (!from) await this.gesture(0, view, hold, { dur: 1.1, map: (t) => t }) // quick click: reach the zone
+    if (!from) await this.gesture(0, view, hold, { dur: JOIN_AT, map: (t) => t }) // quick click: reach the zone
     const ok = await accepted
     if (ok) {
       const at = { pos: view.root.position.clone(), quat: view.root.quaternion.clone() }
-      await this.gesture(0, view, hold, { dur: PLAY_DURATION - 1.1, map: (t) => 1.1 + t, reveal: card, from: at, blend: 0.12 })
+      await this.gesture(0, view, hold, { dur: PLAY_DURATION - JOIN_AT, map: (t) => JOIN_AT + t, reveal: card, from: at, blend: 0.12 })
       this.onTable.get(0) && this.give(this.onTable.get(0)!)
       this.onTable.set(0, view)
       this.lay(view)
@@ -1159,7 +1207,7 @@ export class TableScene {
         const hold = this.heldPose(0, k)
         view.root.position.copy(start.pos).lerp(hold.pos, ease(u))
         view.root.quaternion.copy(start.quat).slerp(hold.quat, ease(u))
-        this.poses[0].rightWrist = view.root.position.clone().add(new THREE.Vector3(0, -0.05, 0))
+        this.holdCard(0, view, 1)
       },
     })
     this.give(view)
@@ -1244,8 +1292,8 @@ export class TableScene {
     const c = d.view.root
     c.position.copy(d.from.pos).lerp(target.pos, b)
     c.quaternion.copy(d.from.quat).slerp(target.quat, b)
-    this.poses[0].rightWrist =
-      d.fwd > -0.15 ? c.position.clone().addScaledVector(this.outOf(0), 0.075).add(new THREE.Vector3(0, 0.03, 0)) : c.position.clone().add(new THREE.Vector3(0, -0.06, 0))
+    this.poses[0].rightWrist = c.position.clone().addScaledVector(this.outOf(0), 0.1).add(new THREE.Vector3(0, 0.06, 0))
+    this.holdCard(0, d.view, ease(THREE.MathUtils.clamp((now() - d.t0) / 0.12, 0, 1)))
     this.poses[0].lean = THREE.MathUtils.clamp(d.fwd / REACH_FWD, 0, 1) * 0.9 // the arm needs it to reach the play ring (the view moves only a few cm)
     this.focus = c.position
     if (d.fwd >= 0) {
@@ -1273,7 +1321,8 @@ export class TableScene {
         const b = ease(THREE.MathUtils.clamp((t - arm.t0) / 0.2, 0, 1))
         arm.view.root.position.copy(arm.from!.pos).lerp(pose.pos, b)
         arm.view.root.quaternion.copy(arm.from!.quat).slerp(pose.quat, b)
-        this.poses[s].rightWrist = arm.view.root.position.clone().addScaledVector(this.outOf(s), 0.075).add(new THREE.Vector3(0, 0.03, 0))
+        this.poses[s].rightWrist = arm.view.root.position.clone().addScaledVector(this.outOf(s), 0.1).add(new THREE.Vector3(0, 0.06, 0))
+        this.holdCard(s, arm.view, ease(THREE.MathUtils.clamp((t - arm.t0) / 0.2, 0, 1)))
         this.poses[s].lean = THREE.MathUtils.clamp(arm.fwd / REACH_FWD, 0, 1) * 0.9
         this.focus = arm.view.root.position
       } else if (arm.view) {
@@ -1281,7 +1330,7 @@ export class TableScene {
         const view = arm.view
         arm.view = null
         const slot = Math.min(Math.max(0, arm.slot), Math.max(0, (this.handCounts[s] || 1) - 1))
-        void this.flyTo(view, this.heldPose(s, slot).pos, this.heldPose(s, slot).quat, 0.3, 0, true, 0.02).then(() => {
+        void this.flyTo(view, this.heldPose(s, slot).pos, this.heldPose(s, slot).quat, 0.3, 0, true, 0.02, s).then(() => {
           this.give(view)
           this.avatars[s].setHandCount(this.handCounts[s])
         })
@@ -1954,8 +2003,19 @@ export class TableScene {
 
   private frame(time: number, dt: number) {
     if (this.disposed || !this.n) return
-    this.poses = this.avatars.map(() => ({ lean: 0, headYaw: 0, headPitch: -0.15 }))
-    this.poses[0].leftWrist = this.viewmodel.localToWorld(new THREE.Vector3(-0.16, HAND_Y - 0.04, -0.33))
+    this.poses = this.avatars.map(() => ({ lean: 0, headYaw: 0, headPitch: -0.15, floor: this.floorAt }))
+    // your left hand pinches the bottom of your fan, in front of your camera: the frame of its middle card, unspread
+    {
+      const b = this.fanBase(0, 1)
+      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.35, 0, b.rz))
+      this.viewmodel.updateMatrixWorld()
+      const vq = this.viewmodel.getWorldQuaternion(new THREE.Quaternion())
+      const pivot = this.viewmodel.localToWorld(new THREE.Vector3(b.x, b.y, b.z - 0.002))
+      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(q).applyQuaternion(vq)
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q).applyQuaternion(vq)
+      // (the hand pinches the fan a little off its middle, towards the thumb: see handGrip)
+      this.poses[0].leftFan = { pos: pivot.addScaledVector(up, CARD_H / 2 - 0.007).addScaledVector(right, CARD_W * 0.12), quat: vq.multiply(q) }
+    }
     this.poses[0].rightWrist = this.restWrist(0)
     this.focus = null
     tickJobs(time)
@@ -2015,6 +2075,10 @@ export class TableScene {
       this.aimedFace = aimed
       this.cb.faceAim?.(aimed > 0 ? this.playerAt(aimed) : null)
     }
+    this.laidFrames = [...this.laidViews].filter((v) => v.root.visible).map((v) => {
+      v.root.updateMatrixWorld()
+      return { inv: v.root.matrixWorld.clone().invert(), top: v.root.position.y + 0.0006, x: v.root.position.x, z: v.root.position.z }
+    })
     for (const av of this.avatars) {
       const p = this.poses[av.seat]
       if (av.seat === 0) {
@@ -2057,10 +2121,7 @@ export class TableScene {
       this.faceShown[av.seat] = sg && amount > 0 ? sg.s : null
       // fingering a card in their hand
       const hv = this.remoteHover.get(av.seat)
-      av.hand.forEach((c, i) => {
-        const up = hv && t - hv.t < PRESENCE_TTL && hv.slot === i ? 0.018 : 0
-        c.root.position.y += (FAN_Y - Math.abs(i - (this.handCounts[av.seat] - 1) / 2) * 0.004 + up - c.root.position.y) * 0.3
-      })
+      av.hand.forEach((_, i) => av.setLift(i, hv && t - hv.t < PRESENCE_TTL && hv.slot === i ? 1 : 0))
     }
 
     // names at belly height (in front of the coat, below the held cards), turned to your camera
@@ -2138,7 +2199,17 @@ export class TableScene {
     } else this.post.duotone(null, 0)
 
     this.syncPropLayers(time)
-    this.post.render(this.scene, this.camera, time, getViewSettings().smoothProps, (on) => (on ? this.propColors.on() : this.propColors.off(this.scene)))
+    let eye: THREE.PerspectiveCamera = this.camera
+    if (this.lab.cam) {
+      // (a camera of its own: your hands and fan stay where your own view puts them)
+      eye = this.labCam
+      eye.aspect = this.camera.aspect
+      eye.updateProjectionMatrix()
+      eye.position.copy(this.lab.cam.pos)
+      eye.lookAt(this.lab.cam.target)
+      eye.updateMatrixWorld()
+    }
+    this.post.render(this.scene, eye, time, getViewSettings().smoothProps, (on) => (on ? this.propColors.on() : this.propColors.off(this.scene)))
   }
 
   // ------------------------------------------------------------------ test hooks

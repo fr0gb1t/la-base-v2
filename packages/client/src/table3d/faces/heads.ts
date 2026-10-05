@@ -420,10 +420,93 @@ export const MORPH_SENAS = ['ancho-copa', 'ancho-oro', 'figuras', 'tres', 'dos',
 /** The hands of the LED masks: grey rubber gloves, light enough to read in the gloom (their wrists still sink into it). */
 export const LED_HANDS: HandStyle = { skin: 0x6c6a70, thin: 1.0 }
 
-export type HandPose = 'hold' | 'rest'
-export const HAND_CURL: Record<HandPose, { curl: number[]; thumb: number }> = {
+/**
+ * `rest`: open, on the felt. `hold`: a fist round the base of a fan. `pinch`: thumb and index pinching the edge of a
+ * card (the middle finger behind the index, ring and little fingers tucked in, clear of the card).
+ */
+export type HandPose = 'hold' | 'rest' | 'pinch'
+type ThumbDirs = [V3, V3, V3]
+export const HAND_CURL: Record<HandPose, { curl: number[]; thumb: number; thumbDirs?: ThumbDirs }> = {
   hold: { curl: [1.0, 1.1, 1.18, 1.25], thumb: 0.35 },
   rest: { curl: [0.25, 0.3, 0.38, 0.45], thumb: 0.25 },
+  // (found by search: the thumb's tip lands 2 cm behind the index's, the gap a card is held in)
+  pinch: { curl: [0.85, 0.9, 1.75, 1.85], thumb: 0, thumbDirs: [[0, -0.7, -0.8], [-0.1, -0.6, -0.8], [0, -0.8, -0.8]] },
+}
+
+const FINGERS = [
+  { x: 0.027, z: -0.083, L: [0.04, 0.024, 0.019], yaw: 0.07 }, // index (thumb side)
+  { x: 0.009, z: -0.087, L: [0.044, 0.027, 0.02], yaw: 0.0 },
+  { x: -0.009, z: -0.084, L: [0.041, 0.025, 0.019], yaw: -0.06 },
+  { x: -0.026, z: -0.077, L: [0.032, 0.019, 0.016], yaw: -0.13 },
+]
+
+/** The joints of finger `i` (knuckle to tip), curled by `curl`. */
+function fingerChain(i: number, curl: number, s: 1 | -1, th: number): { pts: V3[]; pitch: number } {
+  const f = FINGERS[i]
+  let p: V3 = [s * f.x * th, 0.002, f.z]
+  let pitch = 0
+  const pts: V3[] = [p]
+  f.L.forEach((L, j) => {
+    pitch += curl * [0.8, 1.1, 0.75][j]
+    const yaw = s * f.yaw
+    p = [p[0] + Math.sin(yaw) * Math.cos(pitch) * L, p[1] - Math.sin(pitch) * L, p[2] - Math.cos(yaw) * Math.cos(pitch) * L]
+    pts.push(p)
+  })
+  return { pts, pitch }
+}
+
+/** The thumb's joints: off the side of the palm, folding in towards it (or along `dirs`, for a pinch). */
+function thumbChain(s: 1 | -1, th: number, thumb: number, dirs?: ThumbDirs): V3[] {
+  const t0: V3 = [s * 0.03 * th, -0.004, -0.022]
+  const step = (u: V3, L: number, from: V3): V3 => {
+    const l = Math.hypot(...u)
+    return [from[0] + (u[0] / l) * L, from[1] + (u[1] / l) * L, from[2] + (u[2] / l) * L]
+  }
+  const d: ThumbDirs = dirs ?? [[0.55, -0.32, -0.77], [0.5 - 0.75 * thumb, -0.35 - 0.35 * thumb, -0.78], [0.4 - 1.1 * thumb, -0.3 - 0.45 * thumb, -0.75]]
+  const t1 = step([s * d[0][0], d[0][1], d[0][2]], 0.03, t0)
+  const t2 = step([s * d[1][0], d[1][1], d[1][2]], 0.027, t1)
+  const t3 = step([s * d[2][0], d[2][1], d[2][2]], 0.022, t2)
+  return [t0, t1, t2, t3]
+}
+
+/**
+ * Where a hand holds a card, in sculpt space (wrist at the origin, fingers along −z, palm down, thumb on +x for
+ * s = 1): the card's centre, its face's normal and the way its length runs (from the held edge out).
+ * · pinch: the card's near edge between the thumb (on the face) and the index (on the back), 12 mm in; the card
+ *   hangs away from the hand, off towards the thumb's side so it clears the tucked fingers.
+ * · hold: a fan, pinched the same way by the bottom of its cards.
+ * · press: a card lying face down under the flat open hand.
+ */
+export function handGrip(s: 1 | -1, pose: 'pinch' | 'hold' | 'press', st: HandStyle, cardW: number, cardH: number, offCentre = 0.3): { at: V3; normal: V3; along: V3; across: V3 } {
+  const th = st.thin ?? 1
+  const norm = (v: V3): V3 => {
+    const l = Math.hypot(...v)
+    return [v[0] / l, v[1] / l, v[2] / l]
+  }
+  const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+  const add = (a: V3, b: V3, k = 1): V3 => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k]
+  if (pose === 'pinch') {
+    const c = HAND_CURL.pinch
+    const index = fingerChain(0, c.curl[0], s, th).pts[3]
+    const thumb = thumbChain(s, th, c.thumb, c.thumbDirs)[3]
+    const normal = norm([thumb[0] - index[0], thumb[1] - index[1], thumb[2] - index[2]]) // index → thumb: the face is on the thumb's side
+    const pinchAt: V3 = [(index[0] + thumb[0]) / 2, (index[1] + thumb[1]) / 2, (index[2] + thumb[2]) / 2]
+    let along = norm(cross(normal, [1, 0, 0]))
+    if (along[1] > 0) along = [-along[0], -along[1], -along[2]] // hanging away from the palm, not up into it
+    const across = norm(cross(along, normal))
+    // (towards the thumb's side by a third of the card's width)
+    const sideways = across[0] * s > 0 ? across : ([-across[0], -across[1], -across[2]] as V3)
+    const at = add(add(pinchAt, along, cardH / 2 - 0.012), sideways, cardW * offCentre)
+    return { at, normal, along, across }
+  }
+  if (pose === 'press') {
+    // the open hand flat on a card lying face down (on top of a stack), pulling or pushing it: the card under the
+    // palm and the fingers, its length along them
+    return { at: [0, -0.02, -0.07], normal: [0, -1, 0], along: [0, 0, -1], across: [s, 0, 0] }
+  }
+  // a fan is held the same way, by the middle of its cards' bottoms (the thumb on the faces, the fingers behind):
+  // every card turns about that point
+  return handGrip(s, 'pinch', st, cardW, cardH, 0.12)
 }
 export const HAND_BOX: [V3, V3] = [[-0.08, -0.08, -0.19], [0.08, 0.04, 0.075]]
 
@@ -440,24 +523,10 @@ export function handModel(s: 1 | -1, pose: HandPose, st: HandStyle): Model {
     box([0, 0.002, -0.046], [0.039 * th, 0.0135, 0.04], 0.012, skin, 0.012),
     ell([0, -0.006, -0.05], [0.035 * th, 0.008, 0.034], skin, 0.01),
   ]
-  const F = [
-    { x: 0.027, z: -0.083, L: [0.04, 0.024, 0.019], yaw: 0.07 },
-    { x: 0.009, z: -0.087, L: [0.044, 0.027, 0.02], yaw: 0.0 },
-    { x: -0.009, z: -0.084, L: [0.041, 0.025, 0.019], yaw: -0.06 },
-    { x: -0.026, z: -0.077, L: [0.032, 0.019, 0.016], yaw: -0.13 },
-  ]
-  F.forEach((f, i) => {
-    let p: V3 = [s * f.x * th, 0.002, f.z]
-    parts.push(ball(p, 0.0108 * th, skin, 0.006)) // the knuckle
-    let pitch = 0
-    const pts: V3[] = [p]
+  FINGERS.forEach((_, i) => {
+    const { pts, pitch } = fingerChain(i, curl[i], s, th)
+    parts.push(ball(pts[0], 0.0108 * th, skin, 0.006)) // the knuckle
     const rad = [0.0098, 0.0091, 0.0082, 0.0074].map((r) => r * th)
-    f.L.forEach((L, j) => {
-      pitch += curl[i] * [0.8, 1.1, 0.75][j]
-      const yaw = s * f.yaw
-      p = [p[0] + Math.sin(yaw) * Math.cos(pitch) * L, p[1] - Math.sin(pitch) * L, p[2] - Math.cos(yaw) * Math.cos(pitch) * L]
-      pts.push(p)
-    })
     parts.push(...chain(pts, rad, skin, 0.004))
     const a = pts[2]
     const b = pts[3]
@@ -466,16 +535,12 @@ export function handModel(s: 1 | -1, pose: HandPose, st: HandStyle): Model {
     if (st.nails) parts.push(ell([b[0] - (d[0] / dl) * 0.006, b[1] + 0.0045 * Math.cos(pitch), b[2] - (d[2] / dl) * 0.006], [0.0062 * th, 0.0028, 0.0075], col(st.nails), 0.002))
     if (st.claws) parts.push(cone(b, [b[0] + (d[0] / dl) * 0.016, b[1] + (d[1] / dl) * 0.016 - 0.004, b[2] + (d[2] / dl) * 0.016], 0.006, 0.0012, col(st.claws), 0.003))
   })
-  // the thumb comes off the side of the palm and folds in towards it
-  const t0: V3 = [s * 0.03 * th, -0.004, -0.022]
-  const dir = (u: V3, L: number, from: V3): V3 => {
-    const l = Math.hypot(...u)
-    return [from[0] + (u[0] / l) * L, from[1] + (u[1] / l) * L, from[2] + (u[2] / l) * L]
-  }
-  const t1 = dir([s * 0.55, -0.32, -0.77], 0.03, t0)
-  const t2 = dir([s * (0.5 - 0.75 * thumb), -0.35 - 0.35 * thumb, -0.78], 0.027, t1)
-  const t3 = dir([s * (0.4 - 1.1 * thumb), -0.3 - 0.45 * thumb, -0.75], 0.022, t2)
+  const [t0, t1, t2, t3] = thumbChain(s, th, thumb, HAND_CURL[pose].thumbDirs)
   parts.push(...chain([t0, t1, t2, t3], [0.0125 * th, 0.0108 * th, 0.0095 * th, 0.0084 * th], skin, 0.006))
-  if (st.claws) parts.push(cone(t3, dir([s * (0.4 - 1.1 * thumb), -0.4 - 0.45 * thumb, -0.75], 0.014, t3), 0.0062, 0.0012, col(st.claws), 0.003))
+  if (st.claws) {
+    const d: V3 = [t3[0] - t2[0], t3[1] - t2[1], t3[2] - t2[2]]
+    const l = Math.hypot(...d)
+    parts.push(cone(t3, [t3[0] + (d[0] / l) * 0.014, t3[1] + (d[1] / l) * 0.014 - 0.004, t3[2] + (d[2] / l) * 0.014], 0.0062, 0.0012, col(st.claws), 0.003))
+  }
   return { parts, disp: (x, y, z) => noise3(x * 120, y * 120, z * 120) * 0.0006 }
 }

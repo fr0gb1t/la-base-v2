@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Laboratorio de manos</title>
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&display=swap" rel="stylesheet" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #0b0908; color: #e9dcc2; font: 14px/1.35 ui-monospace, Menlo, Consolas, monospace; overflow: hidden; }
+      #table { position: fixed; inset: 0; }
+      #reticle { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: rgba(233, 220, 194, 0.45); pointer-events: none; z-index: 5; transition: all 0.15s; }
+      #reticle.on-face { width: 38px; height: 38px; margin: -19px 0 0 -19px; background: rgba(233, 220, 194, 0.12); border: 2px solid rgba(240, 228, 200, 0.85); box-shadow: 0 0 14px rgba(233, 214, 160, 0.45), inset 0 0 8px rgba(233, 214, 160, 0.25); }
+      #panel { position: fixed; top: 10px; right: 10px; width: 330px; z-index: 10; background: rgba(12, 9, 7, 0.86); border: 1px solid rgba(233, 220, 194, 0.28); border-radius: 6px; padding: 10px 12px; max-height: calc(100vh - 20px); overflow: auto; }
+      #panel h1 { margin: 0 0 6px; font-size: 15px; letter-spacing: 0.04em; }
+      #panel .row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; margin: 5px 0; }
+      #panel .row label { display: flex; flex-direction: column; gap: 2px; }
+      #panel input[type="range"] { width: 100%; }
+      #panel .val { color: #ffc58a; min-width: 52px; text-align: right; }
+      #panel .seg button { font: inherit; color: inherit; background: none; border: 1px solid rgba(233, 220, 194, 0.4); padding: 2px 9px; cursor: pointer; }
+      #panel .seg button.on { background: rgba(255, 197, 138, 0.22); border-color: #ffc58a; }
+      #seats { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12.5px; }
+      #seats th { text-align: left; font-weight: normal; opacity: 0.6; padding: 2px 3px; }
+      #seats td { padding: 2px 3px; border-top: 1px solid rgba(233, 220, 194, 0.12); }
+      .partner { color: #5ea2b0; } .rival { color: #b76d6e; }
+      .shown { color: #7fd36b; } .hidden { opacity: 0.55; }
+      #help { margin: 8px 0 0; font-size: 12px; opacity: 0.7; }
+      .aimed td { background: rgba(255, 197, 138, 0.12); }
+    </style>
+  </head>
+  <body>
+    <div id="table"></div>
+    <div id="reticle"></div>
+    <div id="panel"></div>
+    <script type="module" src="/src/lab/manosLab.ts"></script>
+  </body>
+</html>

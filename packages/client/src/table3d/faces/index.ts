@@ -6,7 +6,8 @@ import { faceKind, type AvatarSpec } from '@la-base/shared'
 import { makeLedMask, type FaceRig } from './ledMask'
 import { makeHeadMask } from './headMask'
 import { sculpted } from './sculpted'
-import type { HandPose } from './heads'
+import { HEADS, LED_HANDS, handGrip, type HandPose } from './heads'
+import { CARD_H, CARD_W } from '../seats'
 import type { HandStyleKey } from './sculptJobs'
 
 export type { FaceRig }
@@ -51,7 +52,7 @@ function fadeWrist(g: THREE.BufferGeometry) {
  * open hand (`rest`) now and then drums twice on the felt; the closed one (`hold`, round the fan) only tilts a
  * little, so the cards it holds do not wander. Rotations are about the wrist; fingers point down +z.
  */
-export function handIdle(t: number, pose: HandPose, seed: number) {
+export function handIdle(t: number, pose: 'rest' | 'hold', seed: number) {
   const ts = Math.floor(t * 15) / 15
   const breathe = Math.sin(ts * 1.1 + seed * 2.3)
   if (pose === 'hold') return { y: breathe * 0.003, rx: Math.sin(ts * 0.7 + seed) * 0.04, ry: 0, rz: Math.sin(ts * 0.5 + seed * 1.7) * 0.05 }
@@ -61,37 +62,98 @@ export function handIdle(t: number, pose: HandPose, seed: number) {
   return { y: breathe * 0.004, rx: tap + Math.sin(ts * 0.6 + seed) * 0.05, ry: Math.sin(ts * 0.4 + seed * 0.9) * 0.08, rz: Math.sin(ts * 0.8 + seed) * 0.04 }
 }
 
+/** A card's frame in a hand's group (card space → hand space): where and how that hand holds it. */
+export type Grip = THREE.Matrix4
+
 /**
  * A floating bare hand, its wrist lost in the dark. `side` is the arm it would be on (+1 right,
  * −1 left); its fingers point down +z (the way the table's arms aim a hand) and the thumb points inward, toward the
  * body's midline. The hand shows once the sculptor has made it; `prepare` is run on the group then and at once.
  * `idle(t)` moves the hand inside its group (the group itself is placed and aimed by the caller).
+ * `setPose` changes its shape at once, as a puppet's hand is swapped between takes (open, fist, pinch); the
+ * shapes are sculpted ahead, so the swap never waits. `grip('pinch' | 'hold' | 'press')` is where it holds a card.
  */
 export function makeHand(style: HandStyleKey, pose: HandPose, side: 1 | -1, prepare: (o: THREE.Object3D) => void = () => {}, seed = 0) {
   const g = new THREE.Group()
   const inner = new THREE.Group() // what the idle animation turns, about the wrist
   g.add(inner)
   const mats: THREE.Material[] = []
+  const meshes: Partial<Record<HandPose, THREE.Mesh>> = {}
+  let current = pose
   let gone = false
   prepare(g)
   // the sculpted hand looks down −z with its thumb on +x for s = 1: turned half round, it looks down +z and the
   // thumb lands on −x, so the hand of the arm `side` is sculpted as s = −side
   const s = side > 0 ? -1 : 1
-  sculpted({ job: 'hand', style, pose, side: s }).then(([p]) => {
-    if (gone) return
-    fadeWrist(p.geometry)
-    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: p.rough })
-    mats.push(mat)
-    const mesh = new THREE.Mesh(p.geometry, mat)
-    mesh.rotation.y = Math.PI
-    mesh.castShadow = true
-    inner.add(mesh)
-    prepare(g) // (the table puts hands on their own layer and draws them last: the new mesh too)
-  })
+  const show = () => {
+    // (until the shape asked for is ready, the one before stays: a hand never blinks out)
+    const want = meshes[current] ? current : (Object.keys(meshes)[0] as HandPose | undefined)
+    for (const [k, m] of Object.entries(meshes)) m!.visible = k === want
+  }
+  const sculptPose = (ps: HandPose) =>
+    sculpted({ job: 'hand', style, pose: ps, side: s }).then(([p]) => {
+      if (gone || meshes[ps]) return
+      fadeWrist(p.geometry)
+      const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: p.rough })
+      mats.push(mat)
+      const mesh = new THREE.Mesh(p.geometry, mat)
+      mesh.rotation.y = Math.PI
+      mesh.castShadow = true
+      meshes[ps] = mesh
+      inner.add(mesh)
+      show()
+      prepare(g) // (the table puts hands on their own layer and draws them last: the new mesh too)
+    })
+  void sculptPose(pose).then(() => (['rest', 'hold', 'pinch'] as const).forEach((ps) => ps !== pose && void sculptPose(ps)))
+
+  const st = style === 'led' ? LED_HANDS : HEADS[style].hands
+  const grips = new Map<string, Grip>()
+  const toGroup = (v: number[]) => new THREE.Vector3(-v[0], v[1], -v[2]) // sculpt space → the group (turned half round)
+  function grip(kind: 'pinch' | 'hold' | 'press'): Grip {
+    let m = grips.get(kind)
+    if (!m) {
+      const k = handGrip(s, kind, st, CARD_W, CARD_H)
+      // (pinched, the hand holds the card's top edge: the card runs from it away from the hand, so its +y points
+      // back at the hand; in a fist, the fan's cards come out of it bottom first)
+      const y = toGroup(k.along).normalize().multiplyScalar(kind === 'pinch' ? -1 : 1)
+      const z = toGroup(k.normal).normalize()
+      const x = new THREE.Vector3().crossVectors(y, z).normalize()
+      m = new THREE.Matrix4().makeBasis(x, y, z).setPosition(toGroup(k.at))
+      grips.set(kind, m)
+    }
+    return m
+  }
+
+  // a few hundred points of each shape (its own space), to keep the hand out of the table (see Avatar)
+  const sampled = new Map<THREE.Mesh, THREE.Vector3[]>()
+  function samples() {
+    const m = meshes[current] ?? Object.values(meshes)[0]
+    if (!m) return null
+    let pts = sampled.get(m)
+    if (!pts) {
+      const pos = m.geometry.getAttribute('position')
+      const step = Math.max(1, Math.floor(pos.count / 700))
+      pts = []
+      for (let i = 0; i < pos.count; i += step) pts.push(new THREE.Vector3().fromBufferAttribute(pos, i))
+      sampled.set(m, pts)
+    }
+    return { mesh: m, points: pts }
+  }
+
   return {
     group: g,
+    samples,
+    get pose() {
+      return current
+    },
+    setPose(ps: HandPose) {
+      if (ps === current) return
+      current = ps
+      show()
+    },
+    grip,
     idle(t: number) {
-      const m = handIdle(t, pose, seed + (side > 0 ? 0 : 3.1))
+      const m = handIdle(t, current === 'rest' ? 'rest' : 'hold', seed + (side > 0 ? 0 : 3.1))
       inner.position.y = m.y
       inner.rotation.set(m.rx, m.ry, m.rz)
     },
@@ -101,3 +163,5 @@ export function makeHand(style: HandStyleKey, pose: HandPose, side: 1 | -1, prep
     },
   }
 }
+
+export type Hand = ReturnType<typeof makeHand>
