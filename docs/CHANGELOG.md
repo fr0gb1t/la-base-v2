@@ -10,7 +10,8 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   22 a 67 s, cerca o lejos, con dos a cuatro destellos). `buildWindow` (`table.ts`) pone una ventanita con barrotes
   en una pared de ladrillo, arriba, del otro lado de la mesa (en la mesa y en el menú): de noche un vidrio azul
   apenas visible; con el refucilo, el vidrio blanco, la pared iluminada, una luz fría que entra por la ventana y las
-  sombras de los barrotes cruzando la mesa (su mapa de sombras se dibuja solo mientras destella). En `audio.ts`:
+  sombras de los barrotes cruzando la mesa (su mapa de sombras se dibuja solo mientras destella, y una vez al arrancar: sin ese primer dibujo, la sala entera
+  arrancaba a oscuras hasta el primer rayo). En `audio.ts`:
   lluvia amortiguada con un ir y venir lento y el golpeteo de gotas grandes, goteras sueltas con eco, y el trueno
   (más tarde y más apagado cuanto más lejos; si cae cerca, primero el estallido), todo en el bus de «Sonido
   ambiente», que ahora viene prendido. La música pasa a ser **un tema fijo para tararear** (forma A A B A, 32

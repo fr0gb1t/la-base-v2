@@ -189,7 +189,8 @@ export function buildWindow(scene: THREE.Scene) {
   light.shadow.bias = -0.001
   light.shadow.camera.near = 0.2
   light.shadow.camera.far = 8
-  light.shadow.autoUpdate = false // drawn only while it flashes
+  light.shadow.autoUpdate = false // drawn only while it flashes…
+  light.shadow.needsUpdate = true // …and once now: a shadow map never drawn leaves the whole room unlit until the first strike
   group.add(light)
   const target = new THREE.Object3D()
   group.add(target)
@@ -211,6 +212,7 @@ export function buildWindow(scene: THREE.Scene) {
       group.lookAt(0, 0, 0)
       // aim at the table, a little short of its middle
       target.position.set(0, TABLE_Y - Y, R * 0.85)
+      light.shadow.needsUpdate = true
     },
     flash(level: number) {
       light.intensity = level * 140
