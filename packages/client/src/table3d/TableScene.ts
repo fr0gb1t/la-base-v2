@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import { FACE_BACK_DOT, seatUnderAim, isHeadSena, type AimOptions, type Card, type Sena } from '@la-base/shared'
 import { avatarKey, type AvatarSpec } from '@la-base/shared'
 import { NOD_HZ, SENA_HOLD, senaAmount } from './senaPlay'
-import { buildLamp, buildRoom } from './table'
+import { buildLamp, buildRoom, buildWindow } from './table'
+import { lightning } from './storm'
 import { EYE_R, EYE_Y, TABLE_Y, TABLE_R, CARD_W, CARD_H, SHOULDER_R, SHOULDER_Y, PLAY_R, seatAngle, polar, playSlot } from './seats'
 import { makeAvatar, tableFaces, MAX_HAND, FAN_Y, type Avatar, type AvatarPose } from './avatar'
 import { makeCard, type CardView } from './cards'
@@ -134,6 +135,7 @@ export class TableScene {
   private baseCam = new THREE.PerspectiveCamera(58, 1, 0.03, 30)
   private post = makePost(this.renderer, 720)
   private lamp = buildLamp(this.scene)
+  private window = buildWindow(this.scene) // the storm outside comes in through it
   private timer = new THREE.Timer()
   private resizeObs: ResizeObserver
   private disposed = false
@@ -584,6 +586,7 @@ export class TableScene {
     const labels = this.seatPlayers().map(() => ({ name: '', team: 'random' as const }))
     const tmp = new THREE.Scene()
     this.felt = buildRoom(tmp, this.n, labels, getViewSettings().guides)
+    this.window.place(seatAngle(0, this.n) + Math.PI + 0.24) // across the table from you, between two heads
     ;[...tmp.children].forEach((c) => this.roomGroup.add(c))
     this.scene.background = tmp.background
     this.scene.fog = tmp.fog
@@ -1969,6 +1972,7 @@ export class TableScene {
     this.updateDrag()
     this.updateRemoteArms()
     if (this.lamp.update(time)) lampBuzz(new THREE.Vector3(0, 1.67, 0))
+    this.window.flash(lightning())
     // the deck glows and breathes when it's your turn to draw from it
     for (const m of this.centerDeck.material as THREE.MeshStandardMaterial[]) {
       m.emissive.set(this.deckHint ? 0xffc58a : 0x000000)

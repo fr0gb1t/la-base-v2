@@ -1,11 +1,11 @@
 // The music of the basement: an old milonga on a valve radio in the corner, never quite the same twice. It is made
-// here, note by note (no recordings): a bandoneón that breathes, a pizzicato double bass on the milonga's 3-3-2, a
-// line of melody now and then in D minor, and silences — the room is tense, the radio only keeps it company. Everything
+// here, note by note (no recordings): a tune you can hum (fixed, A A B A, in D minor) on a bandoneón, a pizzicato
+// double bass with its own riff on the milonga's 3-3-2, the bandoneón's short chords under them — the room is tense, the radio only keeps it company. Everything
 // goes through the radio: band-limited, a little saturated, the record crackling, the pitch wavering like worn tape.
 
 type Ctx = BaseAudioContext
 
-const BPM = 72
+const BPM = 104 // a milonga is a lively dance: this is its walking pace, not a lament's
 const EIGHTH = 60 / BPM / 2
 const BAR = EIGHTH * 8
 
@@ -21,18 +21,8 @@ const C: Record<string, Chord> = {
   F: { root: 41, notes: [60, 65, 69] },
   E7: { root: 40, notes: [62, 64, 68, 71] },
 }
-// eight-bar phrases, chosen at random (the first one opens)
-const PHRASES = [
-  ['Dm', 'Dm', 'Gm', 'A7', 'Dm', 'Bb', 'Gm6', 'A7'],
-  ['Dm', 'C', 'Bb', 'A7', 'Dm', 'Gm', 'A7', 'Dm'],
-  ['F', 'C', 'Dm', 'A7', 'Bb', 'Gm', 'A7', 'Dm'],
-  ['Dm', 'E7', 'A7', 'Dm', 'Gm', 'Dm', 'A7', 'Dm'],
-]
-// D harmonic minor, for the melody's passing notes
-const SCALE = [2, 4, 5, 7, 9, 10, 13].map((d) => d % 12)
 
 const hz = (m: number) => 440 * Math.pow(2, (m - 69) / 12)
-const pick = <T,>(a: readonly T[], rnd: () => number) => a[Math.floor(rnd() * a.length)]
 
 interface Rig {
   ctx: Ctx
@@ -52,7 +42,7 @@ function buildRadio(ctx: Ctx, out: AudioNode): Rig {
   drive.curve = curve
   const hp = ctx.createBiquadFilter()
   hp.type = 'highpass'
-  hp.frequency.value = 170
+  hp.frequency.value = 120
   const lp = ctx.createBiquadFilter()
   lp.type = 'lowpass'
   lp.frequency.value = 3600
@@ -129,11 +119,11 @@ function bandoneon(r: Rig, notes: number[], t: number, dur: number, gain: number
   }
 }
 
-/** A pizzicato double bass note: a thump and a quick decay. */
-function bass(r: Rig, m: number, t: number, gain: number) {
+/** A pizzicato double bass note: a thump and a quick decay, bright enough to carry a tune through the radio. */
+function bass(r: Rig, m: number, t: number, gain: number, len = 0.5) {
   const { ctx } = r
   const o = ctx.createOscillator()
-  o.type = 'triangle'
+  o.type = 'sawtooth'
   o.frequency.value = hz(m)
   r.wow.connect(o.detune)
   const o2 = ctx.createOscillator()
@@ -143,79 +133,84 @@ function bass(r: Rig, m: number, t: number, gain: number) {
   g2.gain.value = 0.25
   const env = ctx.createGain()
   env.gain.setValueAtTime(0.0001, t)
-  env.gain.exponentialRampToValueAtTime(gain, t + 0.012)
-  env.gain.exponentialRampToValueAtTime(0.0001, t + 0.9)
+  env.gain.exponentialRampToValueAtTime(gain, t + 0.01)
+  env.gain.exponentialRampToValueAtTime(0.0001, t + len)
   const lp = ctx.createBiquadFilter()
   lp.type = 'lowpass'
-  lp.frequency.setValueAtTime(900, t)
-  lp.frequency.exponentialRampToValueAtTime(250, t + 0.4)
+  lp.Q.value = 2
+  lp.frequency.setValueAtTime(1400, t)
+  lp.frequency.exponentialRampToValueAtTime(350, t + len * 0.6)
   o.connect(lp)
   o2.connect(g2).connect(lp)
   lp.connect(env).connect(r.in)
   for (const x of [o, o2]) {
     x.start(t)
-    x.stop(t + 1)
+    x.stop(t + len + 0.05)
   }
 }
 
 /** The composer: lays down bar after bar, choosing phrases, textures and melody as it goes. */
+// ---- the tune. A melody you can hum, like the old handheld games' themes: a short hook with its own rhythm (the
+// milonga's 3-3-2), said twice, answered, a brighter middle part, and back to the hook. Fixed, so it sticks: the
+// only things that change from one time round to the next are small (an octave up, a grace note).
+// Each bar: its chord, and the melody as [midi, start eighth, length in eighths].
+type Note = [number, number, number]
+const A_PART: Array<[string, Note[]]> = [
+  ['Dm', [[74, 0, 3], [69, 3, 3], [74, 6, 1], [76, 7, 1]]], // the hook: D – A – D E
+  ['Dm', [[77, 0, 3], [76, 3, 1], [74, 4, 1], [73, 5, 1], [74, 6, 2]]], //          F – E D C# D
+  ['Gm', [[79, 0, 3], [77, 3, 3], [76, 6, 1], [74, 7, 1]]], //                       G – F – E D
+  ['A7', [[73, 0, 2], [76, 2, 1], [69, 3, 3], [69, 6, 1], [69, 7, 1]]], //            C# E A — A A
+  ['Dm', [[74, 0, 3], [69, 3, 3], [74, 6, 1], [76, 7, 1]]], // the hook again
+  ['Bb', [[77, 0, 3], [79, 3, 1], [77, 4, 1], [76, 5, 1], [74, 6, 2]]],
+  ['A7', [[76, 0, 1], [77, 1, 1], [76, 2, 1], [74, 3, 3], [73, 6, 2]]],
+  ['Dm', [[74, 0, 3], [69, 3, 1], [74, 4, 2]]], // home
+]
+const B_PART: Array<[string, Note[]]> = [
+  ['F', [[72, 0, 1], [77, 1, 2], [81, 3, 3], [79, 6, 1], [77, 7, 1]]], // up into F major
+  ['C', [[76, 0, 3], [79, 3, 3], [76, 6, 2]]],
+  ['Bb', [[74, 0, 1], [77, 1, 2], [82, 3, 3], [81, 6, 1], [79, 7, 1]]], // the same, a step lower and higher
+  ['A7', [[81, 0, 3], [79, 3, 1], [77, 4, 1], [76, 5, 1], [73, 6, 2]]],
+  ['Dm', [[74, 0, 1], [77, 1, 2], [81, 3, 3], [81, 6, 1], [82, 7, 1]]],
+  ['Gm', [[82, 0, 3], [81, 3, 1], [79, 4, 1], [77, 5, 1], [76, 6, 2]]],
+  ['E7', [[77, 0, 2], [76, 2, 1], [74, 3, 3], [76, 6, 2]]],
+  ['A7', [[73, 0, 3], [69, 3, 3], [69, 6, 1], [76, 7, 1]]], // and the pick-up back to the hook
+]
+// A A B A: 32 bars, a little over a minute, then round again
+const FORM = [...A_PART, ...A_PART, ...B_PART, ...A_PART]
+
+/** The composer: plays the tune bar by bar — the bass's riff, the bandoneón's chords and the melody on top. */
 function composer(r: Rig, rnd: () => number = Math.random) {
-  let phrase = PHRASES[0]
-  let bar = 0
-  let texture: 'marcato' | 'legato' | 'bass' = 'marcato'
-  let melody = false
-  let lastMel = 74
+  let bar = -2 // two bars of bass and chords before the tune comes in
+  let round = 0
   return function scheduleBar(t0: number) {
-    const i = bar % 8
-    if (i === 0 && bar > 0) phrase = rnd() < 0.55 ? pick(PHRASES, rnd) : phrase
-    if (i % 4 === 0) {
-      // every four bars: how the bandoneón plays, and whether it sings
-      // (the bass alone, now and then, for a breath of silence — never twice running)
-      const roll = rnd()
-      texture = roll < 0.48 ? 'marcato' : roll < 0.9 || texture === 'bass' ? 'legato' : 'bass'
-      melody = bar > 4 && rnd() < 0.55
-    }
-    const ch = C[phrase[i]]
-    const next = C[phrase[(i + 1) % 8]]
-    // the bass on the 3-3-2: root, fifth, and the root again or a step into the next chord
-    const approach = next.root === ch.root ? ch.root : next.root + (next.root > ch.root ? -1 : 1)
-    bass(r, ch.root, t0, 0.5)
-    bass(r, ch.root + 7, t0 + EIGHTH * 3, 0.38)
-    bass(r, rnd() < 0.5 ? approach : ch.root, t0 + EIGHTH * 6, 0.34)
-    // the bandoneón
-    if (texture === 'marcato') {
-      for (const e of [0, 3, 6]) bandoneon(r, ch.notes, t0 + e * EIGHTH, EIGHTH * 0.75, e === 0 ? 0.2 : 0.14, 0.02)
-    } else if (texture === 'legato') {
-      bandoneon(r, ch.notes, t0, BAR * 0.96, 0.13, 0.35)
-    }
-    // a line of melody: mostly chord notes, stepping down through the scale, landing on the chord at the end
-    if (melody) {
-      const rhythm = pick(
-        [
-          [3, 3, 2],
-          [2, 1, 1, 2, 2],
-          [1, 1, 1, 1, 4],
-          [4, 2, 2],
-          [6, 2],
-        ],
-        rnd,
-      )
-      let e = 0
-      rhythm.forEach((len, k) => {
-        const tones = ch.notes.map((n) => n + 12)
-        let m: number
-        if (k === rhythm.length - 1) m = tones.reduce((a, b) => (Math.abs(b - lastMel) < Math.abs(a - lastMel) ? b : a))
-        else {
-          const step = rnd() < 0.7 ? -1 : 1
-          m = lastMel + step
-          for (let s = 0; s < 3 && !SCALE.includes(((m % 12) + 12) % 12); s++) m += step
-          if (m < 69) m += 12
-          if (m > 84) m -= 12
-        }
-        lastMel = m
-        bandoneon(r, [m], t0 + e * EIGHTH, len * EIGHTH * 0.92, 0.16, 0.05)
-        e += len
-      })
+    const k = ((bar % FORM.length) + FORM.length) % FORM.length
+    const [name, melody] = FORM[k]
+    const ch = C[name]
+    const next = C[FORM[(k + 1) % FORM.length][0]]
+    if (k === 0 && bar > 0) round++
+
+    // the bass's riff on the 3-3-2: root, fifth, and two quick notes walking into the next chord's root
+    const low = (m: number) => (m < 41 ? m + 12 : m) // (the radio would swallow anything lower)
+    const root = low(ch.root)
+    const goal = low(next.root)
+    const walk1 = goal + (goal > root ? -2 : goal < root ? 2 : 7)
+    const walk2 = goal + (goal > root ? -1 : goal < root ? 1 : 4)
+    bass(r, root, t0, 0.36, EIGHTH * 2.6)
+    bass(r, root + 7, t0 + EIGHTH * 3, 0.3, EIGHTH * 2.6)
+    bass(r, walk1, t0 + EIGHTH * 6, 0.26, EIGHTH * 0.9)
+    bass(r, walk2, t0 + EIGHTH * 7, 0.26, EIGHTH * 0.9)
+
+    // the bandoneón's chords, short and soft under the tune (marcato on the 3-3-2)
+    for (const e of [0, 3, 6]) bandoneon(r, ch.notes, t0 + e * EIGHTH, EIGHTH * 0.5, e === 0 ? 0.11 : 0.08, 0.012)
+
+    // the tune (from the third bar on); the second time round the hook sings an octave up, now and then a grace note
+    if (bar >= 0) {
+      const up = round % 2 === 1 && k < 16 ? 12 : 0
+      for (const [m, e, len] of melody) {
+        const at = t0 + e * EIGHTH
+        if (len >= 3 && rnd() < 0.2) bandoneon(r, [m + up + 1], at - EIGHTH * 0.25, EIGHTH * 0.22, 0.1, 0.008) // a grace note
+        bandoneon(r, [m + up], at, len * EIGHTH * 0.82, 0.2, 0.02)
+      }
     }
     bar++
   }

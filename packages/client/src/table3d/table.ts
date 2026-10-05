@@ -112,6 +112,116 @@ export function buildRoom(scene: THREE.Scene, n: PlayerCount, labels: SeatLabel[
   }
 }
 
+/** A wall of old brick, drawn once (a canvas): mortar lines and uneven, dark bricks. */
+function brickTexture() {
+  const W = 256
+  const H = 256
+  const cv = document.createElement('canvas')
+  cv.width = W
+  cv.height = H
+  const g = cv.getContext('2d')!
+  g.fillStyle = '#2a2420'
+  g.fillRect(0, 0, W, H)
+  const bh = 32
+  const bw = 64
+  for (let row = 0; row < H / bh; row++) {
+    const off = row % 2 ? bw / 2 : 0
+    for (let x = -bw; x < W + bw; x += bw) {
+      const v = 70 + Math.floor(Math.random() * 40)
+      g.fillStyle = `rgb(${v + 20}, ${v - 5}, ${v - 20})`
+      g.fillRect(x + off + 2, row * bh + 2, bw - 4, bh - 4)
+    }
+  }
+  const tex = new THREE.CanvasTexture(cv)
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping
+  tex.repeat.set(3, 2.4)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
+/**
+ * The basement's little window, high on a brick wall across the table: a dim blue glass with bars, and the storm's
+ * lightning coming in through it (storm.ts). The flash lights the room in cold white, the bars' shadows fall across
+ * the table, and for that instant the wall around it shows; then it is dark again. `place(angle)` puts it at that
+ * angle round the table (across from you); `flash(level)` every frame.
+ */
+export function buildWindow(scene: THREE.Scene) {
+  const group = new THREE.Group()
+  scene.add(group)
+  const R = 3.1 // from the middle of the table to the wall
+  const Y = 1.52 // the window's middle: up high, at street level outside (just inside the top of your view)
+  const WW = 0.62
+  const WH = 0.34
+
+  const wallMat = new THREE.MeshStandardMaterial({ map: brickTexture(), color: 0x6a5e56, roughness: 1 })
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 3.2), wallMat)
+  wall.position.set(0, 1.4, 0)
+  wall.receiveShadow = true // (it casts none: the window's light comes from behind it)
+  group.add(wall)
+
+  // the glass (the night outside, a faint blue; white when it flashes), pushed out through the fog
+  const glassMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0x0d1626), fog: false })
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(WW, WH), glassMat)
+  glass.position.set(0, Y, 0.002)
+  group.add(glass)
+  // frame and bars: they cast the shadows the flash throws across the room
+  const iron = new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.7 })
+  const bars: THREE.Mesh[] = []
+  const bar = (w: number, h: number, x: number, y: number) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.05), iron)
+    m.position.set(x, Y + y, 0.03)
+    m.castShadow = true
+    bars.push(m)
+    group.add(m)
+  }
+  bar(WW + 0.08, 0.05, 0, WH / 2 + 0.02)
+  bar(WW + 0.08, 0.05, 0, -WH / 2 - 0.02)
+  bar(0.05, WH + 0.08, WW / 2 + 0.02, 0)
+  bar(0.05, WH + 0.08, -WW / 2 - 0.02, 0)
+  for (const x of [-WW / 4, 0, WW / 4]) bar(0.018, WH, x, 0)
+  bar(WW, 0.018, 0, 0)
+
+  // the flash: a cold light from just outside the glass, falling across the table
+  const light = new THREE.SpotLight(0xc8d8ff, 0, 9, 0.62, 0.45, 1.2)
+  light.position.set(0, Y + 0.05, -0.35) // (behind the wall: the wall casts no shadow, the bars do)
+  light.castShadow = true
+  light.shadow.mapSize.set(512, 512)
+  light.shadow.bias = -0.001
+  light.shadow.camera.near = 0.2
+  light.shadow.camera.far = 8
+  light.shadow.autoUpdate = false // drawn only while it flashes
+  group.add(light)
+  const target = new THREE.Object3D()
+  group.add(target)
+  light.target = target
+  // the wall round the window, lit from the glass
+  const glow = new THREE.PointLight(0xc8d8ff, 0, 2.6, 1.5)
+  glow.position.set(0, Y, 0.35)
+  group.add(glow)
+  // the whole room, for that instant: the void around the table shows its corners
+  const fill = new THREE.AmbientLight(0x9fb4e0, 0)
+  scene.add(fill)
+
+  const night = new THREE.Color(0x0d1626)
+  const white = new THREE.Color(0xdfe9ff).multiplyScalar(9)
+  return {
+    place(angle: number) {
+      // facing the table, across it from `angle`'s opposite
+      group.position.set(Math.cos(angle) * R, 0, Math.sin(angle) * R)
+      group.lookAt(0, 0, 0)
+      // aim at the table, a little short of its middle
+      target.position.set(0, TABLE_Y - Y, R * 0.85)
+    },
+    flash(level: number) {
+      light.intensity = level * 140
+      glow.intensity = level * 9
+      fill.intensity = level * 0.9
+      glassMat.color.copy(night).lerp(white, Math.min(1, level))
+      if (level > 0.01) light.shadow.needsUpdate = true
+    },
+  }
+}
+
 // ONE key light: the hanging lamp. Everything else is near-black.
 export function buildLamp(scene: THREE.Scene) {
   const lamp = new THREE.Group()

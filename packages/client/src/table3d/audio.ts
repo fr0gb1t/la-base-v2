@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from '../settings/audioSettings'
 import { makeMusic } from './music'
+import { onStrike, type Strike } from './storm'
 
 // Sound design: real card recordings (Kenney "Casino Audio", CC0) placed in 3D (HRTF) inside a small
 // wooden room (short convolution reverb). No noise beds: an old milonga plays low on a radio in the corner
@@ -172,6 +173,11 @@ async function buildGraph() {
   wet.gain.value = 0.22
   wet.connect(verb).connect(sfxBus)
 
+  // the storm outside: rain all the time, a drip in a corner now and then, thunder after each lightning
+  buildRain()
+  onStrike((st) => thunder(st))
+  scheduleDrip()
+
   // the music: an old milonga on the radio (no more lamp hum under it)
   musicBus = ctx.createGain()
   musicBus.gain.value = 0
@@ -252,6 +258,150 @@ export function sfx(kind: Sfx, at: THREE.Vector3, volume = 1) {
   g.gain.value = v.gain * volume * (0.85 + Math.random() * 0.3)
   s.connect(g).connect(spatial(at))
   s.start()
+}
+
+// ------------------------------------------------------------------ the storm
+
+/** Noise: white, or browner (each sample leaning on the last), `seconds` long, stereo. */
+function noiseBuffer(seconds: number, brown: number) {
+  const len = Math.floor(ctx.sampleRate * seconds)
+  const b = ctx.createBuffer(2, len, ctx.sampleRate)
+  for (let ch = 0; ch < 2; ch++) {
+    const d = b.getChannelData(ch)
+    let last = 0
+    for (let i = 0; i < len; i++) {
+      last = last * brown + (Math.random() * 2 - 1) * (1 - brown)
+      d[i] = last
+    }
+    // (normalise: browner noise is quieter)
+    let peak = 0
+    for (let i = 0; i < len; i++) peak = Math.max(peak, Math.abs(d[i]))
+    for (let i = 0; i < len; i++) d[i] /= peak || 1
+  }
+  return b
+}
+
+/**
+ * The rain, heard from the basement: a muffled hiss on the ground and the window outside, swelling and easing slowly,
+ * with the patter of the bigger drops on top. On the room's bus (Sonido ambiente).
+ */
+function buildRain() {
+  const hiss = ctx.createBufferSource()
+  hiss.buffer = noiseBuffer(5, 0.6)
+  hiss.loop = true
+  const band = ctx.createBiquadFilter()
+  band.type = 'bandpass'
+  band.frequency.value = 1100
+  band.Q.value = 0.5
+  const muffle = ctx.createBiquadFilter() // through the wall and the glass
+  muffle.type = 'lowpass'
+  muffle.frequency.value = 2600
+  const g = ctx.createGain()
+  g.gain.value = 0.05
+  // it comes and goes: a slow swell
+  const swell = ctx.createOscillator()
+  swell.frequency.value = 0.045
+  const swellG = ctx.createGain()
+  swellG.gain.value = 0.018
+  swell.connect(swellG).connect(g.gain)
+  swell.start()
+  hiss.connect(band).connect(muffle).connect(g).connect(ambBus)
+  hiss.start()
+  // the patter: sparse ticks of bigger drops (a buffer of them, looped at an odd length)
+  const len = Math.floor(ctx.sampleRate * 3.7)
+  const pat = ctx.createBuffer(2, len, ctx.sampleRate)
+  for (let ch = 0; ch < 2; ch++) {
+    const d = pat.getChannelData(ch)
+    for (let i = 0; i < len; i++) {
+      if (Math.random() < 0.0016) {
+        const a = 0.2 + Math.random() * 0.8
+        const k0 = 18 + Math.random() * 40
+        for (let k = 0; k < 220 && i + k < len; k++) d[i + k] += a * Math.exp(-k / k0) * (Math.random() * 2 - 1)
+      }
+    }
+  }
+  const patter = ctx.createBufferSource()
+  patter.buffer = pat
+  patter.loop = true
+  const pf = ctx.createBiquadFilter()
+  pf.type = 'bandpass'
+  pf.frequency.value = 2400
+  pf.Q.value = 0.8
+  const pg = ctx.createGain()
+  pg.gain.value = 0.035
+  patter.connect(pf).connect(pg).connect(ambBus)
+  patter.start()
+}
+
+/** A drop of water falling into a puddle in some corner of the basement, now and then. */
+function scheduleDrip() {
+  window.setTimeout(() => {
+    scheduleDrip()
+    if (!graphReady || ctx.state !== 'running' || !getAudioSettings().ambient) return
+    const t = ctx.currentTime + 0.05
+    const o = ctx.createOscillator()
+    o.type = 'sine'
+    const f = 900 + Math.random() * 700
+    o.frequency.setValueAtTime(f, t)
+    o.frequency.exponentialRampToValueAtTime(f * 1.9, t + 0.06) // the bubble's pitch rises
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.exponentialRampToValueAtTime(0.05, t + 0.004)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11)
+    const pan = ctx.createStereoPanner()
+    pan.pan.value = Math.random() * 1.6 - 0.8
+    o.connect(g).connect(pan).connect(ambBus)
+    g.connect(wet) // the basement's echo
+    o.start(t)
+    o.stop(t + 0.15)
+  }, 4000 + Math.random() * 11000)
+}
+
+/**
+ * Thunder after a strike: the farther off, the later (sound is slow) and the softer and duller. Near: a crack first,
+ * then the long rumble that rolls and fades. Brown noise through a low-pass, its loudness rolling irregularly.
+ */
+function thunder(st: Strike) {
+  if (!graphReady || ctx.state !== 'running' || !getAudioSettings().ambient) return
+  const delay = 0.25 + (1 - st.near) * 3.6
+  const t = ctx.currentTime + delay
+  const dur = 4 + (1 - st.near) * 4 + Math.random() * 2
+  const src = ctx.createBufferSource()
+  src.buffer = noiseBuffer(dur + 1, 0.985)
+  const lp = ctx.createBiquadFilter()
+  lp.type = 'lowpass'
+  lp.frequency.setValueAtTime(260 + st.near * 900, t)
+  lp.frequency.exponentialRampToValueAtTime(90, t + dur)
+  const g = ctx.createGain()
+  const peak = 0.12 + st.near * 0.5
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.exponentialRampToValueAtTime(peak, t + (st.near > 0.6 ? 0.03 : 0.5))
+  // the roll: it swells back two or three times as it dies away
+  let at = t + 0.6
+  while (at < t + dur) {
+    const left = 1 - (at - t) / dur
+    g.gain.setTargetAtTime(peak * left * (0.35 + Math.random() * 0.65), at, 0.25)
+    at += 0.3 + Math.random() * 0.9
+  }
+  g.gain.setTargetAtTime(0.0001, t + dur, 0.6)
+  src.connect(lp).connect(g).connect(ambBus)
+  g.connect(wet)
+  src.start(t)
+  src.stop(t + dur + 3)
+  // right on top of the house: the crack of the bolt itself
+  if (st.near > 0.6) {
+    const crack = ctx.createBufferSource()
+    crack.buffer = noiseBuffer(0.6, 0.3)
+    const hp = ctx.createBiquadFilter()
+    hp.type = 'highpass'
+    hp.frequency.value = 700
+    const cg = ctx.createGain()
+    cg.gain.setValueAtTime(0.0001, t)
+    cg.gain.exponentialRampToValueAtTime(0.25 * st.near, t + 0.01)
+    cg.gain.exponentialRampToValueAtTime(0.0001, t + 0.5)
+    crack.connect(hp).connect(cg).connect(ambBus)
+    crack.start(t)
+  }
 }
 
 // Filament crackle while the lamp flickers.

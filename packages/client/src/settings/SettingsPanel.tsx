@@ -175,7 +175,7 @@ export function SettingsHost() {
             <GiCandleLight aria-hidden className="setting-icon" />
             <span className="setting-text">
               <b>Sonido ambiente</b>
-              <small>la lámpara que chisporrotea cuando titila</small>
+              <small>la lluvia, los truenos, las goteras, la lámpara</small>
             </span>
             <span className="setting-state">{s.ambient ? 'sí' : 'no'}</span>
           </button>

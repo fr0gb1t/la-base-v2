@@ -5,12 +5,22 @@ import type { Novedad } from './novedades';
 export const NOVEDADES: Novedad[] = [
   // ------------------------------------------------------------------ 5 de octubre
   {
+    id: '2026-10-05-tormenta',
+    date: '2026-10-05',
+    title: 'Tormenta afuera',
+    items: [
+      'Llueve. Se oye la lluvia afuera, alguna gotera en un rincón, y de vez en cuando cae un rayo.',
+      'El refucilo entra por una ventanita del sótano: la sala se ilumina de golpe y los barrotes cruzan la mesa con su sombra. El trueno llega después, más tarde cuanto más lejos cayó.',
+      'Todo eso es el «Sonido ambiente» (Ajustes → Sonido), ahora prendido para todos.',
+    ],
+  },
+  {
     id: '2026-10-05-musica',
     date: '2026-10-05',
     title: 'Música en el sótano',
     items: [
-      'Suena una milonga vieja en una radio del sótano: bandoneón, contrabajo y el crujido del disco. Nunca suena igual dos veces.',
-      'Se apaga en Ajustes → Sonido → Música. El zumbido de la lámpara ya no está; «Sonido ambiente» ahora es solo su chisporroteo cuando titila.',
+      'Suena una milonga en una radio vieja del sótano: un tema con un estribillo para tararear, bandoneón, contrabajo y el crujido del disco.',
+      'Se apaga en Ajustes → Sonido → Música. El zumbido de la lámpara ya no está.',
     ],
   },
   {
