@@ -3,7 +3,8 @@ import { avatarKey, type AvatarSpec } from '@la-base/shared'
 import { KamikazeDial } from './kamikazeDial'
 import { attachAudio, uiSound } from '../table3d/audio'
 import * as THREE from 'three'
-import { buildLamp, buildRoom } from '../table3d/table'
+import { buildLamp, buildRoom, buildWindow } from '../table3d/table'
+import { lightning } from '../table3d/storm'
 import { TABLE_Y, TABLE_R, CHAIR_R, CARD_H, CARD_W, seatAngle, polar } from '../table3d/seats'
 import { NameTag, TAG_Y, TAG_R_OFFSET } from '../table3d/nameTags'
 import { getViewSettings, onViewSettings } from '../settings/viewSettings'
@@ -101,6 +102,7 @@ export class MenuScene {
   private camera = new THREE.PerspectiveCamera(52, 1, 0.03, 30)
   private post = makePost(this.renderer, 720)
   private lamp = buildLamp(this.scene)
+  private window = buildWindow(this.scene) // the storm outside comes in through it
   private timer = new THREE.Timer()
   private resizeObs: ResizeObserver
   private roomGroup = new THREE.Group()
@@ -192,6 +194,7 @@ export class MenuScene {
     // no names chalked on the felt (they float over each player, as in the game); the guides
     // follow your view setting
     this.room = buildRoom(tmp, n, [], getViewSettings().guides)
+    this.window.place(seatAngle(0, n) + Math.PI + 0.24) // across the table from the camera, between two heads
     ;[...tmp.children].forEach((c) => this.roomGroup.add(c))
     this.scene.background = tmp.background
     this.scene.fog = tmp.fog
@@ -485,6 +488,7 @@ export class MenuScene {
   private frame(time: number, dt: number) {
     if (this.disposed) return
     this.lamp.update(time)
+    this.window.flash(lightning())
     const calm = reduced()
     const k = 1 - Math.exp(-Math.min(dt, 0.1) * (calm ? 8 : 2.2))
 

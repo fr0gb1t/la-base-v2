@@ -6,6 +6,16 @@ Todo lo hecho después de `a603e36` (la sección de abajo cubre lo anterior), ag
 más reciente (después del último push a `main`, `1265ce2`) va primero.
 
 ### Lo último (desde `02045de`)
+- **Tormenta: lluvia, truenos y el refucilo por la ventanita:** `table3d/storm.ts` lleva el reloj de los rayos (cada
+  22 a 67 s, cerca o lejos, con dos a cuatro destellos). `buildWindow` (`table.ts`) pone una ventanita con barrotes
+  en una pared de ladrillo, arriba, del otro lado de la mesa (en la mesa y en el menú): de noche un vidrio azul
+  apenas visible; con el refucilo, el vidrio blanco, la pared iluminada, una luz fría que entra por la ventana y las
+  sombras de los barrotes cruzando la mesa (su mapa de sombras se dibuja solo mientras destella, y una vez al arrancar: sin ese primer dibujo, la sala entera
+  arrancaba a oscuras hasta el primer rayo). En `audio.ts`:
+  lluvia amortiguada con un ir y venir lento y el golpeteo de gotas grandes, goteras sueltas con eco, y el trueno
+  (más tarde y más apagado cuanto más lejos; si cae cerca, primero el estallido), todo en el bus de «Sonido
+  ambiente», que ahora viene prendido; el zumbido de la lámpara se fue (queda su chisporroteo). La música
+  (`music.ts`) sigue aparte, en `dev`.
 - **El As de espadas que mata al Ancho gana la base:** `resolveBase` (`shared/card.ts`) comparaba de a pares la carta
   que iba ganando con la siguiente; el As de espadas le ganaba al Ancho, pero después volvía a pesar como un as
   común y cualquier carta leída después (un 5) le ganaba. Ahora, leído después de un Ancho, el As lo mata y queda

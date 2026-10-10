@@ -4,9 +4,9 @@ import { getAudioSettings } from './audioSettings'
 
 // What a new player starts with on a computer (the test runs without a touch screen or saved settings).
 describe('default settings (desktop)', () => {
-  it('sound: the game\'s sounds on, the room tone off', () => {
+  it('sound: the game\'s sounds and the storm, both on', () => {
     expect(getAudioSettings().effects).toBe(true)
-    expect(getAudioSettings().ambient).toBe(false)
+    expect(getAudioSettings().ambient).toBe(true)
   })
 
   it('the table: no hand reset, no guides, camera not sent back or inverted, aiming dot and seña flash on', () => {
