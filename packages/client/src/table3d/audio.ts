@@ -4,8 +4,8 @@ import { makeMusic } from './music'
 import { onStrike, type Strike } from './storm'
 
 // Sound design: real card recordings (Kenney "Casino Audio", CC0) placed in 3D (HRTF) inside a small
-// wooden room (short convolution reverb). No noise beds: an old milonga plays low on a radio in the corner
-// (music.ts) and the lamp crackles when it flickers. Silence is part of the tension.
+// wooden room (short convolution reverb). The storm outside (rain, drips, thunder), an old milonga low on a
+// radio in the corner (music.ts) and the lamp, which crackles when it flickers. Silence is part of the tension.
 export type Sfx = 'pick' | 'slide' | 'place' | 'flip' | 'toss' | 'toHand' | 'shuffle' | 'knock'
 
 const FILES: Record<Exclude<Sfx, 'knock'>, string[]> = {
@@ -37,7 +37,7 @@ let wet: GainNode
 let musicBus: GainNode // the radio
 let music: ReturnType<typeof makeMusic> | null = null
 let sfxBus: GainNode // cards, table, knocks (dry + reverb send)
-let ambBus: GainNode // the lamp's crackle
+let ambBus: GainNode // the storm and the lamp's crackle
 const MASTER = 0.9
 const MUSIC = 0.55 // the radio sits under the cards and the table, never over them
 const buffers = new Map<string, AudioBuffer>()
@@ -358,8 +358,9 @@ function scheduleDrip() {
 }
 
 /**
- * Thunder after a strike: the farther off, the later (sound is slow) and the softer and duller. Near: a crack first,
- * then the long rumble that rolls and fades. Brown noise through a low-pass, its loudness rolling irregularly.
+ * Thunder after a strike: the farther off, the later (sound is slow) and the softer and duller; a long rumble that
+ * rolls and fades (no crack on top: a high-passed noise burst read as a snare). Brown noise through a low-pass,
+ * its loudness rolling irregularly.
  */
 function thunder(st: Strike) {
   if (!graphReady || ctx.state !== 'running' || !getAudioSettings().ambient) return
@@ -388,20 +389,6 @@ function thunder(st: Strike) {
   g.connect(wet)
   src.start(t)
   src.stop(t + dur + 3)
-  // right on top of the house: the crack of the bolt itself
-  if (st.near > 0.6) {
-    const crack = ctx.createBufferSource()
-    crack.buffer = noiseBuffer(0.6, 0.3)
-    const hp = ctx.createBiquadFilter()
-    hp.type = 'highpass'
-    hp.frequency.value = 700
-    const cg = ctx.createGain()
-    cg.gain.setValueAtTime(0.0001, t)
-    cg.gain.exponentialRampToValueAtTime(0.25 * st.near, t + 0.01)
-    cg.gain.exponentialRampToValueAtTime(0.0001, t + 0.5)
-    crack.connect(hp).connect(cg).connect(ambBus)
-    crack.start(t)
-  }
 }
 
 // Filament crackle while the lamp flickers.

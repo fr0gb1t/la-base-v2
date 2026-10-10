@@ -20,7 +20,7 @@ export const NOVEDADES: Novedad[] = [
     title: 'Música en el sótano',
     items: [
       'Suena una milonga en una radio vieja del sótano: un tema con un estribillo para tararear, bandoneón, contrabajo y el crujido del disco.',
-      'Se apaga en Ajustes → Sonido → Música. El zumbido de la lámpara ya no está.',
+      'Se apaga en Ajustes → Sonido → Música.',
     ],
   },
   {

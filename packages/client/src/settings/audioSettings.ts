@@ -10,14 +10,18 @@ export interface AudioSettings {
 const KEY = 'laBase.audio'
 // everybody starts with everything: the game's sounds, the music and the storm
 const DEFAULTS: AudioSettings = { volume: 0.8, ambient: true, effects: true, music: true }
+// 2: the room sound became the rain. Before it, desktop started with it off and that choice got saved along with
+// the volume, so an older save has its room sound turned back on once.
+const VERSION = 2
 
 function load(): AudioSettings {
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<AudioSettings>
+    const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<AudioSettings> & { v?: number }
     const volume = typeof raw.volume === 'number' && raw.volume >= 0 && raw.volume <= 1 ? raw.volume : DEFAULTS.volume
+    const keepsAmbient = raw.v === VERSION && typeof raw.ambient === 'boolean'
     return {
       volume,
-      ambient: typeof raw.ambient === 'boolean' ? raw.ambient : DEFAULTS.ambient,
+      ambient: keepsAmbient ? raw.ambient! : DEFAULTS.ambient,
       effects: typeof raw.effects === 'boolean' ? raw.effects : DEFAULTS.effects,
       music: typeof raw.music === 'boolean' ? raw.music : DEFAULTS.music,
     }
@@ -34,7 +38,7 @@ export const getAudioSettings = () => current
 export function setAudioSettings(patch: Partial<AudioSettings>) {
   current = { ...current, ...patch }
   try {
-    localStorage.setItem(KEY, JSON.stringify(current))
+    localStorage.setItem(KEY, JSON.stringify({ ...current, v: VERSION }))
   } catch {
     /* storage unavailable: settings last for this session only */
   }

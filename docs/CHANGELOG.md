@@ -13,17 +13,17 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   sombras de los barrotes cruzando la mesa (su mapa de sombras se dibuja solo mientras destella, y una vez al arrancar: sin ese primer dibujo, la sala entera
   arrancaba a oscuras hasta el primer rayo). En `audio.ts`:
   lluvia amortiguada con un ir y venir lento y el golpeteo de gotas grandes, goteras sueltas con eco, y el trueno
-  (más tarde y más apagado cuanto más lejos; si cae cerca, primero el estallido), todo en el bus de «Sonido
-  ambiente», que ahora viene prendido. La música pasa a ser **un tema fijo para tararear** (forma A A B A, 32
+  (más tarde y más apagado cuanto más lejos; sin estallido encima: sonaba a redoblante), todo en el bus de «Sonido
+  ambiente», que ahora viene prendido; el zumbido de la lámpara se fue (queda su chisporroteo). La música
+  (`music.ts`) sigue aparte, en `dev`. Los ajustes guardados llevan versión (`v: 2` en `laBase.audio`): un guardado
+  de antes de la lluvia (en la compu el ambiente venía apagado y se guardaba así) lo vuelve a prender una vez.
+- **Música: una milonga en la radio del sótano** (`table3d/music.ts`, solo en `dev` por ahora), hecha en el momento con
+  Web Audio, sin grabaciones: bandoneón (dos lengüetas por nota, en octava y un poco desafinadas, con el fuelle que
+  respira) y contrabajo en pizzicato sobre el 3-3-2 de la milonga. Un tema fijo para tararear (forma A A B A, 32
   compases, re menor, 104 bpm): un gancho en el 3-3-2, su respuesta, una parte B en fa mayor y la vuelta; el
-  contrabajo con su propio riff que camina al acorde siguiente y el bandoneón con acordes cortos. Notas cortas.
-- **Música: una milonga en la radio del sótano** (`table3d/music.ts`), hecha en el momento con Web Audio, sin
-  grabaciones: bandoneón (dos lengüetas por nota, en octava y un poco desafinadas, con el fuelle que respira),
-  contrabajo en pizzicato sobre el 3-3-2 de la milonga, frases de melodía en re menor armónico y silencios; frases de
-  ocho compases elegidas al azar (re menor, a 72 bpm), con marcato, legato o el bajo solo. Todo pasa por «la radio»:
-  banda angosta, saturación de válvula, crujido de disco y una leve desafinación de cinta. Ajuste nuevo `music`
-  (prendido por defecto), en su propio bus; el zumbido de la lámpara se fue y «Sonido ambiente» queda para su
-  chisporroteo. `renderMusic(segundos)` la graba offline para escucharla fuera del juego.
+  contrabajo con su propio riff que camina al acorde siguiente y el bandoneón con acordes cortos. Todo pasa por «la
+  radio»: banda angosta, saturación de válvula, crujido de disco y una leve desafinación de cinta. Ajuste `music`
+  (prendido por defecto), en su propio bus. `renderMusic(segundos)` la graba offline para escucharla fuera del juego.
 - **El As de espadas que mata al Ancho gana la base:** `resolveBase` (`shared/card.ts`) comparaba de a pares la carta
   que iba ganando con la siguiente; el As de espadas le ganaba al Ancho, pero después volvía a pesar como un as
   común y cualquier carta leída después (un 5) le ganaba. Ahora, leído después de un Ancho, el As lo mata y queda

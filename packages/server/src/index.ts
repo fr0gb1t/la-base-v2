@@ -22,6 +22,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 async function start() {
   const fastify: any = Fastify({
     logger: true,
+    trustProxy: true
   });
 
   // Initialize database
