@@ -15,7 +15,8 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   lluvia amortiguada con un ir y venir lento y el golpeteo de gotas grandes, goteras sueltas con eco, y el trueno
   (más tarde y más apagado cuanto más lejos; si cae cerca, primero el estallido), todo en el bus de «Sonido
   ambiente», que ahora viene prendido; el zumbido de la lámpara se fue (queda su chisporroteo). La música
-  (`music.ts`) sigue aparte, en `dev`.
+  (`music.ts`) sigue aparte, en `dev`. Los ajustes guardados llevan versión (`v: 2` en `laBase.audio`): un guardado
+  de antes de la lluvia (en la compu el ambiente venía apagado y se guardaba así) lo vuelve a prender una vez.
 - **El As de espadas que mata al Ancho gana la base:** `resolveBase` (`shared/card.ts`) comparaba de a pares la carta
   que iba ganando con la siguiente; el As de espadas le ganaba al Ancho, pero después volvía a pesar como un as
   común y cualquier carta leída después (un 5) le ganaba. Ahora, leído después de un Ancho, el As lo mata y queda
