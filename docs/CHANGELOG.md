@@ -13,7 +13,7 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   sombras de los barrotes cruzando la mesa (su mapa de sombras se dibuja solo mientras destella, y una vez al arrancar: sin ese primer dibujo, la sala entera
   arrancaba a oscuras hasta el primer rayo). En `audio.ts`:
   lluvia amortiguada con un ir y venir lento y el golpeteo de gotas grandes, goteras sueltas con eco, y el trueno
-  (más tarde y más apagado cuanto más lejos; si cae cerca, primero el estallido), todo en el bus de «Sonido
+  (más tarde y más apagado cuanto más lejos; sin estallido encima: sonaba a redoblante), todo en el bus de «Sonido
   ambiente», que ahora viene prendido; el zumbido de la lámpara se fue (queda su chisporroteo). La música
   (`music.ts`) sigue aparte, en `dev`. Los ajustes guardados llevan versión (`v: 2` en `laBase.audio`): un guardado
   de antes de la lluvia (en la compu el ambiente venía apagado y se guardaba así) lo vuelve a prender una vez.

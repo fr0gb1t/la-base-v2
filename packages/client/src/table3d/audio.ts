@@ -349,8 +349,9 @@ function scheduleDrip() {
 }
 
 /**
- * Thunder after a strike: the farther off, the later (sound is slow) and the softer and duller. Near: a crack first,
- * then the long rumble that rolls and fades. Brown noise through a low-pass, its loudness rolling irregularly.
+ * Thunder after a strike: the farther off, the later (sound is slow) and the softer and duller; a long rumble that
+ * rolls and fades (no crack on top: a high-passed noise burst read as a snare). Brown noise through a low-pass,
+ * its loudness rolling irregularly.
  */
 function thunder(st: Strike) {
   if (!graphReady || ctx.state !== 'running' || !getAudioSettings().ambient) return
@@ -379,20 +380,6 @@ function thunder(st: Strike) {
   g.connect(wet)
   src.start(t)
   src.stop(t + dur + 3)
-  // right on top of the house: the crack of the bolt itself
-  if (st.near > 0.6) {
-    const crack = ctx.createBufferSource()
-    crack.buffer = noiseBuffer(0.6, 0.3)
-    const hp = ctx.createBiquadFilter()
-    hp.type = 'highpass'
-    hp.frequency.value = 700
-    const cg = ctx.createGain()
-    cg.gain.setValueAtTime(0.0001, t)
-    cg.gain.exponentialRampToValueAtTime(0.25 * st.near, t + 0.01)
-    cg.gain.exponentialRampToValueAtTime(0.0001, t + 0.5)
-    crack.connect(hp).connect(cg).connect(ambBus)
-    crack.start(t)
-  }
 }
 
 // Filament crackle while the lamp flickers.
