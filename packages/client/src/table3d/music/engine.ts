@@ -19,6 +19,19 @@ const ARP8 = [0, 1, 2, 3, 2, 1, 2, 1]
 const ARP16 = [0, 1, 2, 3, 2, 3, 1, 2]
 const STINGER_SECONDS = 8
 
+export type Finish = 'victory' | 'defeat'
+
+/** A piece to render offline: moods in order, each for an even number of bars (`section` picks where a mood starts). */
+export interface PlanPart {
+  mood: Mood
+  bars: number
+  section?: number
+}
+
+/** How long, in seconds, a plan lasts (without its closing phrase). */
+export const planSeconds = (plan: readonly PlanPart[]) => plan.reduce((sum, part) => sum + part.bars, 0) * STEPS_PER_BAR * STEP
+export const STINGER_LENGTH = STINGER_SECONDS
+
 /** The small human imperfections: a few milliseconds of timing and a little velocity. */
 const jitter = (amount: number) => (Math.random() - 0.5) * amount
 const humanize = (vel: number) => vel * (0.92 + Math.random() * 0.16)
@@ -33,7 +46,7 @@ interface Beat {
   at: number
 }
 
-export function makeMusic(ctx: AudioContext, out: AudioNode) {
+export function makeMusic(ctx: BaseAudioContext, out: AudioNode) {
   const master = ctx.createGain()
   master.gain.value = 1.2
   const squash = ctx.createDynamicsCompressor()
@@ -211,10 +224,45 @@ export function makeMusic(ctx: AudioContext, out: AudioNode) {
       pending = mood
       pendingSection = section
     },
+    /** Resolves when the samples have arrived. */
+    ready: () => sampler.load(),
+    /**
+     * A whole piece for an OfflineAudioContext: the moods of the plan in order, with the roll and the cymbal between them
+     * as in the game, and an optional closing phrase. Notes are written as the render advances (`scheduleUntil(seconds)`,
+     * called ahead of the clock, e.g. from `OfflineAudioContext.suspend`), so a long piece does not hold every note at once.
+     */
+    renderer(plan: readonly PlanPart[], finish?: Finish, from = 0.2) {
+      const marks: Array<{ at: number; mood?: Mood; section?: number }> = [] // per step: when, and the mood asked for then
+      plan.forEach((part, j) => {
+        const next = plan[j + 1]
+        const steps = part.bars * STEPS_PER_BAR
+        for (let k = 0; k < steps; k++) {
+          const ask = k === 0 ? part : next && k === steps - STEPS_PER_BAR ? next : null // the fill is in the last bar
+          marks.push({ at: from + marks.length * STEP, mood: ask?.mood, section: ask?.section })
+        }
+      })
+      const end = from + marks.length * STEP
+      let written = 0
+      let closed = false
+      return {
+        end: end + (finish ? STINGER_SECONDS : 0),
+        scheduleUntil(seconds: number) {
+          for (; written < marks.length && marks[written].at < seconds; written++) {
+            const m = marks[written]
+            if (m.mood) { pending = m.mood; pendingSection = m.section }
+            scheduleStep(written, m.at)
+          }
+          if (finish && !closed && written === marks.length) {
+            closed = true
+            playStinger(finish, end, sampler, kit)
+          }
+        },
+      }
+    },
     /** Where the score is now. */
     status: () => ({ mood: current, pending, ...heard }),
     /** A closing phrase in place of the music for a few seconds. */
-    stinger(kind: 'victory' | 'defeat') {
+    stinger(kind: Finish) {
       const at = Math.max(nextTime, ctx.currentTime + 0.05)
       holdUntil = at + STINGER_SECONDS
       step = 0
@@ -235,7 +283,7 @@ function notesOf(arr: Section): Map<number, Note> {
   return notes
 }
 
-function playStinger(kind: 'victory' | 'defeat', at: number, sampler: Sampler, kit: ReturnType<typeof makeKit>) {
+function playStinger(kind: Finish, at: number, sampler: Sampler, kit: ReturnType<typeof makeKit>) {
   if (kind === 'victory') { // D major: the Picardy third that opens the tune
     ;[50, 57, 62, 66, 69, 74].forEach((m, i) => sampler.play('piano', m, at + i * 0.09, { bus: 'comp', vel: 0.6, dur: 2.5, rel: 1.5, cut: 5000 }))
     ;[50, 57, 66].forEach((m) => sampler.play('strings', m, at, { bus: 'pad', vel: 0.4, dur: 4.5, atk: 0.4, rel: 1.2 }))
