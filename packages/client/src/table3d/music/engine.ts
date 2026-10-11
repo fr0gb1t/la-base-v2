@@ -1,12 +1,13 @@
-// The score: one tune at one tempo, in eight-bar loops. Each mood is an arrangement of the same song, so the score can
-// move from one to the next at any even bar. Before a change that raises the energy there is a snare roll and a sweep;
+// The score: one tune at one tempo, in eight-bar sections. Each mood is an arrangement of the same song (the longest
+// lasting ones, a song of several sections), so the score can move from one to the next at any even bar. Before a change that raises the energy there is a snare roll and a sweep;
 // on it, a cymbal.
 
 import { makeKit } from './drums'
 import { BUS_LEVELS, type Bus } from './instruments'
-import { ARRANGEMENTS, type Arrangement, type Mood } from './moods'
+import { makeFormCursor } from './form'
+import { energyOf, FORMS, type Mood, type Section } from './moods'
 import { makeSampler, type Sampler } from './samples'
-import { CHORDS, STEPS_PER_BAR, STEPS_PER_THEME, type Chord, type Note } from './theory'
+import { CHORDS, STEPS_PER_BAR, type Chord, type Note } from './theory'
 
 const BPM = 108
 const LOOKAHEAD = 0.8 // seconds scheduled ahead of the clock
@@ -23,7 +24,7 @@ const jitter = (amount: number) => (Math.random() - 0.5) * amount
 const humanize = (vel: number) => vel * (0.92 + Math.random() * 0.16)
 
 interface Beat {
-  arr: Arrangement
+  arr: Section
   chord: Chord
   /** Step in the 8-bar loop, bar in the loop, step in the bar. */
   p: number
@@ -65,14 +66,17 @@ export function makeMusic(ctx: AudioContext, out: AudioNode) {
   const kit = makeKit(ctx, buses.drums)
   const sampler: Sampler = makeSampler(ctx, (bus) => (bus === 'pad' ? padDuck : buses[bus]))
 
+  const cursor = makeFormCursor(Object.fromEntries(Object.entries(FORMS).map(([m, f]) => [m, f.length])) as Record<Mood, number>)
   let current: Mood = 'menu'
   let pending: Mood = 'menu'
+  let pendingSection: number | undefined
+  let heard = { section: 0, bar: 0 } // where the score is, for the lab's display
   let step = 0
   let nextTime = 0
   let holdUntil = 0
   let timer: ReturnType<typeof setInterval> | null = null
 
-  const rising = () => ARRANGEMENTS[pending].energy > ARRANGEMENTS[current].energy && pending !== current
+  const rising = () => pending !== current && energyOf(pending) > energyOf(current)
 
   function duck(at: number) {
     padDuck.gain.setValueAtTime(0.4, at)
@@ -161,16 +165,20 @@ export function makeMusic(ctx: AudioContext, out: AudioNode) {
   }
 
   function scheduleStep(i: number, at: number) {
-    if (i % CHANGE_EVERY === 0 && pending !== current) {
+    if (i % CHANGE_EVERY === 0 && (pending !== current || pendingSection !== undefined)) {
       if (rising()) kit.crash(at, 0.55)
+      cursor.switchTo(pending, i, pendingSection)
       current = pending
+      pendingSection = undefined
     }
-    const p = i % STEPS_PER_THEME
+    const pos = cursor.position(i)
+    const p = pos.p
     const bar = p >> 4
     const s = p & 15
+    heard = { section: pos.section, bar }
     lead(i, s, at)
     if (at < holdUntil) return
-    const arr = ARRANGEMENTS[current]
+    const arr = FORMS[current][pos.section]
     const beat: Beat = { arr, chord: CHORDS[arr.theme.chords[bar]], p, bar, s, at }
     melody(beat, notesOf(arr))
     accompaniment(beat)
@@ -198,23 +206,27 @@ export function makeMusic(ctx: AudioContext, out: AudioNode) {
       if (timer) clearInterval(timer)
       timer = null
     },
-    /** The mood changes at the next even bar. */
-    setMood(mood: Mood) {
+    /** The mood changes at the next even bar (`section` starts it on a given section, to audition one). */
+    setMood(mood: Mood, section?: number) {
       pending = mood
+      pendingSection = section
     },
+    /** Where the score is now. */
+    status: () => ({ mood: current, pending, ...heard }),
     /** A closing phrase in place of the music for a few seconds. */
     stinger(kind: 'victory' | 'defeat') {
       const at = Math.max(nextTime, ctx.currentTime + 0.05)
       holdUntil = at + STINGER_SECONDS
       step = 0
+      cursor.restart(0)
       nextTime = holdUntil
       playStinger(kind, at, sampler, kit)
     },
   }
 }
 
-const notesCache = new WeakMap<Arrangement, Map<number, Note>>()
-function notesOf(arr: Arrangement): Map<number, Note> {
+const notesCache = new WeakMap<Section, Map<number, Note>>()
+function notesOf(arr: Section): Map<number, Note> {
   let notes = notesCache.get(arr)
   if (!notes) {
     notes = new Map(arr.theme.melody.map((n) => [n[0], n] as const))

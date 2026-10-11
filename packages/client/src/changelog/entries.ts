@@ -11,6 +11,7 @@ export const NOVEDADES: Novedad[] = [
     items: [
       'Un solo tema, en re menor, que cambia con cómo viene el juego: tranquilo en el menú y al empezar, más luminoso cuando vas ganando, tenso cuando se pone parejo o alguien canta kamikaze, y con miedo cuando estás por perder.',
       'Suena con piano, chelo, cuerdas, coro y timbales. Al terminar la partida hay un cierre para ganar y otro para perder.',
+      'Calma, prometedora y tensión, que son las que más se escuchan, ya no son un bucle: tienen estrofa, estribillo, segunda estrofa y puente, con instrumentos que cambian de una parte a otra.',
       'Ajustes → Sonido → Volumen de la música: un control aparte para la música.',
     ],
   },

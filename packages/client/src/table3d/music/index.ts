@@ -1,2 +1,2 @@
 export { makeMusic, type Score } from './engine'
-export { MOODS, type Mood } from './moods'
+export { FORMS, MOODS, type Mood } from './moods'

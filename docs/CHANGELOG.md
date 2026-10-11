@@ -28,6 +28,11 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   kamikaze); tensión con kamikaze, partida pareja al final o 10 puntos abajo; prometedora con 8 arriba. Una caída de
   ánimo espera 12 s (`hooks/useMusicMood.ts`). Al `game:gameOver` suena el cierre de victoria o de derrota. Ajuste
   nuevo `musicVolume` (Ajustes → Sonido). Los prototipos y su banco de 30 instrumentos quedaron en `scratch/music-v*`.
+- **Música: calma, prometedora y tensión son canciones de 5 secciones** (estrofa, estribillo, segunda estrofa, puente,
+  estribillo con otros instrumentos; 8 compases cada una, ~90 s antes de repetir). Las demás (menú, casi ganada, peligro)
+  siguen siendo un lazo. Cada ánimo recuerda dónde quedó (`table3d/music/form.ts`): al volver, sigue con la sección
+  SIGUIENTE en vez de empezar por la primera estrofa. Instrumentos nuevos para variar: flauta, oboe y arpa. Laboratorio
+  para escucharlas por separado: `/music-lab.html` en el servidor de desarrollo (ánimo + sección de arranque).
 - **Música: una milonga en la radio del sótano** (`table3d/music.ts`, solo en `dev` por ahora), hecha en el momento con
   Web Audio, sin grabaciones: bandoneón (dos lengüetas por nota, en octava y un poco desafinadas, con el fuelle que
   respira) y contrabajo en pizzicato sobre el 3-3-2 de la milonga. Un tema fijo para tararear (forma A A B A, 32
