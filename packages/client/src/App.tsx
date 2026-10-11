@@ -6,6 +6,7 @@ import { RoomWaiting } from './components/RoomWaiting';
 import { GameConfig } from './components/GameConfig';
 import { GamePage } from './components/GamePage';
 import { useSocket } from './hooks/useSocket';
+import { useMusicMood } from './hooks/useMusicMood';
 import { MenuBackdrop } from './menu/MenuBackdrop';
 import { RulebookHost } from './components/rulebook/Rulebook';
 import { MenuTelevisions } from './components/MenuTelevisions';
@@ -17,6 +18,9 @@ function App() {
 
   // Initialize Socket.io connection
   useSocket();
+
+  // The score follows the game
+  useMusicMood();
 
   // Rehydrate from localStorage on mount
   useEffect(() => {

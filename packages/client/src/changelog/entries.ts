@@ -3,6 +3,17 @@ import type { Novedad } from './novedades';
 // Newest first (by date, and within a day the latest goes on top). Write for players, not for us: what
 // changed at the table, in a few short lines. The technical history is docs/CHANGELOG.md.
 export const NOVEDADES: Novedad[] = [
+  // ------------------------------------------------------------------ 11 de octubre
+  {
+    id: '2026-10-11-musica-adaptativa',
+    date: '2026-10-11',
+    title: 'La música sigue la partida',
+    items: [
+      'Un solo tema, en re menor, que cambia con cómo viene el juego: tranquilo en el menú y al empezar, más luminoso cuando vas ganando, tenso cuando se pone parejo o alguien canta kamikaze, y con miedo cuando estás por perder.',
+      'Suena con piano, chelo, cuerdas, coro y timbales. Al terminar la partida hay un cierre para ganar y otro para perder.',
+      'Ajustes → Sonido → Volumen de la música: un control aparte para la música.',
+    ],
+  },
   // ------------------------------------------------------------------ 5 de octubre
   {
     id: '2026-10-05-tormenta',

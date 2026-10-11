@@ -29,4 +29,17 @@ describe('saved audio settings', () => {
     const { getAudioSettings } = await loadWith(JSON.parse(first.store.get('laBase.audio')!))
     expect(getAudioSettings().ambient).toBe(false)
   })
+
+  it('gives the music its own volume, 0.8 unless the player moved it', async () => {
+    const fresh = await loadWith({ volume: 0.5 })
+    expect(fresh.getAudioSettings().musicVolume).toBe(0.8)
+    fresh.setAudioSettings({ musicVolume: 0.3 })
+    const { getAudioSettings } = await loadWith(JSON.parse(fresh.store.get('laBase.audio')!))
+    expect(getAudioSettings().musicVolume).toBe(0.3)
+  })
+
+  it('ignores a music volume outside 0..1', async () => {
+    const { getAudioSettings } = await loadWith({ musicVolume: 7 })
+    expect(getAudioSettings().musicVolume).toBe(0.8)
+  })
 })

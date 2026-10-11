@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare, GiMouse, GiEyeTarget, GiCompass, GiLightBulb, GiAccordion } from 'react-icons/gi';
+import { GiCog, GiSpeaker, GiCandleLight, GiCardPlay, GiReturnArrow, GiCrosshair, GiMovementSensor, GiHand, GiDividedSquare, GiMouse, GiEyeTarget, GiCompass, GiLightBulb, GiMusicalNotes } from 'react-icons/gi';
 import { getViewSettings, onViewSettings, setViewSettings, orderedSenas, SENS_MIN, SENS_MAX, FOV_MIN, FOV_MAX, BLOOM_MAX, type ViewSettings } from './viewSettings';
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from './audioSettings';
 import { previewSound, audioReady, uiSound } from '../table3d/audio';
@@ -111,6 +111,7 @@ export function SettingsHost() {
 
   if (!open) return null;
   const pct = Math.round(s.volume * 100);
+  const musicPct = Math.round(s.musicVolume * 100);
   const senaList = orderedSenas(view.senaOrder);
   const moveSena = (i: number, by: -1 | 1) => {
     const ids = senaList.map((x) => x.id);
@@ -157,13 +158,31 @@ export function SettingsHost() {
             className={`setting-row ${s.music ? 'on' : ''}`}
             onClick={() => setAudioSettings({ music: !s.music })}
           >
-            <GiAccordion aria-hidden className="setting-icon" />
+            <GiMusicalNotes aria-hidden className="setting-icon" />
             <span className="setting-text">
               <b>Música</b>
-              <small>una milonga vieja en la radio del sótano</small>
+              <small>un solo tema que cambia con cómo va la partida</small>
             </span>
             <span className="setting-state">{s.music ? 'sí' : 'no'}</span>
           </button>
+
+          <label className="setting-volume">
+            <span className="setting-volume-head">
+              <GiMusicalNotes aria-hidden className="setting-icon" />
+              <b>Volumen de la música</b>
+              <span className="setting-state">{musicPct}%</span>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={musicPct}
+              disabled={!s.music}
+              style={{ ['--fill' as string]: `${musicPct}%` }}
+              onChange={(e) => setAudioSettings({ musicVolume: Number(e.target.value) / 100 })}
+            />
+          </label>
 
           <button
             type="button"

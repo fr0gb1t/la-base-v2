@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { getAudioSettings, onAudioSettings, setAudioSettings, type AudioSettings } from '../settings/audioSettings'
-import { makeMusic } from './music'
+import { makeMusic, type Mood } from './music'
 import { onStrike, type Strike } from './storm'
 
 // Sound design: real card recordings (Kenney "Casino Audio", CC0) placed in 3D (HRTF) inside a small
@@ -34,12 +34,13 @@ let graphReady = false
 let ctx: AudioContext
 let master: GainNode
 let wet: GainNode
-let musicBus: GainNode // the radio
+let musicBus: GainNode // the score
 let music: ReturnType<typeof makeMusic> | null = null
+let wantedMood: Mood = 'menu' // (asked for before the score exists)
 let sfxBus: GainNode // cards, table, knocks (dry + reverb send)
 let ambBus: GainNode // the storm and the lamp's crackle
 const MASTER = 0.9
-const MUSIC = 0.55 // the radio sits under the cards and the table, never over them
+const MUSIC = 0.55 // the score sits under the cards and the table, never over them
 const buffers = new Map<string, AudioBuffer>()
 
 // Small room with wood: 0.45 s decaying, darkened impulse (stereo, decorrelated).
@@ -178,11 +179,12 @@ async function buildGraph() {
   onStrike((st) => thunder(st))
   scheduleDrip()
 
-  // the music: an old milonga on the radio (no more lamp hum under it)
+  // the music: the adaptive score (no more lamp hum under it)
   musicBus = ctx.createGain()
   musicBus.gain.value = 0
   musicBus.connect(master)
   music = makeMusic(ctx, musicBus)
+  music.setMood(wantedMood)
   applySettings(getAudioSettings())
   onAudioSettings(applySettings)
   graphReady = true // buffers keep loading; a sound whose buffer isn't there yet is skipped
@@ -425,10 +427,21 @@ function applySettings(st: AudioSettings) {
   master.gain.setTargetAtTime(MASTER * st.volume * st.volume, t, 0.05) // perceptual (squared) curve
   sfxBus.gain.setTargetAtTime(st.effects ? 1 : 0, t, 0.05)
   ambBus.gain.setTargetAtTime(st.ambient ? 1 : 0, t, 0.05)
-  // the radio fades in and out; it only plays (schedules notes) while it is wanted
-  musicBus.gain.setTargetAtTime(st.music ? MUSIC : 0, t, st.music ? 0.8 : 0.25)
+  // the score fades in and out; it only plays (schedules notes) while it is wanted
+  musicBus.gain.setTargetAtTime(st.music ? MUSIC * st.musicVolume * st.musicVolume : 0, t, st.music ? 0.8 : 0.25) // (squared, like the master)
   if (st.music) music?.start()
   else window.setTimeout(() => !getAudioSettings().music && music?.stop(), 1500)
+}
+
+/** The score follows the game: the mood (menu, calm, ...) takes over at the next even bar. */
+export function setMusicMood(mood: Mood) {
+  wantedMood = mood
+  music?.setMood(mood)
+}
+
+/** The closing phrase of a finished game. */
+export function musicStinger(kind: 'victory' | 'defeat') {
+  music?.stinger(kind)
 }
 
 /** Mutes/unmutes everything (keyboard M); the settings menu controls each bus. */

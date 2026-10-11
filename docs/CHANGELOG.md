@@ -17,6 +17,17 @@ más reciente (después del último push a `main`, `1265ce2`) va primero.
   ambiente», que ahora viene prendido; el zumbido de la lámpara se fue (queda su chisporroteo). La música
   (`music.ts`) sigue aparte, en `dev`. Los ajustes guardados llevan versión (`v: 2` en `laBase.audio`): un guardado
   de antes de la lluvia (en la compu el ambiente venía apagado y se guardaba así) lo vuelve a prender una vez.
+- **Música adaptativa: un tema que sigue la partida** (`table3d/music/`, reemplaza la milonga de la radio). Un solo
+  tema en re menor a 108 bpm, en lazos de 8 compases, con seis ánimos que comparten tempo, tonalidad y frases (menú,
+  calma, prometedora, casi ganada, tensión, peligro crítico): cambian el arreglo, no la canción, y entran en el compás
+  par siguiente; si la energía sube hay un redoble y un barrido antes y un platillo al entrar. Instrumentos grabados
+  (piano, chelo, violín, cuerdas, coro, órgano, clave, guitarra, corno, contrabajo, timbal, campanas, celesta; muestras
+  de FluidR3_GM en `public/music/`, `manifest.json` las lista; se bajan al prender la música y se re-afinan al vuelo)
+  y batería sintética. `lib/musicMood.ts` decide el ánimo desde tu equipo: casi ganada/peligro en las últimas rondas con
+  una ventaja/desventaja de 14 puntos, o cuando el Mano ya no puede salvar su pedido (pierde por 2 o más bases sin
+  kamikaze); tensión con kamikaze, partida pareja al final o 10 puntos abajo; prometedora con 8 arriba. Una caída de
+  ánimo espera 12 s (`hooks/useMusicMood.ts`). Al `game:gameOver` suena el cierre de victoria o de derrota. Ajuste
+  nuevo `musicVolume` (Ajustes → Sonido). Los prototipos y su banco de 30 instrumentos quedaron en `scratch/music-v*`.
 - **Música: una milonga en la radio del sótano** (`table3d/music.ts`, solo en `dev` por ahora), hecha en el momento con
   Web Audio, sin grabaciones: bandoneón (dos lengüetas por nota, en octava y un poco desafinadas, con el fuelle que
   respira) y contrabajo en pizzicato sobre el 3-3-2 de la milonga. Un tema fijo para tararear (forma A A B A, 32
