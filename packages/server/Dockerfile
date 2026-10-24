@@ -1,9 +1,9 @@
-FROM node:20-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 
 # Install pnpm
-RUN npm install -g pnpm@latest
+RUN npm install -g pnpm@10.33.0
 
 # Copy root package files first
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
