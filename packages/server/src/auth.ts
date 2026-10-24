@@ -5,8 +5,9 @@
 
 import jwt from 'jsonwebtoken';
 import bcryptjs from 'bcryptjs';
+import { config } from './config.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_in_prod';
+const JWT_SECRET = config.jwtSecret;
 const JWT_EXPIRY = '7d';
 const BCRYPT_ROUNDS = 10;
 

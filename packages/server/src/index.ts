@@ -14,15 +14,21 @@ import {
   verifyToken,
   authMiddleware,
 } from './auth.js';
+import { config } from './config.js';
 import type { FastifyInstance } from 'fastify';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
-const HOST = process.env.HOST || '0.0.0.0';
+const HOST = config.host;
+
+function allowedOrigin(origin: string | undefined): string | null {
+  if (config.corsOrigins === '*') return '*';
+  return origin && config.corsOrigins.includes(origin) ? origin : null;
+}
 
 async function start() {
   const fastify: any = Fastify({
     logger: true,
-    trustProxy: true
+    trustProxy: config.trustProxy
   });
 
   // Initialize database
@@ -36,8 +42,14 @@ async function start() {
   // Register Socket.io plugin
   await fastify.register(FastifyIO, {
     cors: {
-      origin: '*',
+      origin: config.corsOrigins,
       methods: ['GET', 'POST'],
+    },
+    // `cors` doesn't cover WebSocket upgrades; reject foreign browser origins here.
+    // Requests without Origin (bots, non-browser clients) aren't a CORS concern.
+    allowRequest: (req: any, callback: (err: string | null, ok: boolean) => void) => {
+      const origin = req.headers.origin;
+      callback(null, !origin || allowedOrigin(origin) !== null);
     },
   });
 
@@ -45,7 +57,9 @@ async function start() {
   setupSocketHandlers(fastify.io);
 
   fastify.addHook('onRequest', async (request: any, reply: any) => {
-    reply.header('Access-Control-Allow-Origin', '*');
+    const origin = allowedOrigin(request.headers.origin);
+    if (origin) reply.header('Access-Control-Allow-Origin', origin);
+    reply.header('Vary', 'Origin');
     reply.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
