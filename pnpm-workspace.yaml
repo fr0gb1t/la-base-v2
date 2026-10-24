@@ -2,7 +2,8 @@ packages:
   - 'packages/*'
 allowBuilds:
   esbuild: true
-  fastify-socket.io: false
 overrides:
   # socket.io-adapter pins ws ~8.18.3 (GHSA memory disclosure + fragment DoS fixed in 8.21.0)
   'socket.io-adapter>ws': ^8.21.0
+  # ajv (via @fastify/ajv-compiler) resolves a fast-uri with host-confusion/SSRF advisories
+  'ajv>fast-uri': ^3.1.9
