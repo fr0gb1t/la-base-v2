@@ -4,7 +4,7 @@
  */
 
 import Fastify from 'fastify';
-import FastifyIO from 'fastify-socket.io';
+import { Server as SocketIOServer } from 'socket.io';
 import { setupSocketHandlers } from './socket.js';
 import { initDB, query, closeDB, dbEnabled } from './db.js';
 import {
@@ -39,8 +39,8 @@ async function start() {
     process.exit(1);
   }
 
-  // Register Socket.io plugin
-  await fastify.register(FastifyIO, {
+  // Attach Socket.io to Fastify's HTTP server
+  const io = new SocketIOServer(fastify.server, {
     cors: {
       origin: config.corsOrigins,
       methods: ['GET', 'POST'],
@@ -52,9 +52,13 @@ async function start() {
       callback(null, !origin || allowedOrigin(origin) !== null);
     },
   });
+  fastify.decorate('io', io);
+  fastify.addHook('onClose', async () => {
+    await io.close();
+  });
 
   // Setup Socket.io handlers
-  setupSocketHandlers(fastify.io);
+  setupSocketHandlers(io);
 
   fastify.addHook('onRequest', async (request: any, reply: any) => {
     const origin = allowedOrigin(request.headers.origin);
