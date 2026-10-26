@@ -15,6 +15,8 @@ import {
   authMiddleware,
 } from './auth.js';
 import { config } from './config.js';
+import { createAccessLog } from './accessLog.js';
+import { createAudit } from './audit.js';
 import type { FastifyInstance } from 'fastify';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -30,6 +32,9 @@ async function start() {
     logger: true,
     trustProxy: config.trustProxy
   });
+
+  // Who connects (off unless ACCESS_LOG_PATH is set)
+  const audit = createAudit(createAccessLog(config.accessLogPath));
 
   // Initialize database
   try {
@@ -49,7 +54,9 @@ async function start() {
     // Requests without Origin (bots, non-browser clients) aren't a CORS concern.
     allowRequest: (req: any, callback: (err: string | null, ok: boolean) => void) => {
       const origin = req.headers.origin;
-      callback(null, !origin || allowedOrigin(origin) !== null);
+      const allowed = !origin || allowedOrigin(origin) !== null;
+      if (!allowed) audit.rejectedOrigin(req.socket?.remoteAddress, req.headers);
+      callback(null, allowed);
     },
   });
   fastify.decorate('io', io);
@@ -58,7 +65,12 @@ async function start() {
   });
 
   // Setup Socket.io handlers
-  setupSocketHandlers(io);
+  setupSocketHandlers(io, audit);
+
+  // Login/registration outcomes (the body is never read)
+  fastify.addHook('onResponse', async (request: any, reply: any) => {
+    audit.http({ method: request.method, url: request.url, headers: request.headers, raw: request.raw }, reply.statusCode);
+  });
 
   fastify.addHook('onRequest', async (request: any, reply: any) => {
     const origin = allowedOrigin(request.headers.origin);
