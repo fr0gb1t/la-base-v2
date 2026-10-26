@@ -62,8 +62,16 @@ export function createAudit(log: AccessLog): Audit {
     },
 
     http(request, statusCode) {
-      const path = request.url.split('?')[0] ?? '';
+      // The router decodes the path before matching, so a login sent as /api/auth/log%69n still logs in.
+      let path: string;
+      try {
+        path = decodeURIComponent(request.url.split('?')[0] ?? '');
+      } catch {
+        return;
+      }
       if (request.method !== 'POST' || !AUTH_PATHS.has(path)) return;
+      // A 5xx (e.g. 503 in guest mode without a database) says nothing about the visitor's credentials.
+      if (statusCode >= 500) return;
       log.record({
         ...who(request.raw.socket.remoteAddress, request.headers),
         event: 'auth',

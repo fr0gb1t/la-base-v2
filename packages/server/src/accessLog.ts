@@ -52,11 +52,15 @@ export function createAccessLog(path: string | null, opts: { now?: () => number;
           room: cut(event.room),
           path: cut(event.path),
         });
+        let size = 0;
         try {
-          if (statSync(path).size >= maxBytes) renameSync(path, `${path}.1`);
-        } catch {
-          // No file yet: the append below creates it.
+          size = statSync(path).size;
+        } catch (error) {
+          // No file yet: the append below creates it. Anything else is a real problem.
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
         }
+        // A failing rotation reaches the reporter below instead of letting the file grow unseen.
+        if (size >= maxBytes) renameSync(path, `${path}.1`);
         appendFileSync(path, `${line}\n`, { mode: 0o600 });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

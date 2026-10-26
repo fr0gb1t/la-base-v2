@@ -92,3 +92,23 @@ test('nothing from the request body can reach an event', () => {
   const text = JSON.stringify(events);
   assert.equal(text.includes('a@b.com') || text.includes('hunter2'), false);
 });
+
+test('a percent-encoded login path is still a login (the router decodes it, so must the log)', () => {
+  const { events, log } = memoryLog();
+  createAudit(log).http(request('/api/auth/log%69n'), 401);
+  assert.deepEqual(events.map((e) => [e.event, e.result, e.path]), [['auth', 'fail', '/api/auth/login']]);
+});
+
+test('a path with broken percent-encoding is ignored instead of throwing', () => {
+  const { events, log } = memoryLog();
+  assert.doesNotThrow(() => createAudit(log).http(request('/api/auth/log%zzin'), 401));
+  assert.deepEqual(events, []);
+});
+
+test('a 5xx (for example the 503 of guest mode without a database) is not a failed login attempt', () => {
+  const { events, log } = memoryLog();
+  const audit = createAudit(log);
+  audit.http(request('/api/auth/login'), 503);
+  audit.http(request('/api/auth/register'), 500);
+  assert.deepEqual(events, []);
+});

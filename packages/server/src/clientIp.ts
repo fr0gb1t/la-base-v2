@@ -24,7 +24,8 @@ function normalize(value: string): string | null {
   const text = value.trim().toLowerCase();
   const mapped = text.match(V4_MAPPED)?.[1];
   const candidate = mapped ?? text;
-  return isIP(candidate) ? candidate : null;
+  // IPv6 zone ids ("::1%eth0") are valid for isIP but never what Cloudflare sends.
+  return !candidate.includes('%') && isIP(candidate) ? candidate : null;
 }
 
 const isLoopback = (ip: string): boolean => ip === '::1' || ip.startsWith('127.');

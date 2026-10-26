@@ -31,6 +31,8 @@ por ejemplo con el panel Ward. El archivo guarda IPs de visitantes: es privado (
 - `ip` es la dirección **real** del visitante: se toma de `CF-Connecting-IP` (o del **último** valor de
   `X-Forwarded-For`) solo cuando la conexión llega desde loopback (cloudflared); de cualquier otro origen
   se usa la dirección del socket y se ignoran los encabezados. `ipSource` dice cuál se usó (`cf`, `xff`, `socket`).
+  Cualquier proceso local (o contenedor con red de host) que hable con `127.0.0.1` puede declarar la IP que quiera:
+  es el mismo nivel de confianza que `trustProxy: 'loopback'`. En producción el servidor escucha solo en loopback.
 
 ## Controles en la mesa
 

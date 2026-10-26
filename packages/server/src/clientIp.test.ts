@@ -44,3 +44,7 @@ test('header arrays are joined and whitespace trimmed', () => {
 test('a missing peer address is unknown, never an invented one', () => {
   assert.deepEqual(resolveClientIp(undefined, { 'cf-connecting-ip': REAL }), { ip: 'unknown', source: 'socket' });
 });
+
+test('an IPv6 value with a zone id is not an address Cloudflare would send: rejected', () => {
+  assert.deepEqual(resolveClientIp('127.0.0.1', { 'cf-connecting-ip': '::1%eth0', 'x-forwarded-for': REAL }), { ip: REAL, source: 'xff' });
+});

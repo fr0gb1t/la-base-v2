@@ -1,6 +1,6 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createAccessLog, type AccessEvent } from './accessLog.js';
@@ -76,5 +76,23 @@ test('a log that cannot be written never throws and reports the problem once', (
     console.error = original;
   }
   assert.equal(errors.length, 1);
+  assert.match(errors[0] ?? '', /access log/i);
+});
+
+test('a rotation that fails is reported, not silently ignored (the file must not grow without bound unseen)', () => {
+  const errors: string[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => void errors.push(args.join(' '));
+  try {
+    const log = createAccessLog(path, { maxBytes: 50 });
+    log.record(event());
+    // A directory where the backup should go makes the rename fail.
+    mkdirSync(`${path}.1`);
+    log.record(event());
+    log.record(event());
+  } finally {
+    console.error = original;
+  }
+  assert.ok(errors.length >= 1, 'the failed rotation was reported');
   assert.match(errors[0] ?? '', /access log/i);
 });
