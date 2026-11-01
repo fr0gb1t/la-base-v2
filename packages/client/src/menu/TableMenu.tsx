@@ -52,6 +52,8 @@ export function TableMenu({ items, input, note }: { items: FloatItem[]; input?: 
     };
   }, [scene]);
 
+  const atX = input?.at?.[0];
+  const atY = input?.at?.[1];
   useEffect(() => {
     if (!scene) return;
     scene.setInput(
@@ -60,7 +62,7 @@ export function TableMenu({ items, input, note }: { items: FloatItem[]; input?: 
         : null,
       input?.at,
     );
-  }, [scene, input?.label, input?.value, input?.placeholder, input?.mono, input?.readOnly, input?.at?.[0], input?.at?.[1], focused, input]);
+  }, [scene, input?.label, input?.value, input?.placeholder, input?.mono, input?.readOnly, atX, atY, focused, input]);
 
   // safety net: while a writable card is on the table and nothing else has focus, typing writes on
   // the card (you never lose the name/code field by clicking elsewhere)

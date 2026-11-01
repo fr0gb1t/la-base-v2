@@ -988,7 +988,8 @@ export class TableScene {
     this.avatars[s].setHandCount(count - 1)
     this.handCounts[s] = count - 1
     await this.gesture(s, view, hold, { dur, map, reveal: card, from, blend: from ? 0.12 : 0.3 })
-    this.onTable.get(s) && this.give(this.onTable.get(s)!)
+    const previous = this.onTable.get(s)
+    if (previous) this.give(previous)
     this.onTable.set(s, view)
     this.lay(view)
   }
@@ -1145,7 +1146,8 @@ export class TableScene {
     if (ok) {
       const at = { pos: view.root.position.clone(), quat: view.root.quaternion.clone() }
       await this.gesture(0, view, hold, { dur: PLAY_DURATION - 1.1, map: (t) => 1.1 + t, reveal: card, from: at, blend: 0.12 })
-      this.onTable.get(0) && this.give(this.onTable.get(0)!)
+      const previous = this.onTable.get(0)
+      if (previous) this.give(previous)
       this.onTable.set(0, view)
       this.lay(view)
     } else {

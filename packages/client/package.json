@@ -23,12 +23,17 @@
     "zustand": "^4.5.7"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^4.7.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
     "puppeteer-core": "^25.16.0",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1",
     "vite": "^6.4.4",
     "vitest": "^4.1.12"
   }
