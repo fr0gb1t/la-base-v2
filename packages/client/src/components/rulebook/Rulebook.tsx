@@ -153,7 +153,7 @@ export function RulebookHost() {
       pages.dispose();
       book.current = null;
     };
-  }, [armed, generation]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [armed, generation]);
 
   // asked for: come up. Closed: it fades out and stays put; the next booklet is built only once the
   // menu has been quiet again (building at the end of the fade made the exit hitch). If it is asked

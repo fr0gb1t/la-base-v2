@@ -150,7 +150,7 @@ export function limb(
     const t = (i / (n - 1)) * segs
     const k = Math.min(segs - 1, Math.floor(t))
     const f = t - k
-    let w = widths[k] * (1 - f) + widths[k + 1] * f
+    const w = widths[k] * (1 - f) + widths[k + 1] * f
     const a = spine[Math.max(0, i - 1)]
     const b = spine[Math.min(n - 1, i + 1)]
     let tx = b.x - a.x
@@ -168,7 +168,6 @@ export function limb(
       if (bu.side === 1) wr += bump
       else wl += bump
     }
-    w = wl + wr
     left.push({ x: spine[i].x + nx * wl, y: spine[i].y + ny * wl })
     right.push({ x: spine[i].x - nx * wr, y: spine[i].y - ny * wr })
   }
