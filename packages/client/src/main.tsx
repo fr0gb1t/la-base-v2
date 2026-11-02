@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { Analytics } from '@vercel/analytics/react';
 import App from './App';
 import './index.css';
 import { audioState, startAudio } from './table3d/audio';
@@ -20,6 +21,8 @@ const fontsReady = Promise.race([
 void fontsReady.then(() => ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
+    {/* page views by country for Vercel Web Analytics (aggregated, no cookies); Ward reads them */}
+    <Analytics />
   </React.StrictMode>,
 ));
 
