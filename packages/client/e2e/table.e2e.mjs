@@ -117,6 +117,20 @@ const writeIntoFocusedInput = (text) =>
     return true
   }, text)
 
+
+// The black veil (src/lib/pageStage.ts) hides mounting the table: record its phases to check it really runs.
+await page.evaluateOnNewDocument(() => {
+  window.__veil = []
+  document.addEventListener('DOMContentLoaded', () => {
+    const rec = () => {
+      const v = document.querySelector('.page-veil')?.className.replace('page-veil page-veil-', '')
+      if (v && window.__veil.at(-1) !== v) window.__veil.push(v)
+    }
+    new MutationObserver(rec).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] })
+    rec()
+  })
+})
+
 const host = bot('Ana')
 await sleep(800)
 const created = await emit(host, 'room:create', { playerName: 'Ana', playerCount: 4 })
@@ -148,6 +162,13 @@ await sleep(800)
 await emit(host, 'game:config', { roomCode: host.room, structure: 'postpandemia', acePowers: { espadas: true, copas: true, oros: true }, kamikazesPerTeam: 2 })
 const started = await emit(host, 'game:start', { roomCode: host.room })
 log('start', started.success, started.error ?? '')
+await sleep(1500)
+const veilSeq = (await page.evaluate(() => window.__veil)).join(' > ')
+log('veil', veilSeq)
+if (veilSeq !== 'off > closing > opening > off') {
+  console.error('FAIL: expected the veil to run off > closing > opening > off, got: ' + veilSeq)
+  process.exit(1)
+}
 
 // ---------------- browser plays by itself through the UI ----------------
 const until = Date.now() + Number(secsArg) * 1000

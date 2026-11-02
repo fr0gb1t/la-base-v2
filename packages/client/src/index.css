@@ -3997,3 +3997,11 @@ button {
 .fullpick-done:focus-visible,
 .fullpick-step:focus-visible,
 .fullpick-select:focus-visible { outline: 2px solid var(--bone); outline-offset: 2px; }
+
+/* The black veil that hides mounting the game table (lib/pageStage.ts: keep the times in step with VEIL_*_MS). It sits
+   above the pages and below the settings; it only animates opacity, so the compositor keeps it moving even while the
+   main thread is busy building the table. Clicks do not reach the half-built page while it is closing. */
+.page-veil { position: fixed; inset: 0; z-index: 1500; background: #000; opacity: 0; pointer-events: none; }
+.page-veil-closing { opacity: 1; pointer-events: auto; transition: opacity 160ms ease-in; }
+.page-veil-opening { opacity: 0; transition: opacity 420ms ease-out; }
+

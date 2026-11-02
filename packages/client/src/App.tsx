@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useGameStore } from './store/gameStore';
+import { useStagedPage } from './hooks/useStagedPage';
 import { AuthModal } from './components/AuthModal';
 import { Lobby } from './components/Lobby';
 import { RoomWaiting } from './components/RoomWaiting';
@@ -13,7 +14,9 @@ import { MenuTelevisions } from './components/MenuTelevisions';
 import { SettingsHost } from './settings/SettingsPanel';
 
 function App() {
-  const currentPage = useGameStore((state) => state.currentPage);
+  const targetPage = useGameStore((state) => state.currentPage);
+  // what is on screen: the way into the table goes behind a veil that hides the one heavy moment (lib/pageStage.ts)
+  const { page: currentPage, veil } = useStagedPage(targetPage);
   const loadFromStorage = useGameStore((state) => state.loadFromStorage);
 
   // Initialize Socket.io connection
@@ -39,6 +42,7 @@ function App() {
       {currentPage === 'game' && <GamePage />}
       <SettingsHost />
       <RulebookHost />
+      <div className={`page-veil page-veil-${veil}`} aria-hidden="true" />
     </>
   );
 }
