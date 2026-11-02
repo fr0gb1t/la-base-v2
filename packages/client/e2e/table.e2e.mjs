@@ -105,6 +105,18 @@ const clickText = async (text, tag = 'button') => {
   return ok
 }
 
+// In the 3D lobby headless Chromium answers synthetic key events after tens of seconds (even for keys the app
+// ignores: Shift, F13), because the CPU is busy drawing the table; typing a 6-letter code takes minutes. The
+// card mirrors a hidden DOM <input>, so write into it directly: the same `input` event the keyboard would fire.
+const writeIntoFocusedInput = (text) =>
+  page.evaluate((text) => {
+    const el = document.activeElement
+    if (!(el instanceof HTMLInputElement)) return false
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, text)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+    return true
+  }, text)
+
 const host = bot('Ana')
 await sleep(800)
 const created = await emit(host, 'room:create', { playerName: 'Ana', playerCount: 4 })
@@ -113,12 +125,16 @@ log('room', host.room)
 
 await page.goto(CLIENT, { waitUntil: 'networkidle0' })
 await sleep(1500)
+// Headless Chromium leaves the very first key event unanswered on a page nobody has touched yet, and
+// page.keyboard.type() then hangs for good (it only surfaces as "Target closed" when the run is killed).
+// Any prior interaction wakes the page up.
+await page.bringToFront()
 await page.keyboard.type('Vos') // the name card has focus
 await clickText('sentarse a la mesa')
 await sleep(1500)
 await clickText('sentarse') // the lobby's "Sentarse" card
 await sleep(1200)
-await page.keyboard.type(host.room) // the code card has focus
+log('code typed', await writeIntoFocusedInput(host.room)) // the code card has focus
 await clickText('sentarse')
 await sleep(1200)
 await shot('room')
