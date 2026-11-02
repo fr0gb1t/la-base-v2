@@ -433,7 +433,7 @@ if (process.env.PROFILE) {
 }
 
 const fs = await import('node:fs')
-fs.writeFileSync(out + '-perf.json', JSON.stringify({ cpu: CPU, all, segments: [...merged].map(([k, m]) => ({ phase: k, ...stats(m.frames) })), loaf: loaf.slice(0, 30) }, null, 1))
+fs.writeFileSync(out + '-perf.json', JSON.stringify({ cpu: CPU, all, segments: [...merged].map(([k, m]) => ({ phase: k, ...stats(m.frames) })), loaf: loaf.slice(0, 30).map((l) => ({ ...l, phase: phaseAt(l.start) })) }, null, 1))
 console.log('\nJSON:', out + '-perf.json')
 await browser.close()
 process.exit(0)
