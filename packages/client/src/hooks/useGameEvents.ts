@@ -16,7 +16,7 @@ export function useGameEvents() {
   } = useGameStore();
 
   // Use refs to store handler functions so they keep the same reference
-  const handlersRef = useRef<Record<string, Function>>({});
+  const handlersRef = useRef<Record<string, (...args: never[]) => void>>({});
 
   useEffect(() => {
     if (!socket) return;

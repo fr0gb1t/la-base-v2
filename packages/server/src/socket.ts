@@ -2,6 +2,7 @@
  * Socket.io event handlers for La Base game
  */
 
+import type { Audit } from './audit.js';
 import type { Server as SocketIOServer, Socket } from 'socket.io';
 import { roomManager } from './rooms.js';
 import { BOT_TOKEN, botNameFor, spawnBot } from './bots.js';
@@ -35,7 +36,7 @@ function clearClock(roomCode: string) {
   clockTimers.delete(roomCode);
 }
 
-export function setupSocketHandlers(io: SocketIOServer) {
+export function setupSocketHandlers(io: SocketIOServer, audit?: Audit) {
   // señas go only to the players who can see them (see senaDelivery.ts)
   const senaDelivery = new SenaDelivery(
     (socketId, payload) => io.to(socketId).emit('sena:made', payload),
@@ -43,6 +44,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
     (signerSocketId, info) => io.to(signerSocketId).emit('sena:seen', info), // a rival caught your seña
   );
   io.on('connection', (socket: Socket) => {
+    audit?.connected(socket);
     socket.onAny((_event: string, payload: unknown) => {
       const code = (payload as { roomCode?: unknown } | null)?.roomCode;
       if (typeof code === 'string') roomManager.touch(code);
@@ -414,6 +416,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
 
         if (!player) {
           console.log(`[room:join] FAILED: Cannot join room ${payload.roomCode}`);
+          audit?.joinFailed(socket, payload.roomCode);
           callback({ success: false, error: 'No se puede entrar a la sala' });
           return;
         }
@@ -421,6 +424,7 @@ export function setupSocketHandlers(io: SocketIOServer) {
         const room = roomManager.getRoom(payload.roomCode);
         if (!room) {
           console.log(`[room:join] FAILED: Room ${payload.roomCode} not found`);
+          audit?.joinFailed(socket, payload.roomCode);
           callback({ success: false, error: 'Sala no encontrada' });
           return;
         }

@@ -48,3 +48,12 @@ test('HOST defaults to 0.0.0.0 in development and 127.0.0.1 in production', () =
   assert.equal(loadServerConfig(PROD_ENV).host, '127.0.0.1');
   assert.equal(loadServerConfig({ ...PROD_ENV, HOST: '0.0.0.0' }).host, '0.0.0.0');
 });
+
+test('ACCESS_LOG_PATH is off by default and an absolute path is kept', () => {
+  assert.equal(loadServerConfig(PROD_ENV).accessLogPath, null);
+  assert.equal(loadServerConfig({ ...PROD_ENV, ACCESS_LOG_PATH: '/var/lib/la-base/access.jsonl' }).accessLogPath, '/var/lib/la-base/access.jsonl');
+});
+
+test('ACCESS_LOG_PATH must be absolute: a relative one would land wherever the server was started', () => {
+  assert.throws(() => loadServerConfig({ ...PROD_ENV, ACCESS_LOG_PATH: 'access.jsonl' }), /ACCESS_LOG_PATH/);
+});

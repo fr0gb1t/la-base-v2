@@ -6,9 +6,19 @@ import * as THREE from 'three'
 // setting is off), and the post pass paints them again, crisp, over the pixelated world.
 export const PROPS_LAYER = 2
 
-/** Put an object and everything under it on the props layer. */
+/**
+ * Put an object and everything under it on the props layer.
+ *
+ * The lights inside it stay on layer 0 as well. three.js only counts the lights the camera can see, and the post
+ * pipeline renders the same scene several times with different camera layers (world: 0 + props, depth: 0, props:
+ * props). If a pass saw fewer lights than the others, the lights state would change version twice per frame and every
+ * lit material would look its shader up again in every pass (hundreds of `getProgram` calls per frame).
+ */
 export function toProps(o: THREE.Object3D) {
-  o.traverse((c) => c.layers.set(PROPS_LAYER))
+  o.traverse((c) => {
+    c.layers.set(PROPS_LAYER)
+    if (c instanceof THREE.Light) c.layers.enable(0)
+  })
   return o
 }
 

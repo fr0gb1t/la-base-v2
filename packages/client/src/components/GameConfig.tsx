@@ -98,7 +98,7 @@ export function GameConfig() {
     return () => {
       scene.onAcePick = () => undefined;
     };
-  }, [scene]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [scene]);
 
   const sequences = {
     clasica: [1, 3, 5, 5, 3, 1, 1, 3, 5, 5, 3, 1],

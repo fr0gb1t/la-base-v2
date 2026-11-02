@@ -16,10 +16,10 @@
     "lint": "pnpm -r lint"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/pg": "^8.20.0",
-    "autoprefixer": "^10.5.0",
-    "postcss": "^8.5.31",
-    "typescript": "^5.0.0"
+    "@types/node": "^20.19.43",
+    "@types/pg": "^8.23.1",
+    "autoprefixer": "^10.6.2",
+    "postcss": "^8.5.32",
+    "typescript": "^5.9.3"
   }
 }

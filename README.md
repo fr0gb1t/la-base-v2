@@ -14,6 +14,26 @@ pnpm --filter @la-base/client dev      # :5173
 
 Con Postgres (cuentas y rankings): `docker compose up postgres` y `DATABASE_URL=postgresql://labase:labase_dev@localhost:5432/labase`.
 
+## Registro de accesos (opcional)
+
+Con `ACCESS_LOG_PATH=/ruta/absoluta/access.jsonl` el servidor escribe una línea JSON por evento
+(sin esa variable no escribe nada). Sirve para ver **quién se conecta** detrás del túnel de Cloudflare,
+por ejemplo con el panel Ward. El archivo guarda IPs de visitantes: es privado (0600), rota a
+`access.jsonl.1` a los 5 MB y nunca incluye correos, contraseñas, nombres de jugador ni cartas.
+
+```json
+{"v":1,"ts":1793030000000,"ip":"203.0.113.9","ipSource":"cf","event":"connect","result":"ok","origin":"https://labase.frogbit.com.ar","room":null,"path":null}
+```
+
+- `event`: `connect`, `disconnect`, `auth` (login o registro, con `path`), `join-failed` (con `room`),
+  `rejected-origin`. `result`: `ok` o `fail`.
+- `origin`: el `Origin` de la conexión, o `null` si el cliente no vino de la página (scripts, bots).
+- `ip` es la dirección **real** del visitante: se toma de `CF-Connecting-IP` (o del **último** valor de
+  `X-Forwarded-For`) solo cuando la conexión llega desde loopback (cloudflared); de cualquier otro origen
+  se usa la dirección del socket y se ignoran los encabezados. `ipSource` dice cuál se usó (`cf`, `xff`, `socket`).
+  Cualquier proceso local (o contenedor con red de host) que hable con `127.0.0.1` puede declarar la IP que quiera:
+  es el mismo nivel de confianza que `trustProxy: 'loopback'`. En producción el servidor escucha solo en loopback.
+
 ## Controles en la mesa
 
 - Click en la mesa: tomar/soltar la vista (mover la cabeza con el mouse).

@@ -495,7 +495,7 @@ export function GamePage() {
       { id: 'salir', label: 'salir', hint: 'Volver al lobby', svg: icon(<GiExitDoor />), danger: true },
     ];
     sceneRef.current?.setHud(items);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLeaveGame = () => {
     if (socket && roomCode) socket.emit('room:leave', { roomCode });

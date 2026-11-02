@@ -4,6 +4,8 @@
  * instead of silently falling back to insecure defaults.
  */
 
+import { isAbsolute } from 'node:path';
+
 const DEV_JWT_SECRET = 'dev_secret_change_in_prod';
 const MIN_JWT_SECRET_LENGTH = 32;
 
@@ -13,6 +15,8 @@ export interface ServerConfig {
   jwtSecret: string;
   corsOrigins: string[] | '*';
   trustProxy: string;
+  /** JSON-lines access log (visitor IPs); null = off. */
+  accessLogPath: string | null;
 }
 
 type Env = Record<string, string | undefined>;
@@ -37,6 +41,11 @@ export function loadServerConfig(env: Env): ServerConfig {
     }
   }
 
+  const accessLogPath = env.ACCESS_LOG_PATH?.trim() || null;
+  if (accessLogPath !== null && !isAbsolute(accessLogPath)) {
+    throw new Error('ACCESS_LOG_PATH must be an absolute path');
+  }
+
   return {
     isProduction,
     // Behind a Cloudflare Tunnel the only client is cloudflared on this host,
@@ -46,6 +55,7 @@ export function loadServerConfig(env: Env): ServerConfig {
     corsOrigins: origins.length > 0 ? origins : '*',
     // Only trust X-Forwarded-* from cloudflared on the same host.
     trustProxy: env.TRUST_PROXY || 'loopback',
+    accessLogPath,
   };
 }
 
